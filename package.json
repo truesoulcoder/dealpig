@@ -1,35 +1,35 @@
 {
-  "name": "dashboard",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "@nextui-org/react": "2.0.22",
-    "apexcharts": "^3.35.5",
-    "clsx": "^2.0.0",
-    "formik": "^2.4.6",
-    "framer-motion": "^10.16.0",
-    "next": "^14.0.4",
-    "next-themes": "0.2.1",
-    "react": "18.2.0",
-    "react-apexcharts": "^1.4.0",
-    "react-dom": "18.2.0",
-    "yup": "^1.4.0"
-  },
-  "devDependencies": {
-    "@types/node": "18.7.18",
-    "@types/react": "18.0.20",
-    "@types/react-dom": "18.0.6",
-    "autoprefixer": "^10.4.15",
-    "eslint": "8.23.1",
-    "eslint-config-next": "13.4.16",
-    "postcss": "^8.4.28",
-    "tailwindcss": "^3.3.3",
-    "typescript": "4.8.3"
-  }
+   "name": "dashboard",
+   "version": "0.1.0",
+   "private": true,
+   "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint"
+   },
+   "dependencies": {
+      "@heroui/react": "2.7.6",
+      "apexcharts": "^4.6.0",
+      "clsx": "^2.1.1",
+      "formik": "^2.4.6",
+      "framer-motion": "^12.7.4",
+      "next": "^15.3.1",
+      "next-themes": "0.4.6",
+      "react": "19.1.0",
+      "react-apexcharts": "^1.7.0",
+      "react-dom": "19.1.0",
+      "yup": "^1.6.1"
+   },
+   "devDependencies": {
+      "@types/node": "22.14.1",
+      "@types/react": "19.1.2",
+      "@types/react-dom": "19.1.2",
+      "autoprefixer": "^10.4.21",
+      "eslint": "9.25.1",
+      "eslint-config-next": "15.3.1",
+      "postcss": "^8.5.3",
+      "tailwindcss": "^4.1.4",
+      "typescript": "5.8.3"
+   }
 }
