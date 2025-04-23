@@ -1,5 +1,4 @@
-import { Image } from "@heroui/react";
-import { Divider } from "@heroui/divider";
+import { Image, Divider } from "@heroui/react";
 
 interface Props {
   children: React.ReactNode;

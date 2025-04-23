@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { saveToken } from '@/actions/auth.action';
 
