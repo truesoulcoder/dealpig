@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import local HeroUI styles */
+@import './heroui.css';
+
 html,
 body {
   padding: 0;

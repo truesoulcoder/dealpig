@@ -3,6 +3,14 @@
 import { fetchLeads } from '@/actions/auth.action';
 import { Lead } from '@/helpers/types';
 import { useEffect, useState } from 'react';
+import {
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell
+} from "@heroui/react";
 
 export default function LeadsTable() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -28,29 +36,27 @@ export default function LeadsTable() {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full bg-white border border-gray-200">
-        <thead>
-          <tr>
-            <th className="px-4 py-2 border">Address</th>
-            <th className="px-4 py-2 border">City</th>
-            <th className="px-4 py-2 border">State</th>
-            <th className="px-4 py-2 border">Zip</th>
-            <th className="px-4 py-2 border">Status</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className="w-full">
+      <Table aria-label="Leads table">
+        <TableHeader>
+          <TableColumn>Address</TableColumn>
+          <TableColumn>City</TableColumn>
+          <TableColumn>State</TableColumn>
+          <TableColumn>Zip</TableColumn>
+          <TableColumn>Status</TableColumn>
+        </TableHeader>
+        <TableBody>
           {leads.map((lead) => (
-            <tr key={lead.id}>
-              <td className="px-4 py-2 border">{lead.property_address}</td>
-              <td className="px-4 py-2 border">{lead.property_city}</td>
-              <td className="px-4 py-2 border">{lead.property_state}</td>
-              <td className="px-4 py-2 border">{lead.property_zip}</td>
-              <td className="px-4 py-2 border">{lead.status}</td>
-            </tr>
+            <TableRow key={lead.id}>
+              <TableCell>{lead.property_address}</TableCell>
+              <TableCell>{lead.property_city}</TableCell>
+              <TableCell>{lead.property_state}</TableCell>
+              <TableCell>{lead.property_zip}</TableCell>
+              <TableCell>{lead.status}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

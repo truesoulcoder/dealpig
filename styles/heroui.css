@@ -1,0 +1,28 @@
+/* HeroUI specific styles */
+:root {
+  --hero-default-100: 0 0% 100%;
+  --hero-default-200: 0 0% 95%;
+  --hero-default-300: 0 0% 90%;
+  --hero-default-400: 0 0% 80%;
+  --hero-default-500: 0 0% 70%;
+  --hero-default-600: 0 0% 60%;
+  --hero-default-700: 0 0% 50%;
+  --hero-default-800: 0 0% 40%;
+  --hero-default-900: 0 0% 25%;
+
+  /* Add other HeroUI variables as needed */
+}
+
+.dark {
+  --hero-default-100: 0 0% 12%;
+  --hero-default-200: 0 0% 16%;
+  --hero-default-300: 0 0% 22%;
+  --hero-default-400: 0 0% 32%;
+  --hero-default-500: 0 0% 45%;
+  --hero-default-600: 0 0% 60%;
+  --hero-default-700: 0 0% 75%;
+  --hero-default-800: 0 0% 85%;
+  --hero-default-900: 0 0% 95%;
+}
+
+/* Add any other HeroUI specific styles here */

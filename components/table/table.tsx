@@ -1,5 +1,4 @@
 import {
-  Link,
   Table,
   TableBody,
   TableCell,
@@ -9,33 +8,26 @@ import {
 } from "@heroui/react";
 import React from "react";
 import { columns, users } from "./data";
-import { RenderCell } from "./render-cell";
 
 export const TableWrapper = () => {
   return (
-    <div className=" w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-4">
       <Table aria-label="Example table with custom cells">
-        <TableHeader columns={columns}>
-          {(column) => (
-            <TableColumn
-              key={column.uid}
-              hideHeader={column.uid === "actions"}
-              align={column.uid === "actions" ? "center" : "start"}
-            >
-              {column.name}
-            </TableColumn>
-          )}
+        <TableHeader>
+          {columns.map((column) => (
+            <TableColumn key={column.uid}>{column.name}</TableColumn>
+          ))}
         </TableHeader>
-        <TableBody items={users}>
-          {(item) => (
-            <TableRow>
-              {(columnKey) => (
-                <TableCell>
-                  {RenderCell({ user: item, columnKey: columnKey })}
-                </TableCell>
-              )}
+        <TableBody>
+          {users.map((user) => (
+            <TableRow key={user.id}>
+              <TableCell>{user.name}</TableCell>
+              <TableCell>{user.role}</TableCell>
+              <TableCell>{user.status}</TableCell>
+              <TableCell>{user.email}</TableCell>
+              {/* Add any other cells you need based on your data structure */}
             </TableRow>
-          )}
+          ))}
         </TableBody>
       </Table>
     </div>
