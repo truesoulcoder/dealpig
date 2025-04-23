@@ -5,12 +5,12 @@ import { supabase } from '@/lib/supabaseClient';
 import { Lead } from '@/helpers/types';
 
 export const createAuthCookie = async () => {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.set("userAuth", "myToken", { secure: true });
 };
 
 export const deleteAuthCookie = async () => {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.delete("userAuth");
 };
 
