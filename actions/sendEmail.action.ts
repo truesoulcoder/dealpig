@@ -1,3 +1,5 @@
+"use server";
+
 import { google } from 'googleapis';
 import fs from 'fs';
 

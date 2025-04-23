@@ -13,10 +13,12 @@ export default function GenerateDocumentForm() {
   const [earnestMoney, setEarnestMoney] = useState('');
   const [closingDate, setClosingDate] = useState('');
   const [message, setMessage] = useState('');
+  const [documentPath, setDocumentPath] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('Generating document...');
+    setDocumentPath(null);
 
     try {
       const filePath = await generateLoi({
@@ -29,7 +31,9 @@ export default function GenerateDocumentForm() {
         earnestMoney: parseFloat(earnestMoney),
         closingDate,
       });
-      setMessage(`Document generated successfully! Download it here: ${filePath}`);
+      
+      setDocumentPath(filePath);
+      setMessage('Document generated successfully!');
     } catch (error) {
       console.error('Error generating document:', error);
       setMessage('Failed to generate document.');
@@ -124,7 +128,20 @@ export default function GenerateDocumentForm() {
       >
         Generate Document
       </button>
+      
       {message && <p className="mt-2 text-sm text-gray-600">{message}</p>}
+      
+      {documentPath && (
+        <div className="mt-4">
+          <a 
+            href={documentPath}
+            download
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 inline-block"
+          >
+            Download Letter of Intent
+          </a>
+        </div>
+      )}
     </form>
   );
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import { fetchLeads } from '@/actions/auth.action';
 import { Lead } from '@/helpers/types';
 import { useEffect, useState } from 'react';

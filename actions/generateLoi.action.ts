@@ -1,3 +1,5 @@
+"use server";
+
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import fs from 'fs';
 import path from 'path';
@@ -57,9 +59,15 @@ export async function generateLoi(params: GenerateLoiParams): Promise<string> {
     ],
   });
 
-  const outputPath = path.join(process.cwd(), 'public', 'generated-loi.docx');
+  // Create a unique filename using timestamp
+  const timestamp = Date.now();
+  const filename = `generated-loi-${timestamp}.docx`;
+  const outputPath = path.join(process.cwd(), 'public', filename);
+  
+  // Save the file
   const buffer = await Packer.toBuffer(doc);
   fs.writeFileSync(outputPath, buffer);
 
-  return outputPath;
+  // Return a public URL path that can be used to download the file
+  return `/generated-loi-${timestamp}.docx`;
 }
