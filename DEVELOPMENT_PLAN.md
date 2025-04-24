@@ -1,6 +1,38 @@
 # DealPig Development Plan
 
-This document outlines the planned development roadmap, testing strategy, and maintenance practices for the DealPig platform.
+This document outlines envisioned purpose and the planned development roadmap, testing strategy, and maintenance practices for the DealPig platform.
+
+# The workflow goes something like this:
+
+-user adds email account oauth tokens as "senders" (SENDERS PAGE)
+
+-user uploads leads to be parsed and set into the supabase database (UPLOAD LEADS PAGE)
+
+-user creates template for the body of the email in the rich text editor (TEMPLATE EDITOR PAGE)
+
+-user creates template for the LOI letter that gets attached to that email, with options for docx or pdf document generation (TEMPLATE EDITOR PAGE)
+
+-user configures campaign settings (which lead list to be worked, the total number of leads worked by senders, time interval between emails sent, which senders are working the campaign, and scheduled time of the day the campaign can operate) (CAMPAIGN SETTINGS PAGE)
+
+-once all that is setup, user starts the automatic emailing (MAIN/DASHBOARD PAGE)
+
+-once everything is setup, the dashboard will be the main page the user will operate from. user can turn on or off or pause the email campaign.
+
+-once campaign is started, "senders" get assigned leads to be worked, equally divided amongst them
+
+-the sender drafts an email to the lead's contacts using templates provided for body of email
+
+-the document to be attached to the email being worked is generated "just-in-time" according to the template, making sure it matches the lead being worked, and gets attached as a pdf or docx according to user configuration
+
+-the email is sent, and the lead is marked as worked in the supabase, along with a time stamp and information on who sent it
+
+-the analytics are updated to reflect the kpi data showing for each sender "emails sent, emails opened, emails replied to, emails bounced".
+
+-campaign runs according to the schedule set, automatically working through all the leads for that campaign.
+
+-the dashboard should show the graphs and charts for the kpi analytics, and the user should be able to select which campaign to run with on/off/pause controls. and a console log should report live data reporting for each sender
+
+-once a campaign is completed, the kpi data is preserved and logged in a final report and archived
 
 ## Current Issues
 
@@ -11,11 +43,11 @@ This document outlines the planned development roadmap, testing strategy, and ma
    - ✅ Document generation tests failing due to docx.Header constructor issues - Fixed with proper docx library mocking
 
 2. **React Version Compatibility**:
-   - The `react-draft-wysiwyg` package is not compatible with React 19
-   - Currently bypassing with `--legacy-peer-deps` but needs a permanent solution
+   - ✅ The `react-draft-wysiwyg` package has been replaced with TipTap editor which is compatible with React 19
+   - ✅ No longer bypassing with `--legacy-peer-deps` for editor dependency
 
 3. **Security Issues**:
-   - npm audit shows vulnerabilities that need to be addressed
+   - npm audit shows vulnerabilities that need to be addressed, but it seems they can't be patched without breaking the app
 
 ## Short-term Improvements (1-3 months)
 
@@ -33,7 +65,6 @@ This document outlines the planned development roadmap, testing strategy, and ma
 
 3. **UI/UX Improvements**:
    - Mobile responsiveness improvements
-   - Accessibility compliance (WCAG 2.1 AA)
    - Error message standardization
 
 4. **Performance Optimization**:
@@ -46,28 +77,20 @@ This document outlines the planned development roadmap, testing strategy, and ma
 
 1. **Feature Enhancements**:
    - ✅ Advanced search and filtering - Implemented in LeadsTable with status and email status filters
-   - ❌ Bulk actions for leads - Not yet implemented
    - ✅ Custom document templates - Implemented with template selection and editing in DocumentPreview
    - ❌ Email scheduling - Not yet implemented
    - ❌ Pipeline visualization - Not yet implemented
 
 2. **Technical Debt**:
-   - ❌ Replace `react-draft-wysiwyg` with React 19 compatible editor - Still using legacy peer deps
+   - ✅ Replace `react-draft-wysiwyg` with React 19 compatible editor - Implemented TipTap editor in document editing components
    - ✅ Migrate to typed API endpoints with tRPC - Implemented across all API endpoints
    - ✅ Component library standardization - Consistently using NextUI/HeroUI components
    - ✅ Extract shared logic to custom hooks - Implemented hooks for common functionality
 
-## Long-term Vision (6-12 months)
-
-2. **Advanced Features**:
-   - Document OCR and parsing
-
-
-3. **Infrastructure**:
-   - Microservices architecture
-   - Serverless functions
-
-## Testing Strategy
+##  Long-term improvements: Advanced features (tbd)
+   - Document OCR and parsing: for users to upload sample templates
+   - Microservices architecture (?)
+   - Serverless functions (?)
 
 ### Unit Tests
 - **Component Tests**: Test individual React components in isolation
@@ -106,42 +129,13 @@ This document outlines the planned development roadmap, testing strategy, and ma
    - Feature flags for controlled rollout
    - Monitoring and alerting
 
-## Maintenance Practices
-
-1. **Dependency Updates**
-   - Weekly automated dependency updates
-   - Security patches applied immediately
-   - Major version upgrades planned quarterly
-
-2. **Code Quality**
-   - ESLint and Prettier for code style
-   - Pre-commit hooks
-   - PR templates and reviews
-
-3. **Documentation**
-   - Keep README and API documentation up-to-date
+4. **Best Practoces**
    - Internal documentation for development processes
    - Code comments for complex logic
-
-4. **Monitoring**
    - Error tracking with Sentry
    - Performance monitoring
    - User analytics
-
-## Team Organization
-
-1. **Roles**
-   - Frontend Developer(s)
-   - Backend Developer(s)
-   - DevOps Engineer
-   - Product Manager
-   - QA Engineer
-
-2. **Communication**
-   - Weekly sprint planning
-   - Daily standups
-   - Sprint retrospectives
-   - Documentation in GitHub wiki
+   - README and API documentation in GitHub wiki
 
 ## Conclusion
 

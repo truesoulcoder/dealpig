@@ -1,123 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server';
-import rateLimit from 'express-rate-limit';
-import { IncomingMessage, ServerResponse } from 'http';
 
-// In-memory store for rate limiting
-// Note: For production with multiple servers, consider using Redis or another shared store
-const limiters: Record<string, any> = {};
-
-export function createRateLimiter(options: {
-  windowMs?: number; // Time window in milliseconds
-  max?: number; // Max requests per window
-  message?: string; // Message to return when rate limit is exceeded
-  path?: string; // Path for the rate limiter (to create different limiters for different routes)
-}) {
-  const {
-    windowMs = 60 * 1000, // Default: 1 minute
-    max = 60, // Default: 60 requests per minute
-    message = 'Too many requests, please try again later.',
-    path = 'default',
-  } = options;
-
-  // Create a limiter for this path if it doesn't exist
-  if (!limiters[path]) {
-    limiters[path] = rateLimit({
-      windowMs,
-      max,
-      message,
-      standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-      legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    });
-  }
-
-  return limiters[path];
+// Simple in-memory store for rate limiting
+// Note: This will be reset when the server restarts
+// For production with multiple instances/servers, consider a different approach like Redis
+interface RateLimit {
+  count: number;
+  resetTime: number;
 }
 
-export async function rateLimiterMiddleware(
-  req: NextRequest,
-  options: {
-    windowMs?: number;
-    max?: number;
-    message?: string;
-    path?: string;
-  } = {}
-) {
-  // Create the path-specific limiter
-  const limiter = createRateLimiter({
-    ...options,
-    path: options.path || req.nextUrl.pathname,
-  });
+type RateLimitStore = {
+  [key: string]: RateLimit
+};
 
-  // Adapt the NextRequest to express-like request and response objects
-  const ip = req.ip || 'unknown';
-  const method = req.method;
-  const url = req.url;
+// Stores for different types of limiters
+const standardStore: RateLimitStore = {};
+const authStore: RateLimitStore = {};
+const apiStore: RateLimitStore = {};
+
+// Helper function to get IP address from request
+function getIP(request: NextRequest): string {
+  // Try to get the real IP behind proxies
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIP = request.headers.get('x-real-ip');
   
-  const mockReq = {
-    ip,
-    method,
-    url,
-    headers: Object.fromEntries(req.headers),
-  } as IncomingMessage;
+  if (forwarded) {
+    // Get the first IP if multiple are present (client, proxy1, proxy2, etc)
+    return forwarded.split(',')[0].trim();
+  }
   
-  let statusCode = 200;
-  let responseHeaders = new Headers();
-  let responseBody: any;
+  if (realIP) {
+    return realIP;
+  }
   
-  const mockRes = {
-    setHeader: (name: string, value: string) => {
-      responseHeaders.set(name, value);
-      return mockRes;
-    },
-    status: (code: number) => {
-      statusCode = code;
-      return mockRes;
-    },
-    send: (body: any) => {
-      responseBody = body;
-    },
-    end: () => {},
-  } as unknown as ServerResponse;
+  // Default to the direct connection IP or a placeholder if not available
+  return request.ip || 'unknown';
+}
+
+// Generic rate limiting function
+async function rateLimit(
+  request: NextRequest, 
+  store: RateLimitStore,
+  { windowMs, limit }: { windowMs: number; limit: number }
+): Promise<NextResponse | undefined> {
+  const ip = getIP(request);
+  const key = `${ip}:${request.nextUrl.pathname}`;
+  const now = Date.now();
   
-  // Apply the rate limiter
-  return new Promise<NextResponse | undefined>((resolve) => {
-    limiter(mockReq, mockRes, () => {
-      // If the rate limiter calls next(), the request is allowed
-      resolve(undefined);
-    });
-    
-    // If the rate limiter doesn't call next(), it set a status code
-    if (statusCode !== 200) {
-      resolve(
-        NextResponse.json(
-          { error: responseBody || 'Rate limit exceeded' },
-          { 
-            status: statusCode,
-            headers: responseHeaders,
-          }
-        )
-      );
-    }
+  // Initialize or get existing entry
+  if (!store[key] || store[key].resetTime < now) {
+    store[key] = { count: 0, resetTime: now + windowMs };
+  }
+  
+  // Increment request count
+  store[key].count += 1;
+  
+  // Calculate remaining requests and time to reset
+  const remaining = Math.max(0, limit - store[key].count);
+  const reset = Math.ceil((store[key].resetTime - now) / 1000); // in seconds
+  
+  // Set rate limit headers
+  const headers = new Headers({
+    'RateLimit-Limit': limit.toString(),
+    'RateLimit-Remaining': remaining.toString(),
+    'RateLimit-Reset': reset.toString()
   });
+  
+  // If limit exceeded, return error response
+  if (store[key].count > limit) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      { 
+        status: 429, 
+        headers
+      }
+    );
+  }
+  
+  // Otherwise, request is allowed
+  return undefined;
 }
 
 // Predefined rate limiters for common use cases
-export const standardLimiter = (req: NextRequest) => 
-  rateLimiterMiddleware(req, { 
+export async function standardLimiter(req: NextRequest) {
+  return rateLimit(req, standardStore, { 
     windowMs: 60 * 1000, // 1 minute
-    max: 60, // 60 requests per minute
+    limit: 60 // 60 requests per minute
   });
+}
 
-export const authLimiter = (req: NextRequest) => 
-  rateLimiterMiddleware(req, { 
+export async function authLimiter(req: NextRequest) {
+  return rateLimit(req, authStore, { 
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 requests per 15 minutes
-    path: 'auth',
+    limit: 10 // 10 requests per 15 minutes
   });
+}
 
-export const apiLimiter = (req: NextRequest) => 
-  rateLimiterMiddleware(req, { 
+export async function apiLimiter(req: NextRequest) {
+  return rateLimit(req, apiStore, { 
     windowMs: 60 * 1000, // 1 minute
-    max: 100, // 100 requests per minute
-    path: 'api',
+    limit: 100 // 100 requests per minute
   });
+}
