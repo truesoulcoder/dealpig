@@ -3,6 +3,7 @@
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
+import { getOAuthCredentials, getSenderTokens } from '@/lib/oauthCredentials';
 
 interface SendEmailParams {
   to: string;
@@ -10,6 +11,7 @@ interface SendEmailParams {
   body: string;
   attachmentPath?: string;
   senderEmail?: string; // Optional email to determine which token to use
+  trackingId?: string; // Used for email open tracking
 }
 
 interface EmailResult {
@@ -19,32 +21,28 @@ interface EmailResult {
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
-  const { to, subject, body, attachmentPath, senderEmail } = params;
+  const { to, subject, body, attachmentPath, senderEmail, trackingId } = params;
   
   try {
-    // Load OAuth tokens
+    // Load OAuth tokens using our secure credentials manager
     let credentials;
     
-    // If senderEmail is provided, try to find a specific token file for it
+    // If senderEmail is provided, try to find a specific token for it
     if (senderEmail) {
-      const normalizedEmail = senderEmail.replace(/[@.]/g, '_');
-      const tokenPath = path.join(process.cwd(), 'auth_tokens', `token_${normalizedEmail}.json`);
-      
-      try {
-        credentials = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
-      } catch (error) {
-        console.warn(`No token file found for ${senderEmail}, falling back to environment variables`);
-      }
+      credentials = getSenderTokens(senderEmail);
     }
     
-    // If no credentials found from file, use environment variables
+    // If no specific credentials found, use the default credentials
     if (!credentials) {
-      credentials = {
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-        refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-      };
+      try {
+        credentials = getOAuthCredentials();
+      } catch (error) {
+        console.error('Failed to load OAuth credentials:', error);
+        return {
+          success: false,
+          message: 'Failed to load email authentication credentials',
+        };
+      }
     }
     
     const oAuth2Client = new google.auth.OAuth2(
@@ -59,6 +57,32 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
 
     const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
     
+    // Add tracking pixel to body if trackingId is provided
+    let enhancedBody = body;
+    if (trackingId) {
+      // Create app URL based on environment
+      const baseUrl = process.env.NODE_ENV === 'production'
+        ? 'https://dealpig.vercel.app'
+        : 'http://localhost:3000';
+      
+      // Add invisible tracking pixel at the end of email body
+      const trackingPixel = `<img src="${baseUrl}/api/tracking?id=${trackingId}" width="1" height="1" alt="" style="display:none" />`;
+      
+      // Check if body contains HTML
+      if (body.includes('</')) {
+        // If it ends with '</html>', insert before that
+        if (body.trim().endsWith('</html>')) {
+          enhancedBody = body.replace('</html>', `${trackingPixel}</html>`);
+        } else {
+          // Otherwise just append to the end
+          enhancedBody = body + trackingPixel;
+        }
+      } else {
+        // Just append if not HTML
+        enhancedBody = body + trackingPixel;
+      }
+    }
+    
     // Create email with proper MIME structure
     let messageParts = [
       `To: ${to}`,
@@ -70,12 +94,14 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       '--boundary',
       'Content-Type: text/html; charset=utf-8',
       '',
-      body,
+      enhancedBody,
     ];
 
+    // Add attachment if specified
     if (attachmentPath) {
       // Check if the attachment exists
       if (!fs.existsSync(attachmentPath)) {
+        // If path starts with /, it might be relative to the public directory
         const fullPath = path.join(process.cwd(), 'public', attachmentPath.replace(/^\//, ''));
         if (!fs.existsSync(fullPath)) {
           throw new Error(`Attachment file not found at: ${attachmentPath}`);
@@ -89,6 +115,8 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       const filename = path.basename(attachmentPath);
       const mimeType = attachmentPath.endsWith('.docx')
         ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : attachmentPath.endsWith('.pdf')
+        ? 'application/pdf'
         : 'application/octet-stream';
       
       messageParts = [
@@ -105,7 +133,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
 
     // Close the boundary
     messageParts.push('', '--boundary--');
-
+    
     const message = messageParts.join('\r\n');
     const encodedMessage = Buffer.from(message)
       .toString('base64')
@@ -121,8 +149,6 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
       },
     });
 
-    // Record the email status to database (to be implemented)
-    // For now, just log the success
     console.log(`Email sent successfully to ${to}`);
     
     return {

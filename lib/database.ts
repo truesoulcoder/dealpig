@@ -87,31 +87,20 @@ export interface Campaign {
   id?: string;
   name: string;
   description?: string;
+  status?: string;
   email_template_id?: string;
   loi_template_id?: string;
-  status?: string;
   leads_per_day?: number;
   start_time?: string;
   end_time?: string;
   min_interval_minutes?: number;
   max_interval_minutes?: number;
   attachment_type?: string;
-  started_at?: string;
-  completed_at?: string;
   total_leads?: number;
   leads_worked?: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface CampaignLead {
-  id?: string;
-  campaign_id: string;
-  lead_id: string;
-  sender_id?: string;
-  status?: string;
-  scheduled_for?: string;
-  processed_at?: string;
+  company_logo_path?: string;
+  email_subject?: string;
+  email_body?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -120,42 +109,19 @@ export interface CampaignSender {
   id?: string;
   campaign_id: string;
   sender_id: string;
-  is_active?: boolean;
+  emails_sent_today?: number;
+  total_emails_sent?: number;
+  last_sent_at?: string;
   created_at?: string;
   updated_at?: string;
 }
 
-export interface SenderToken {
-  id?: string;
-  sender_id: string;
-  oauth_token: string;
-  refresh_token: string;
-  expires_at: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface CampaignStats {
+export interface CampaignLead {
   id?: string;
   campaign_id: string;
-  date: string;
-  total_sent: number;
-  total_opened: number;
-  total_replied: number;
-  total_bounced: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface SenderStats {
-  id?: string;
-  sender_id: string;
-  campaign_id: string;
-  date: string;
-  emails_sent: number;
-  emails_opened: number;
-  emails_replied: number;
-  emails_bounced: number;
+  lead_id: string;
+  status?: string;
+  processed_at?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -463,642 +429,387 @@ export async function createLeadSource(source: LeadSource): Promise<LeadSource |
 }
 
 // Campaign operations
-export async function createCampaign(campaign: Campaign): Promise<Campaign | null> {
-  const now = new Date().toISOString();
-  const newCampaign = {
-    ...campaign,
-    status: campaign.status || 'DRAFT',
-    leads_per_day: campaign.leads_per_day || 20,
-    min_interval_minutes: campaign.min_interval_minutes || 15,
-    max_interval_minutes: campaign.max_interval_minutes || 60,
-    attachment_type: campaign.attachment_type || 'PDF',
-    total_leads: 0,
-    leads_worked: 0,
-    created_at: now,
-    updated_at: now
-  };
-
-  const { data, error } = await supabase
-    .from('campaigns')
-    .insert([newCampaign])
-    .select();
-
-  if (error || !data || data.length === 0) {
-    console.error('Error creating campaign:', error);
-    return null;
-  }
-
-  return data[0] as Campaign;
-}
-
 export async function getCampaigns(status?: string): Promise<Campaign[]> {
-  let query = supabase
-    .from('campaigns')
-    .select(`
-      *,
-      email_template:email_template_id (name, type),
-      loi_template:loi_template_id (name, type)
-    `);
-  
-  if (status) {
-    query = query.eq('status', status);
-  }
-  
-  const { data, error } = await query.order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching campaigns:', error);
+  try {
+    let query = supabase.from('campaigns').select('*');
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error getting campaigns:', error);
+      return [];
+    }
+    
+    return data as Campaign[];
+  } catch (error) {
+    console.error('Error in getCampaigns:', error);
     return [];
   }
-
-  return data as Campaign[];
 }
 
 export async function getCampaignById(id: string): Promise<Campaign | null> {
-  const { data, error } = await supabase
-    .from('campaigns')
-    .select(`
-      *,
-      email_template:email_template_id (name, subject, content, type),
-      loi_template:loi_template_id (name, content, type)
-    `)
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching campaign:', error);
-    return null;
-  }
-
-  return data as Campaign;
-}
-
-export async function updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | null> {
-  const { data, error } = await supabase
-    .from('campaigns')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error updating campaign:', error);
-    return null;
-  }
-
-  return data[0] as Campaign;
-}
-
-export async function deleteCampaign(id: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('campaigns')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting campaign:', error);
-    return false;
-  }
-
-  return true;
-}
-
-// Campaign status operations
-export async function startCampaign(id: string): Promise<Campaign | null> {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from('campaigns')
-    .update({ 
-      status: 'ACTIVE', 
-      started_at: now,
-      updated_at: now 
-    })
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error starting campaign:', error);
-    return null;
-  }
-
-  return data[0] as Campaign;
-}
-
-export async function pauseCampaign(id: string): Promise<Campaign | null> {
-  const { data, error } = await supabase
-    .from('campaigns')
-    .update({ 
-      status: 'PAUSED',
-      updated_at: new Date().toISOString() 
-    })
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error pausing campaign:', error);
-    return null;
-  }
-
-  return data[0] as Campaign;
-}
-
-export async function completeCampaign(id: string): Promise<Campaign | null> {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from('campaigns')
-    .update({ 
-      status: 'COMPLETED',
-      completed_at: now,
-      updated_at: now
-    })
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error completing campaign:', error);
-    return null;
-  }
-
-  return data[0] as Campaign;
-}
-
-// Campaign Leads operations
-export async function addLeadsToCampaign(campaignId: string, leadIds: string[]): Promise<number> {
-  const now = new Date().toISOString();
-  const campaignLeads = leadIds.map(leadId => ({
-    campaign_id: campaignId,
-    lead_id: leadId,
-    status: 'PENDING',
-    created_at: now,
-    updated_at: now
-  }));
-
-  const { data, error } = await supabase
-    .from('campaign_leads')
-    .insert(campaignLeads)
-    .select();
-
-  if (error) {
-    console.error('Error adding leads to campaign:', error);
-    return 0;
-  }
-
-  // Update the campaign's total_leads count
-  await supabase
-    .from('campaigns')
-    .update({ 
-      total_leads: supabase.rpc('increment', { x: leadIds.length }),
-      updated_at: now
-    })
-    .eq('id', campaignId);
-
-  return data.length;
-}
-
-export async function removeLeadFromCampaign(campaignId: string, leadId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('campaign_leads')
-    .delete()
-    .eq('campaign_id', campaignId)
-    .eq('lead_id', leadId);
-
-  if (error) {
-    console.error('Error removing lead from campaign:', error);
-    return false;
-  }
-
-  // Decrement the campaign's total_leads count
-  await supabase
-    .from('campaigns')
-    .update({ 
-      total_leads: supabase.rpc('decrement', { x: 1 }),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', campaignId);
-
-  return true;
-}
-
-export async function getCampaignLeads(campaignId: string): Promise<Lead[]> {
-  const { data, error } = await supabase
-    .from('campaign_leads')
-    .select(`
-      lead_id,
-      status,
-      sender_id,
-      scheduled_for,
-      processed_at,
-      leads!lead_id (
-        id,
-        property_address,
-        property_city,
-        property_state,
-        property_zip,
-        status,
-        contacts (*)
-      )
-    `)
-    .eq('campaign_id', campaignId);
-
-  if (error) {
-    console.error('Error fetching campaign leads:', error);
-    return [];
-  }
-
-  // Reformat to return an array of leads with campaign-specific status
-  return data.map(item => ({
-    ...item.leads,
-    campaign_status: item.status,
-    sender_id: item.sender_id,
-    scheduled_for: item.scheduled_for,
-    processed_at: item.processed_at
-  })) as Lead[];
-}
-
-export async function getLeadsForSender(campaignId: string, senderId: string, status?: string): Promise<CampaignLead[]> {
-  let query = supabase
-    .from('campaign_leads')
-    .select(`
-      *,
-      leads!lead_id (
-        id,
-        property_address,
-        property_city,
-        property_state,
-        property_zip,
-        status,
-        contacts (*)
-      )
-    `)
-    .eq('campaign_id', campaignId)
-    .eq('sender_id', senderId);
-  
-  if (status) {
-    query = query.eq('status', status);
-  }
-  
-  const { data, error } = await query.order('scheduled_for', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching leads for sender:', error);
-    return [];
-  }
-
-  return data as unknown as CampaignLead[];
-}
-
-export async function assignLeadsToSenders(campaignId: string): Promise<boolean> {
-  // Get all pending leads for the campaign
-  const { data: pendingLeads, error: pendingError } = await supabase
-    .from('campaign_leads')
-    .select('*')
-    .eq('campaign_id', campaignId)
-    .eq('status', 'PENDING');
-
-  if (pendingError) {
-    console.error('Error fetching pending campaign leads:', pendingError);
-    return false;
-  }
-
-  // Get all active senders for the campaign
-  const { data: campaignSenders, error: senderError } = await supabase
-    .from('campaign_senders')
-    .select(`
-      sender_id,
-      senders!sender_id (
-        id,
-        daily_quota,
-        emails_sent
-      )
-    `)
-    .eq('campaign_id', campaignId)
-    .eq('is_active', true);
-
-  if (senderError) {
-    console.error('Error fetching campaign senders:', senderError);
-    return false;
-  }
-
-  if (campaignSenders.length === 0) {
-    console.error('No active senders found for campaign');
-    return false;
-  }
-
-  // Assign leads evenly among senders
-  const now = new Date();
-  const today = now.toISOString().substring(0, 10); // YYYY-MM-DD
-  
-  // Get campaign settings
-  const { data: campaign, error: campaignError } = await supabase
-    .from('campaigns')
-    .select('leads_per_day, min_interval_minutes, max_interval_minutes, start_time, end_time')
-    .eq('id', campaignId)
-    .single();
-
-  if (campaignError) {
-    console.error('Error fetching campaign:', campaignError);
-    return false;
-  }
-
-  // Get start and end time for the day
-  const startTime = campaign.start_time || '09:00:00';
-  const endTime = campaign.end_time || '17:00:00';
-  
-  const startDate = new Date(`${today}T${startTime}`);
-  const endDate = new Date(`${today}T${endTime}`);
-  
-  // Calculate available time in minutes
-  const availableMinutes = (endDate.getTime() - startDate.getTime()) / (60 * 1000);
-  
-  // Calculate number of leads to assign today
-  const leadsToAssign = Math.min(pendingLeads.length, campaign.leads_per_day || 20);
-  
-  if (leadsToAssign === 0) {
-    return true; // No leads to assign
-  }
-  
-  // Calculate interval between emails
-  const interval = Math.max(
-    campaign.min_interval_minutes || 15,
-    Math.min(
-      availableMinutes / leadsToAssign,
-      campaign.max_interval_minutes || 60
-    )
-  );
-  
-  // Sort senders by emails_sent to evenly distribute workload
-  const sortedSenders = [...campaignSenders].sort((a, b) => 
-    (a.senders?.emails_sent || 0) - (b.senders?.emails_sent || 0)
-  );
-  
-  // Assign leads
-  let currentSenderIndex = 0;
-  let currentTime = startDate.getTime();
-  const assignmentUpdates = [];
-  
-  for (let i = 0; i < leadsToAssign; i++) {
-    const lead = pendingLeads[i];
-    const sender = sortedSenders[currentSenderIndex % sortedSenders.length];
-    
-    assignmentUpdates.push({
-      id: lead.id,
-      sender_id: sender.sender_id,
-      status: 'ASSIGNED',
-      scheduled_for: new Date(currentTime).toISOString(),
-      updated_at: now.toISOString()
-    });
-    
-    // Move to next sender and increment time
-    currentSenderIndex++;
-    currentTime += interval * 60 * 1000;
-    
-    // If we've gone past the end time, reset to start time for next day
-    if (currentTime > endDate.getTime()) {
-      startDate.setDate(startDate.getDate() + 1);
-      endDate.setDate(endDate.getDate() + 1);
-      currentTime = startDate.getTime();
-    }
-  }
-  
-  // Update assignments in batch
-  const { error: updateError } = await supabase
-    .from('campaign_leads')
-    .upsert(assignmentUpdates);
-  
-  if (updateError) {
-    console.error('Error assigning leads:', updateError);
-    return false;
-  }
-  
-  return true;
-}
-
-export async function updateCampaignLeadStatus(id: string, status: string, additionalData?: Partial<CampaignLead>): Promise<CampaignLead | null> {
-  const updates = {
-    status,
-    updated_at: new Date().toISOString(),
-    ...additionalData
-  };
-
-  // If status is SENT, record processing time
-  if (status === 'SENT') {
-    updates.processed_at = new Date().toISOString();
-  }
-
-  const { data, error } = await supabase
-    .from('campaign_leads')
-    .update(updates)
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error updating campaign lead status:', error);
-    return null;
-  }
-
-  // If lead was sent, increment the leads_worked count for the campaign
-  if (status === 'SENT') {
-    await supabase
+  try {
+    const { data, error } = await supabase
       .from('campaigns')
-      .update({ 
-        leads_worked: supabase.rpc('increment', { x: 1 }),
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error || !data) {
+      console.error('Error getting campaign:', error);
+      return null;
+    }
+    
+    return data as Campaign;
+  } catch (error) {
+    console.error('Error in getCampaignById:', error);
+    return null;
+  }
+}
+
+export async function createCampaign(campaign: Campaign): Promise<Campaign | null> {
+  try {
+    const now = new Date().toISOString();
+    
+    const newCampaign = {
+      ...campaign,
+      created_at: now,
+      updated_at: now,
+      status: campaign.status || 'DRAFT',
+      leads_worked: 0
+    };
+    
+    const { data, error } = await supabase
+      .from('campaigns')
+      .insert([newCampaign])
+      .select();
+    
+    if (error || !data || data.length === 0) {
+      console.error('Error creating campaign:', error);
+      return null;
+    }
+    
+    return data[0] as Campaign;
+  } catch (error) {
+    console.error('Error in createCampaign:', error);
+    return null;
+  }
+}
+
+export async function updateCampaignStatus(id: string, status: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('campaigns')
+      .update({
+        status,
         updated_at: new Date().toISOString()
       })
-      .eq('id', data[0].campaign_id);
-  }
-
-  return data[0] as CampaignLead;
-}
-
-// Campaign Senders operations
-export async function addSendersToCampaign(campaignId: string, senderIds: string[]): Promise<number> {
-  const now = new Date().toISOString();
-  const campaignSenders = senderIds.map(senderId => ({
-    campaign_id: campaignId,
-    sender_id: senderId,
-    is_active: true,
-    created_at: now,
-    updated_at: now
-  }));
-
-  const { data, error } = await supabase
-    .from('campaign_senders')
-    .insert(campaignSenders)
-    .select();
-
-  if (error) {
-    console.error('Error adding senders to campaign:', error);
-    return 0;
-  }
-
-  return data.length;
-}
-
-export async function removeSenderFromCampaign(campaignId: string, senderId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('campaign_senders')
-    .delete()
-    .eq('campaign_id', campaignId)
-    .eq('sender_id', senderId);
-
-  if (error) {
-    console.error('Error removing sender from campaign:', error);
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating campaign status:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateCampaignStatus:', error);
     return false;
   }
-
-  return true;
 }
 
-export async function getCampaignSenders(campaignId: string): Promise<Sender[]> {
-  const { data, error } = await supabase
-    .from('campaign_senders')
-    .select(`
-      is_active,
-      senders:sender_id (*)
-    `)
-    .eq('campaign_id', campaignId);
+export async function updateCampaignProgress(id: string, additionalLeadsWorked: number): Promise<boolean> {
+  try {
+    // First get the current campaign to get the current leads_worked
+    const campaign = await getCampaignById(id);
+    if (!campaign) return false;
+    
+    const currentLeadsWorked = campaign.leads_worked || 0;
+    const newLeadsWorked = currentLeadsWorked + additionalLeadsWorked;
+    
+    // Update the campaign with the new leads_worked count
+    const { error } = await supabase
+      .from('campaigns')
+      .update({
+        leads_worked: newLeadsWorked,
+        updated_at: new Date().toISOString(),
+        // If all leads have been worked, update the status to COMPLETED
+        ...(newLeadsWorked >= (campaign.total_leads || 0) ? { status: 'COMPLETED' } : {})
+      })
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating campaign progress:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateCampaignProgress:', error);
+    return false;
+  }
+}
 
-  if (error) {
-    console.error('Error fetching campaign senders:', error);
+export async function getCampaignSenders(campaignId: string): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('campaign_senders')
+      .select(`
+        *,
+        sender:sender_id (*)
+      `)
+      .eq('campaign_id', campaignId);
+    
+    if (error || !data) {
+      console.error('Error getting campaign senders:', error);
+      return [];
+    }
+    
+    // Transform the data to include sender details
+    return data.map(item => ({
+      id: item.sender_id,
+      campaign_id: item.campaign_id,
+      emails_sent_today: item.emails_sent_today || 0,
+      total_emails_sent: item.total_emails_sent || 0,
+      last_sent_at: item.last_sent_at,
+      ...item.sender
+    }));
+  } catch (error) {
+    console.error('Error in getCampaignSenders:', error);
     return [];
   }
-
-  return data.map(item => ({
-    ...item.senders,
-    is_active: item.is_active
-  })) as Sender[];
 }
 
-export async function updateSenderActiveStatus(campaignId: string, senderId: string, isActive: boolean): Promise<boolean> {
-  const { error } = await supabase
-    .from('campaign_senders')
-    .update({ 
-      is_active: isActive,
-      updated_at: new Date().toISOString() 
-    })
-    .eq('campaign_id', campaignId)
-    .eq('sender_id', senderId);
-
-  if (error) {
-    console.error('Error updating sender active status:', error);
+export async function addSendersToCampaign(campaignId: string, senderIds: string[]): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+    
+    const campaignSenders = senderIds.map(senderId => ({
+      campaign_id: campaignId,
+      sender_id: senderId,
+      emails_sent_today: 0,
+      total_emails_sent: 0,
+      created_at: now,
+      updated_at: now
+    }));
+    
+    const { error } = await supabase
+      .from('campaign_senders')
+      .insert(campaignSenders);
+    
+    if (error) {
+      console.error('Error adding senders to campaign:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in addSendersToCampaign:', error);
     return false;
   }
-
-  return true;
 }
 
-// Token management
-export async function saveSenderToken(token: SenderToken): Promise<SenderToken | null> {
-  const now = new Date().toISOString();
-  const newToken = {
-    ...token,
-    created_at: now,
-    updated_at: now
-  };
-
-  const { data, error } = await supabase
-    .from('sender_tokens')
-    .upsert([newToken], { onConflict: 'sender_id' })
-    .select();
-
-  if (error) {
-    console.error('Error saving sender token:', error);
-    return null;
-  }
-
-  return data[0] as SenderToken;
-}
-
-export async function getSenderToken(senderId: string): Promise<SenderToken | null> {
-  const { data, error } = await supabase
-    .from('sender_tokens')
-    .select('*')
-    .eq('sender_id', senderId)
-    .single();
-
-  if (error) {
-    console.error('Error fetching sender token:', error);
-    return null;
-  }
-
-  return data as SenderToken;
-}
-
-// Analytics operations
-export async function recordEmailStats(emailId: string, campaignId: string, senderId: string, status: string): Promise<boolean> {
-  const now = new Date();
-  const today = now.toISOString().substring(0, 10); // YYYY-MM-DD
-  
-  // Update campaign stats
-  const { error: campaignError } = await supabase.rpc('increment_campaign_stat', {
-    p_campaign_id: campaignId,
-    p_date: today,
-    p_field: `total_${status.toLowerCase()}`
-  });
-
-  if (campaignError) {
-    console.error('Error updating campaign stats:', campaignError);
+export async function updateSenderStats(senderId: string, stats: any): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('campaign_senders')
+      .update({
+        ...stats,
+        updated_at: new Date().toISOString()
+      })
+      .eq('sender_id', senderId);
+    
+    if (error) {
+      console.error('Error updating sender stats:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateSenderStats:', error);
     return false;
   }
-
-  // Update sender stats
-  const { error: senderError } = await supabase.rpc('increment_sender_stat', {
-    p_sender_id: senderId,
-    p_campaign_id: campaignId,
-    p_date: today,
-    p_field: `emails_${status.toLowerCase()}`
-  });
-
-  if (senderError) {
-    console.error('Error updating sender stats:', senderError);
-    return false;
-  }
-
-  return true;
 }
 
-export async function getCampaignStatsByDate(campaignId: string, startDate?: string, endDate?: string): Promise<CampaignStats[]> {
-  let query = supabase
-    .from('campaign_stats')
-    .select('*')
-    .eq('campaign_id', campaignId);
-  
-  if (startDate) {
-    query = query.gte('date', startDate);
+export async function resetDailySenderStats(): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('campaign_senders')
+      .update({
+        emails_sent_today: 0,
+        updated_at: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.error('Error resetting daily sender stats:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in resetDailySenderStats:', error);
+    return false;
   }
-  
-  if (endDate) {
-    query = query.lte('date', endDate);
-  }
-  
-  const { data, error } = await query.order('date');
+}
 
-  if (error) {
-    console.error('Error fetching campaign stats:', error);
+export async function getCampaignLeads(campaignId: string, status?: string): Promise<any[]> {
+  try {
+    let query = supabase
+      .from('campaign_leads')
+      .select(`
+        *,
+        lead:lead_id (*)
+      `)
+      .eq('campaign_id', campaignId);
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error || !data) {
+      console.error('Error getting campaign leads:', error);
+      return [];
+    }
+    
+    // Transform the data to include lead details
+    return data.map(item => ({
+      id: item.lead_id,
+      campaign_id: item.campaign_id,
+      campaign_lead_id: item.id,
+      status: item.status,
+      processed_at: item.processed_at,
+      ...item.lead
+    }));
+  } catch (error) {
+    console.error('Error in getCampaignLeads:', error);
     return [];
   }
-
-  return data as CampaignStats[];
 }
 
-export async function getSenderStatsByCampaign(campaignId: string, senderId?: string): Promise<SenderStats[]> {
-  let query = supabase
-    .from('sender_stats')
-    .select(`
-      *,
-      senders:sender_id (name, email)
-    `)
-    .eq('campaign_id', campaignId);
-  
-  if (senderId) {
-    query = query.eq('sender_id', senderId);
+export async function addLeadsToCampaign(campaignId: string, leadIds: string[]): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+    
+    const campaignLeads = leadIds.map(leadId => ({
+      campaign_id: campaignId,
+      lead_id: leadId,
+      status: 'PENDING',
+      created_at: now,
+      updated_at: now
+    }));
+    
+    const { error } = await supabase
+      .from('campaign_leads')
+      .insert(campaignLeads);
+    
+    if (error) {
+      console.error('Error adding leads to campaign:', error);
+      return false;
+    }
+    
+    // Update the campaign's total_leads count
+    const { error: updateError } = await supabase
+      .from('campaigns')
+      .update({
+        total_leads: leadIds.length,
+        updated_at: now
+      })
+      .eq('id', campaignId);
+    
+    if (updateError) {
+      console.error('Error updating campaign total_leads:', updateError);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in addLeadsToCampaign:', error);
+    return false;
   }
-  
-  const { data, error } = await query.order('date');
+}
 
-  if (error) {
-    console.error('Error fetching sender stats:', error);
+export async function updateCampaignLeadStatus(
+  campaignId: string,
+  leadId: string,
+  status: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('campaign_leads')
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+        ...(status === 'PROCESSED' ? { processed_at: new Date().toISOString() } : {})
+      })
+      .eq('campaign_id', campaignId)
+      .eq('lead_id', leadId);
+    
+    if (error) {
+      console.error('Error updating campaign lead status:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateCampaignLeadStatus:', error);
+    return false;
+  }
+}
+
+export async function getCampaignStatsByDate(
+  campaignId: string,
+  startDate: string,
+  endDate: string
+): Promise<any[]> {
+  try {
+    // This is a simplified version - in a real implementation,
+    // you would use a SQL query with GROUP BY to aggregate data by date
+    const { data, error } = await supabase
+      .from('emails')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .gte('sent_at', startDate)
+      .lte('sent_at', endDate);
+    
+    if (error || !data) {
+      console.error('Error getting campaign stats:', error);
+      return [];
+    }
+    
+    // Process the data to group by date
+    const statsByDate = new Map<string, any>();
+    
+    data.forEach(email => {
+      if (!email.sent_at) return;
+      
+      const date = email.sent_at.split('T')[0];
+      
+      if (!statsByDate.has(date)) {
+        statsByDate.set(date, {
+          date,
+          total_sent: 0,
+          total_opened: 0,
+          total_replied: 0,
+          total_bounced: 0
+        });
+      }
+      
+      const stats = statsByDate.get(date);
+      stats.total_sent++;
+      
+      if (email.opened_at) stats.total_opened++;
+      if (email.replied_at) stats.total_replied++;
+      if (email.bounced_at) stats.total_bounced++;
+    });
+    
+    return Array.from(statsByDate.values());
+  } catch (error) {
+    console.error('Error in getCampaignStatsByDate:', error);
     return [];
   }
-
-  return data as SenderStats[];
 }

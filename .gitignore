@@ -12,8 +12,6 @@
 /.next/
 /out/
 
-
-
 # production
 /build
 
@@ -28,7 +26,18 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
+.env
 .env*.local
+.env.development
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+
+# credentials
+/auth_tokens/
+client_secret.json
+**/client_secret*.json
 
 # vercel
 .vercel

@@ -1,305 +1,204 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader, Spinner, Select, SelectItem } from "@heroui/react";
-import { Campaign, getCampaignStatsByDate } from '@/lib/database';
+import React from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+  BarChart, 
+  Bar, 
+  PieChart, 
+  Pie, 
   LineChart, 
-  Line, 
+  Line,
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   Legend, 
   ResponsiveContainer,
-  BarChart,
-  Bar
+  Cell
 } from 'recharts';
 
 interface CampaignAnalyticsProps {
-  campaigns: Campaign[];
+  stats: any;
+  isMobile?: boolean;
 }
 
-export default function CampaignAnalytics({ campaigns }: CampaignAnalyticsProps) {
-  const [selectedCampaign, setSelectedCampaign] = useState<string>(campaigns[0]?.id || '');
-  const [dateRange, setDateRange] = useState<string>('30');
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<any[]>([]);
-  const [dailyActivity, setDailyActivity] = useState<any[]>([]);
-  
-  // Fetch campaign stats
-  useEffect(() => {
-    const loadStats = async () => {
-      if (!selectedCampaign) return;
-      
-      try {
-        setLoading(true);
-        
-        // Calculate date range
-        const today = new Date();
-        const startDate = new Date(today);
-        startDate.setDate(today.getDate() - parseInt(dateRange));
-        
-        // Get campaign stats
-        const campaignStats = await getCampaignStatsByDate(
-          selectedCampaign,
-          startDate.toISOString().split('T')[0],
-          today.toISOString().split('T')[0]
-        );
-        
-        setStats(campaignStats);
-        
-        // Process daily activity data
-        const dailyData: any[] = [];
-        let cumulativeSent = 0;
-        let cumulativeOpened = 0;
-        let cumulativeReplied = 0;
-        
-        campaignStats.forEach(stat => {
-          cumulativeSent += stat.total_sent;
-          cumulativeOpened += stat.total_opened;
-          cumulativeReplied += stat.total_replied;
-          
-          dailyData.push({
-            date: stat.date,
-            sent: stat.total_sent,
-            opened: stat.total_opened,
-            replied: stat.total_replied,
-            bounced: stat.total_bounced,
-            cumulativeSent,
-            cumulativeOpened,
-            cumulativeReplied
-          });
-        });
-        
-        setDailyActivity(dailyData);
-        
-      } catch (error) {
-        console.error('Error loading campaign stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadStats();
-  }, [selectedCampaign, dateRange]);
-  
-  // Handle campaign selection change
-  const handleCampaignChange = (value: string) => {
-    setSelectedCampaign(value);
-  };
-  
-  // Handle date range selection change
-  const handleDateRangeChange = (value: string) => {
-    setDateRange(value);
-  };
-  
-  // Find the selected campaign object
-  const campaign = campaigns.find(c => c.id === selectedCampaign);
-  
+export function CampaignAnalytics({ stats, isMobile = false }: CampaignAnalyticsProps) {
+  if (!stats) return null;
+
+  // Prepare data for email status chart
+  const emailStatusData = [
+    { name: 'Delivered', value: stats.delivered, fill: '#4ade80' },
+    { name: 'Opened', value: stats.opened, fill: '#60a5fa' },
+    { name: 'Clicked', value: stats.clicked, fill: '#a78bfa' },
+    { name: 'Replied', value: stats.replied, fill: '#f59e0b' },
+    { name: 'Bounced', value: stats.bounced, fill: '#ef4444' }
+  ];
+
+  // Prepare data for rates chart
+  const ratesData = [
+    { name: 'Open Rate', rate: stats.open_rate || 0 },
+    { name: 'Click Rate', rate: stats.click_rate || 0 },
+    { name: 'Bounce Rate', rate: stats.bounce_rate || 0 }
+  ];
+
+  // Custom colors
+  const COLORS = ['#4ade80', '#60a5fa', '#a78bfa', '#f59e0b', '#ef4444'];
+
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-        <div className="w-full sm:w-1/3">
-          <Select
-            label="Campaign"
-            placeholder="Select a campaign"
-            value={selectedCampaign}
-            onChange={(e) => handleCampaignChange(e.target.value)}
-          >
-            {campaigns.map((campaign) => (
-              <SelectItem key={campaign.id} value={campaign.id || ''}>
-                {campaign.name}
-              </SelectItem>
-            ))}
-          </Select>
-        </div>
-        <div className="w-full sm:w-1/4">
-          <Select
-            label="Time Period"
-            value={dateRange}
-            onChange={(e) => handleDateRangeChange(e.target.value)}
-          >
-            <SelectItem key="7" value="7">Last 7 Days</SelectItem>
-            <SelectItem key="30" value="30">Last 30 Days</SelectItem>
-            <SelectItem key="90" value="90">Last 90 Days</SelectItem>
-          </Select>
-        </div>
-      </div>
-      
-      {loading ? (
-        <div className="flex justify-center p-8">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {campaign && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Email Activity Chart */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-medium">Daily Email Activity</h3>
-                </CardHeader>
-                <CardBody>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                      <LineChart
-                        data={dailyActivity}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                          }}
-                        />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value: any) => [value, '']} 
-                          labelFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                          }}
-                        />
-                        <Legend />
-                        <Line type="monotone" dataKey="sent" stroke="#8884d8" activeDot={{ r: 8 }} name="Sent" />
-                        <Line type="monotone" dataKey="opened" stroke="#82ca9d" name="Opened" />
-                        <Line type="monotone" dataKey="replied" stroke="#ffc658" name="Replied" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardBody>
-              </Card>
-              
-              {/* Cumulative Performance */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-medium">Cumulative Performance</h3>
-                </CardHeader>
-                <CardBody>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                      <LineChart
-                        data={dailyActivity}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                          }}
-                        />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value: any) => [value, '']} 
-                          labelFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                          }}
-                        />
-                        <Legend />
-                        <Line type="monotone" dataKey="cumulativeSent" stroke="#8884d8" name="Total Sent" />
-                        <Line type="monotone" dataKey="cumulativeOpened" stroke="#82ca9d" name="Total Opened" />
-                        <Line type="monotone" dataKey="cumulativeReplied" stroke="#ffc658" name="Total Replied" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardBody>
-              </Card>
-              
-              {/* Daily Email Metrics */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-medium">Email Response Metrics</h3>
-                </CardHeader>
-                <CardBody>
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                      <BarChart
-                        data={dailyActivity}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                          }}
-                        />
-                        <YAxis />
-                        <Tooltip 
-                          formatter={(value: any) => [value, '']} 
-                          labelFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                          }}
-                        />
-                        <Legend />
-                        <Bar dataKey="opened" fill="#82ca9d" name="Opened" />
-                        <Bar dataKey="replied" fill="#ffc658" name="Replied" />
-                        <Bar dataKey="bounced" fill="#ff8042" name="Bounced" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardBody>
-              </Card>
-              
-              {/* Campaign Progress */}
-              <Card>
-                <CardHeader>
-                  <h3 className="text-lg font-medium">Campaign Progress</h3>
-                </CardHeader>
-                <CardBody>
-                  <div className="flex flex-col space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Total Leads</p>
-                        <p className="text-2xl font-bold">{campaign.total_leads}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Leads Processed</p>
-                        <p className="text-2xl font-bold">{campaign.leads_worked}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Completion Rate</p>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div 
-                          className="bg-blue-600 h-2.5 rounded-full" 
-                          style={{ width: `${campaign.total_leads > 0 ? (campaign.leads_worked / campaign.total_leads) * 100 : 0}%` }}
-                        />
-                      </div>
-                      <p className="text-right text-sm mt-1">
-                        {campaign.total_leads > 0 
-                          ? Math.round((campaign.leads_worked / campaign.total_leads) * 100) 
-                          : 0}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Status</p>
-                      <p className="text-lg font-medium">{campaign.status}</p>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
-          )}
+    <div className="w-full">
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">
+            {stats.campaign_name}
+          </CardTitle>
+        </CardHeader>
+        
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="w-full justify-start px-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="status">Email Status</TabsTrigger>
+            <TabsTrigger value="rates">Rates</TabsTrigger>
+          </TabsList>
           
-          {!campaign && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Please select a campaign to view analytics.</p>
+          <TabsContent value="overview" className="p-4">
+            <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-5'} gap-4`}>
+              <StatCard 
+                title="Total Emails" 
+                value={stats.total_emails_sent} 
+                icon="📧"
+                isMobile={isMobile} 
+              />
+              <StatCard 
+                title="Opened" 
+                value={stats.opened} 
+                subValue={`${stats.open_rate}%`}
+                icon="👁️"
+                isMobile={isMobile}
+              />
+              <StatCard 
+                title="Clicked" 
+                value={stats.clicked} 
+                subValue={`${stats.click_rate}%`}
+                icon="👆"
+                isMobile={isMobile}
+              />
+              <StatCard 
+                title="Replied" 
+                value={stats.replied} 
+                subValue={`${(stats.replied / stats.total_emails_sent * 100).toFixed(2)}%`}
+                icon="💬"
+                isMobile={isMobile}
+              />
+              <StatCard 
+                title="Bounced" 
+                value={stats.bounced} 
+                subValue={`${stats.bounce_rate}%`} 
+                icon="↩️"
+                isNegative={true}
+                isMobile={isMobile}
+              />
             </div>
-          )}
-        </div>
-      )}
+          </TabsContent>
+          
+          <TabsContent value="status" className={`${isMobile ? 'h-72' : 'h-96'} p-4`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={emailStatusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={isMobile ? 40 : 60}
+                  outerRadius={isMobile ? 80 : 100}
+                  fill="#8884d8"
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {emailStatusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </TabsContent>
+          
+          <TabsContent value="rates" className={`${isMobile ? 'h-72' : 'h-96'} p-4`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={ratesData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 30,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis unit="%" />
+                <Tooltip formatter={(value) => [`${value}%`, 'Rate']} />
+                <Bar dataKey="rate" name="Percentage" fill="#6366f1">
+                  {
+                    ratesData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={
+                          entry.name === 'Bounce Rate' 
+                            ? '#ef4444' 
+                            : entry.name === 'Open Rate' 
+                              ? '#4ade80' 
+                              : '#60a5fa'
+                        } 
+                      />
+                    ))
+                  }
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </TabsContent>
+        </Tabs>
+      </Card>
     </div>
+  );
+}
+
+interface StatCardProps {
+  title: string;
+  value: number;
+  subValue?: string;
+  icon?: string;
+  isNegative?: boolean;
+  isMobile?: boolean;
+}
+
+function StatCard({ 
+  title, 
+  value, 
+  subValue, 
+  icon, 
+  isNegative = false,
+  isMobile = false 
+}: StatCardProps) {
+  return (
+    <Card className={`${isMobile ? '' : 'p-2'}`}>
+      <CardContent className={`flex flex-col items-center justify-center ${isMobile ? 'p-2' : 'p-4'}`}>
+        <div className="text-2xl mb-1">{icon}</div>
+        <h4 className={`${isMobile ? 'text-sm' : 'text-base'} font-medium text-muted-foreground`}>
+          {title}
+        </h4>
+        <p className={`text-xl font-bold ${isNegative ? 'text-red-500' : ''}`}>
+          {value.toLocaleString()}
+        </p>
+        {subValue && (
+          <p className={`text-sm ${isNegative ? 'text-red-400' : 'text-muted-foreground'}`}>
+            {subValue}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

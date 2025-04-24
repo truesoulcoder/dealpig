@@ -1,158 +1,143 @@
 "use server";
 
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
-import { Lead, getLead, updateLead } from '@/lib/database';
+import { v4 as uuidv4 } from 'uuid';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { getTemplateById } from '@/lib/database';
 
-interface LoiData {
+// Path to template files
+const TEMPLATE_DIR = path.join(process.cwd(), 'public', 'templates');
+const DEFAULT_TEMPLATE_PATH = path.join(TEMPLATE_DIR, 'default_loi_template.docx');
+const OUTPUT_DIR = path.join(process.cwd(), 'public', 'generated');
+
+interface LoiParams {
   propertyAddress: string;
+  propertyCity: string;
+  propertyState: string;
+  propertyZip: string;
   offerPrice: number;
   earnestMoney: number;
-  inspectionDays: number;
-  closingDays: number;
-  buyerName: string;
-  buyerEmail: string;
-  buyerPhone: string;
+  closingDate: string;
+  recipientName: string;
+  companyLogoPath?: string;
+  templateId?: string;  // Allow specifying a specific template
 }
 
-interface GenerateLoiResult {
-  success: boolean;
-  message: string;
-  pdfBytes?: Uint8Array;
-  filename?: string;
-  error?: string;
-}
-
-// Core logic extracted to be testable
-export async function generateLoiCore(
-  loiData: LoiData,
-  leadId?: string,
-  dbGetLead = getLead,
-  dbUpdateLead = updateLead
-): Promise<GenerateLoiResult> {
+/**
+ * Generate a Letter of Intent (LOI) document
+ * @param params The parameters for generating the LOI
+ * @returns The path to the generated document (relative to public folder)
+ */
+export async function generateLoi(params: LoiParams): Promise<string | null> {
   try {
-    let lead: Lead | null = null;
-
-    // If leadId is provided, get the lead and use its address
-    if (leadId) {
-      lead = await dbGetLead(leadId);
-      if (!lead) {
-        return {
-          success: false,
-          message: `Lead with ID ${leadId} not found`,
-          error: 'Lead not found'
-        };
+    let templatePath = DEFAULT_TEMPLATE_PATH;
+    
+    // If a template ID is provided, try to get that template
+    if (params.templateId) {
+      const template = await getTemplateById(params.templateId);
+      if (template && template.content) {
+        // If this is a raw DOCX content in base64, save it temporarily
+        const tempTemplatePath = path.join(TEMPLATE_DIR, `temp_${uuidv4()}.docx`);
+        fs.writeFileSync(tempTemplatePath, Buffer.from(template.content, 'base64'));
+        templatePath = tempTemplatePath;
       }
-
-      // Use lead data if available
-      loiData.propertyAddress = `${lead.property_address}, ${lead.property_city}, ${lead.property_state} ${lead.property_zip}`;
-    }
-
-    // Create a new PDF document
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    
-    // Add current date
-    const date = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    page.drawText(`Date: ${date}`, {
-      x: 50,
-      y: height - 50,
-      size: 12,
-      font
-    });
-    
-    // Add letterhead
-    page.drawText('LETTER OF INTENT TO PURCHASE REAL ESTATE', {
-      x: 50,
-      y: height - 100,
-      size: 16,
-      font: boldFont
-    });
-    
-    // Add property info
-    page.drawText(`RE: ${loiData.propertyAddress}`, {
-      x: 50,
-      y: height - 150,
-      size: 12,
-      font: boldFont
-    });
-    
-    // Add LOI body
-    let yPosition = height - 200;
-    
-    const drawParagraph = (text: string, spacing = 20) => {
-      page.drawText(text, {
-        x: 50,
-        y: yPosition,
-        size: 12,
-        font,
-        lineHeight: 16,
-        maxWidth: width - 100
-      });
-      yPosition -= spacing;
-    };
-    
-    drawParagraph(`Dear Property Owner,`);
-    drawParagraph(`This letter expresses our interest in purchasing the property located at ${loiData.propertyAddress}.`, 40);
-    
-    drawParagraph(`We offer the following terms:`, 30);
-    drawParagraph(`1. Purchase Price: $${loiData.offerPrice.toLocaleString()}`, 25);
-    drawParagraph(`2. Earnest Money: $${loiData.earnestMoney.toLocaleString()}`, 25);
-    drawParagraph(`3. Inspection Period: ${loiData.inspectionDays} days`, 25);
-    drawParagraph(`4. Closing Timeline: ${loiData.closingDays} days from acceptance`, 40);
-    
-    drawParagraph(`This letter of intent is not a binding contract but an expression of our interest in the property. We look forward to discussing this opportunity further and potentially moving toward a formal purchase agreement.`, 40);
-    
-    drawParagraph(`Sincerely,`, 30);
-    drawParagraph(`${loiData.buyerName}`, 25);
-    drawParagraph(`Email: ${loiData.buyerEmail}`, 25);
-    drawParagraph(`Phone: ${loiData.buyerPhone}`, 25);
-    
-    // Generate the PDF
-    const pdfBytes = await pdfDoc.save();
-    
-    // Generate filename
-    const cleanAddress = loiData.propertyAddress
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, '-')
-      .substring(0, 50);
-    const filename = `${cleanAddress}-LOI.pdf`;
-    
-    // If we have a lead, update it
-    if (lead && leadId) {
-      await dbUpdateLead(leadId, {
-        ...lead,
-        loi_generated: true,
-        loi_filename: filename,
-        offer_price: loiData.offerPrice
-      });
     }
     
-    return {
-      success: true,
-      message: 'LOI generated successfully',
-      pdfBytes,
-      filename
-    };
+    // Ensure the template exists
+    if (!fs.existsSync(templatePath)) {
+      console.error(`Template file not found: ${templatePath}`);
+      return null;
+    }
+    
+    // Ensure the output directory exists
+    if (!fs.existsSync(OUTPUT_DIR)) {
+      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+    
+    // Format the offer price and earnest money
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+    // Create a unique filename for the output
+    const fileName = `LOI_${params.propertyAddress.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.docx`;
+    const outputPath = path.join(OUTPUT_DIR, fileName);
+    
+    // Load the template
+    const template = fs.readFileSync(templatePath, 'binary');
+    
+    // Create a PizZip instance
+    const zip = new PizZip(template);
+    
+    // Create a Docxtemplater instance
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
+    
+    // Set the data for template rendering
+    doc.setData({
+      property_address: params.propertyAddress,
+      property_city: params.propertyCity,
+      property_state: params.propertyState,
+      property_zip: params.propertyZip,
+      full_address: `${params.propertyAddress}, ${params.propertyCity}, ${params.propertyState} ${params.propertyZip}`,
+      offer_price: formatter.format(params.offerPrice),
+      earnest_money: formatter.format(params.earnestMoney),
+      closing_date: formatDate(params.closingDate),
+      recipient_name: params.recipientName,
+      current_date: formatDate(new Date().toISOString()),
+      company_logo: params.companyLogoPath || '/logo.png',
+    });
+    
+    // Render the document (replace all tags with their values)
+    doc.render();
+    
+    // Generate the document as a buffer
+    const buffer = doc.getZip().generate({ type: 'nodebuffer' });
+    
+    // Write the generated document to the output path
+    fs.writeFileSync(outputPath, buffer);
+    
+    // Return the path relative to the public directory
+    const relativePath = '/generated/' + fileName;
+    console.log(`Generated LOI at ${relativePath}`);
+    
+    // Clean up temporary template if used
+    if (templatePath.includes('temp_') && templatePath !== DEFAULT_TEMPLATE_PATH) {
+      try {
+        fs.unlinkSync(templatePath);
+      } catch (error) {
+        console.warn('Failed to clean up temporary template:', error);
+      }
+    }
+    
+    return relativePath;
   } catch (error) {
     console.error('Error generating LOI:', error);
-    return {
-      success: false,
-      message: `Failed to generate LOI: ${error instanceof Error ? error.message : String(error)}`,
-      error: String(error)
-    };
+    return null;
   }
 }
 
-// Server action that uses the core logic
-export async function generateLoi(loiData: LoiData, leadId?: string): Promise<GenerateLoiResult> {
-  return generateLoiCore(loiData, leadId);
+/**
+ * Format a date string as MM/DD/YYYY
+ */
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+}
+
+/**
+ * Generate a PDF version of the LOI (placeholder for future implementation)
+ */
+export async function generateLoiPdf(params: LoiParams): Promise<string | null> {
+  // This would use a PDF generation library like PDFKit
+  // For now, we'll just return null as this is a future feature
+  console.log('PDF generation not yet implemented');
+  return null;
 }
