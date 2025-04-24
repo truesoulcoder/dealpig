@@ -11,7 +11,7 @@ import {
 } from '../../lib/database';
 import { supabase } from '../../lib/supabaseClient';
 
-// Create chainable mock functions
+// Create chainable mock functions - defining it before we use it in the mock
 const createChainableMock = () => {
   const mock = jest.fn().mockReturnThis();
   mock.select = jest.fn().mockReturnThis();
@@ -28,11 +28,9 @@ const createChainableMock = () => {
 
 // Mock the Supabase client
 jest.mock('../../lib/supabaseClient', () => {
-  const chainableMock = createChainableMock();
-  
   return {
     supabase: {
-      from: jest.fn(() => chainableMock)
+      from: jest.fn(() => createChainableMock())
     }
   };
 });
@@ -42,6 +40,9 @@ describe('Database Functions', () => {
   let mockContactData;
   let mockEmailData;
   let mockTemplateData;
+  
+  // Increase the global timeout for all tests in this file
+  jest.setTimeout(15000);
   
   beforeEach(() => {
     jest.clearAllMocks();

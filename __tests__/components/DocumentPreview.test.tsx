@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import DocumentPreview from '../../components/home/documentPreview';
 import { getTemplates } from '../../lib/database';
 
@@ -137,32 +137,31 @@ describe('DocumentPreview component', () => {
   });
 
   it('renders the document preview component', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={mockOnApprove}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={mockOnApprove}
+        />
+      );
+    });
     
     // Wait for templates to load
     await waitFor(() => {
       expect(getTemplates).toHaveBeenCalledWith('document');
-    });
-    
-    // After templates load, the spinner should be gone and the component should render
-    await waitFor(() => {
-      // Check if component renders properly with its title
       expect(screen.getByTestId('document-preview-title')).toBeInTheDocument();
     });
   });
 
   it('handles template selection', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={mockOnApprove}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={mockOnApprove}
+        />
+      );
+    });
     
     // Wait for templates to load and spinner to disappear
     await waitFor(() => {
@@ -171,17 +170,22 @@ describe('DocumentPreview component', () => {
     });
     
     // Find and select a template
-    const templateSelector = await screen.findByTestId('template-selector');
-    fireEvent.change(templateSelector, { target: { value: 'template2' } });
+    const templateSelector = screen.getByTestId('template-selector');
+    
+    await act(async () => {
+      fireEvent.change(templateSelector, { target: { value: 'template2' } });
+    });
   });
 
   it('calls onApprove when approve button is clicked', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={mockOnApprove}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={mockOnApprove}
+        />
+      );
+    });
     
     // Wait for templates to load
     await waitFor(() => {
@@ -190,20 +194,25 @@ describe('DocumentPreview component', () => {
     });
     
     // Find and click the approve button
-    const approveButton = await screen.findByTestId('approve-button');
-    fireEvent.click(approveButton);
+    const approveButton = screen.getByTestId('approve-button');
+    
+    await act(async () => {
+      fireEvent.click(approveButton);
+    });
     
     // Check if onApprove was called
     expect(mockOnApprove).toHaveBeenCalledWith('<p>Document content</p>', 'template1');
   });
 
   it('toggles between edit and preview modes', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={mockOnApprove}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={mockOnApprove}
+        />
+      );
+    });
     
     // Wait for templates to load and spinner to disappear
     await waitFor(() => {
@@ -212,15 +221,17 @@ describe('DocumentPreview component', () => {
     });
     
     // Find edit and preview tabs
-    const previewTab = await screen.findByTestId('preview-tab');
-    const editTab = await screen.findByTestId('edit-tab');
+    const previewTab = screen.getByTestId('preview-tab');
+    const editTab = screen.getByTestId('edit-tab');
     
     // By default it should be in edit mode
     expect(screen.getByTestId('editor-container')).toBeInTheDocument();
     expect(screen.queryByTestId('preview-container')).not.toBeInTheDocument();
     
     // Click preview tab
-    fireEvent.click(previewTab);
+    await act(async () => {
+      fireEvent.click(previewTab);
+    });
     
     // Now the preview container should be visible and editor container hidden
     await waitFor(() => {
@@ -229,7 +240,9 @@ describe('DocumentPreview component', () => {
     });
     
     // Click edit tab again
-    fireEvent.click(editTab);
+    await act(async () => {
+      fireEvent.click(editTab);
+    });
     
     // Now editor should be visible again
     await waitFor(() => {

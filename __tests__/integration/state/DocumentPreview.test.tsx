@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import DocumentPreview from '@/components/home/documentPreview';
 import * as database from '@/lib/database';
 import { trpc } from '@/app/providers/trpc-provider';
@@ -87,8 +87,8 @@ jest.mock('@heroui/tabs', () => ({
       )}
     </div>
   ),
-  Tab: ({ children, value, onClick, ...props }) => (
-    <button onClick={() => onClick && onClick(value)} {...props}>{children}</button>
+  Tab: ({ title, value, onClick, ...props }) => (
+    <button onClick={() => onClick && onClick(value)} {...props}>{title}</button>
   ),
 }));
 
@@ -173,12 +173,14 @@ describe('DocumentPreview State Management', () => {
   });
   
   it('should render the document preview correctly', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={onApproveMock}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={onApproveMock}
+        />
+      );
+    });
     
     // Check for the card container with data-testid
     await waitFor(() => {
@@ -199,12 +201,14 @@ describe('DocumentPreview State Management', () => {
   });
   
   it('should load templates and set initial content', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={onApproveMock}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={onApproveMock}
+        />
+      );
+    });
     
     // Wait for templates to load and check options
     await waitFor(() => {
@@ -217,59 +221,71 @@ describe('DocumentPreview State Management', () => {
   });
   
   it('should switch between edit and preview modes', async () => {
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={onApproveMock}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={onApproveMock}
+        />
+      );
+    });
     
     // Check that editor is initially visible
     await waitFor(() => {
       expect(screen.getByTestId('editor-content')).toBeInTheDocument();
     });
     
-    // Get the mode tabs
-    const previewTab = screen.getByText('Preview');
-    const editTab = screen.getByText('Edit');
+    // Get the mode tabs by testId instead of text
+    const previewTab = screen.getByTestId('preview-tab');
+    const editTab = screen.getByTestId('edit-tab');
     
     // Switch to preview mode
-    fireEvent.click(previewTab);
+    await act(async () => {
+      fireEvent.click(previewTab);
+    });
     
     // Check editor content is not visible and preview is displayed
-    expect(screen.queryByTestId('editor-content')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByTestId('editor-content')).not.toBeInTheDocument();
+    });
     
     // Switch back to edit mode
-    fireEvent.click(editTab);
+    await act(async () => {
+      fireEvent.click(editTab);
+    });
     
     // Check editor content is visible again
-    expect(screen.getByTestId('editor-content')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('editor-content')).toBeInTheDocument();
+    });
   });
   
   it('should generate document on approve', async () => {
-    const { getByTestId, getByText } = render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={onApproveMock}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={onApproveMock}
+        />
+      );
+    });
     
     // Wait for the component to fully render
     await waitFor(() => {
-      expect(getByTestId('approve-button')).toBeInTheDocument();
+      expect(screen.getByTestId('approve-button')).toBeInTheDocument();
     });
     
     // Click the approve button
-    fireEvent.click(getByTestId('approve-button'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('approve-button'));
+    });
     
     // Verify the onApprove callback was called
-    await waitFor(() => {
-      expect(onApproveMock).toHaveBeenCalled();
-      expect(onApproveMock).toHaveBeenCalledWith(
-        expect.any(String),  // HTML content
-        expect.any(String)   // Template ID
-      );
-    });
+    expect(onApproveMock).toHaveBeenCalled();
+    expect(onApproveMock).toHaveBeenCalledWith(
+      expect.any(String),  // HTML content
+      expect.any(String)   // Template ID
+    );
   });
   
   it('should handle loading state while templates are being fetched', async () => {
@@ -299,12 +315,14 @@ describe('DocumentPreview State Management', () => {
       error: new Error('Failed to fetch templates'),
     });
     
-    render(
-      <DocumentPreview 
-        documentData={mockDocumentData}
-        onApprove={onApproveMock}
-      />
-    );
+    await act(async () => {
+      render(
+        <DocumentPreview 
+          documentData={mockDocumentData}
+          onApprove={onApproveMock}
+        />
+      );
+    });
     
     // Test passes if the component handles the error without crashing
     // It should fallback to the default template

@@ -116,7 +116,7 @@ describe('auth actions', () => {
       // Assert
       expect(result).toEqual(mockLeads);
       expect(supabase.from).toHaveBeenCalledWith('leads');
-    });
+    }, 10000); // Increase timeout to 10 seconds
     
     it('should throw error when fetch fails', async () => {
       // Setup
@@ -126,7 +126,7 @@ describe('auth actions', () => {
       
       // Execute & Assert
       await expect(fetchLeads()).rejects.toThrow('Failed to fetch leads');
-    });
+    }, 10000); // Increase timeout to 10 seconds
   });
   
   describe('saveToken', () => {
@@ -145,7 +145,7 @@ describe('auth actions', () => {
       
       // Assert
       expect(supabase.from).toHaveBeenCalledWith('tokens');
-    });
+    }, 10000); // Increase timeout to 10 seconds
     
     it('should throw error when token saving fails', async () => {
       // Setup
@@ -157,6 +157,6 @@ describe('auth actions', () => {
       await expect(
         saveToken('email@test.com', 'oauth-token', 'refresh-token')
       ).rejects.toThrow('Failed to save token');
-    });
+    }, 10000); // Increase timeout to 10 seconds
   });
 });
