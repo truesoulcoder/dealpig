@@ -188,11 +188,11 @@ export default function CampaignDashboard() {
               className="w-32" 
               size="sm"
               selectedKeys={[timeRange]}
-              onChange={(e) => handleTimeRangeChange(e.target.value as TimeRange)}
+              onChange={(event) => handleTimeRangeChange(event.target.value as TimeRange)}
             >
-              <SelectItem key="7d" value="7d">Last 7 days</SelectItem>
-              <SelectItem key="30d" value="30d">Last 30 days</SelectItem>
-              <SelectItem key="90d" value="90d">Last 90 days</SelectItem>
+              <SelectItem key="7d">Last 7 days</SelectItem>
+              <SelectItem key="30d">Last 30 days</SelectItem>
+              <SelectItem key="90d">Last 90 days</SelectItem>
             </Select>
             <Button 
               variant="light" 
@@ -261,7 +261,7 @@ export default function CampaignDashboard() {
         
         {loading ? (
           <div className="flex justify-center p-4">
-            <Spinner color="blue-500" />
+            <Spinner color="primary" />
           </div>
         ) : (
           <>
@@ -271,12 +271,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Email Performance</h2>
-                  {loadingEmailChart && <Spinner size="sm" color="blue-500" />}
+                  {loadingEmailChart && <Spinner size="sm" color="primary" />}
                 </CardHeader>
                 <CardBody>
                   {loadingEmailChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" color="blue-500" />
+                      <Spinner size="lg" color="primary" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -302,12 +302,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Lead Status Distribution</h2>
-                  {loadingLeadChart && <Spinner size="sm" color="blue-500" />}
+                  {loadingLeadChart && <Spinner size="sm" color="primary" />}
                 </CardHeader>
                 <CardBody>
                   {loadingLeadChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" color="blue-500" />
+                      <Spinner size="lg" color="primary" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -337,12 +337,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Weekly Campaign Performance</h2>
-                  {loadingWeeklyChart && <Spinner size="sm" color="blue-500" />}
+                  {loadingWeeklyChart && <Spinner size="sm" color="primary" />}
                 </CardHeader>
                 <CardBody>
                   {loadingWeeklyChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" color="blue-500" />
+                      <Spinner size="lg" color="primary" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -368,12 +368,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Campaign KPI Comparison</h2>
-                  {loadingCampaignChart && <Spinner size="sm" color="blue-500" />}
+                  {loadingCampaignChart && <Spinner size="sm" color="primary" />}
                 </CardHeader>
                 <CardBody>
                   {loadingCampaignChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" color="blue-500" />
+                      <Spinner size="lg" color="primary" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -385,7 +385,7 @@ export default function CampaignDashboard() {
                         <Radar name="Reply Rate" dataKey="replyRate" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
                         <Radar name="Conversion Rate" dataKey="conversionRate" stroke="#ffc658" fill="#ffc658" fillOpacity={0.6} />
                         <Legend />
-                        <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, null]} />
+                        <Tooltip formatter={(value) => (typeof value === 'number' ? [`${value.toFixed(1)}%`, null] : [value, null])} />
                       </RadarChart>
                     </ResponsiveContainer>
                   )}
@@ -396,12 +396,12 @@ export default function CampaignDashboard() {
               <Card className="md:col-span-2">
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Sender Performance</h2>
-                  {loadingSenderChart && <Spinner size="sm" color="blue-500" />}
+                  {loadingSenderChart && <Spinner size="sm" color="primary" />}
                 </CardHeader>
                 <CardBody>
                   {loadingSenderChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" color="blue-500" />
+                      <Spinner size="lg" color="primary" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -436,13 +436,15 @@ export default function CampaignDashboard() {
               <CardBody>
                 {activeCampaigns.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {activeCampaigns.map(campaign => (
-                      <CampaignCard 
-                        key={campaign.id} 
-                        campaign={campaign} 
-                        onStatusChange={handleCampaignStatusChange} 
-                      />
-                    ))}
+                    {activeCampaigns
+                      .filter(campaign => campaign.id !== undefined)
+                      .map(campaign => (
+                        <CampaignCard 
+                          key={campaign.id} 
+                          campaign={campaign as any} 
+                          onStatusChange={handleCampaignStatusChange} 
+                        />
+                      ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">

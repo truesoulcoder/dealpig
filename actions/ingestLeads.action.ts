@@ -331,7 +331,8 @@ export async function getLeads() {
 export async function updateLead(lead: Partial<Lead> & { id: string }) {
   try {
     const { updateLead: databaseUpdateLead } = await import('@/lib/database');
-    return databaseUpdateLead(lead);
+    const { id, ...updateData } = lead;
+    return databaseUpdateLead(id, updateData); // Adjusted to pass the id and update data separately
   } catch (error) {
     console.error('Error in updateLead action:', error);
     throw new Error(`Failed to update lead: ${error instanceof Error ? error.message : String(error)}`);

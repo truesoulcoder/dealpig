@@ -21,17 +21,17 @@ interface OAuthCredentials {
  */
 export async function getOAuthCredentials(): Promise<OAuthCredentials> {
   // First try to get credentials from environment variables
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  if (process.env.google_client_id && process.env.google_client_secret) {
     return {
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/callback',
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+      client_id: process.env.google_client_id,
+      client_secret: process.env.google_client_secret,
+      redirect_uri: process.env.google_redirect_uri || 'http://localhost:3000/api/auth/callback',
+      refresh_token: process.env.google_refresh_token
     };
   }
   
   // If environment variables aren't set, try to load from file
-  const clientSecretPath = process.env.CLIENT_SECRET_PATH || path.join(process.cwd(), 'auth_tokens', 'client_secret.json');
+  const clientSecretPath = process.env.client_secret_path || path.join(process.cwd(), 'auth_tokens', 'client_secret.json');
   
   if (fs.existsSync(clientSecretPath)) {
     try {
@@ -90,7 +90,7 @@ export async function getSenderTokens(senderEmail: string): Promise<OAuthCredent
  * Run this when setting up a new environment to create a template file
  */
 export async function initializeOAuthCredentials(): Promise<void> {
-  const tokenDir = process.env.TOKEN_DIR || path.join(process.cwd(), 'auth_tokens');
+  const tokenDir = process.env.token_dir || path.join(process.cwd(), 'auth_tokens');
   
   // Create token directory if it doesn't exist
   if (!fs.existsSync(tokenDir)) {
@@ -102,9 +102,9 @@ export async function initializeOAuthCredentials(): Promise<void> {
   // Only create template if file doesn't exist
   if (!fs.existsSync(clientSecretPath)) {
     const templateCredentials = {
-      client_id: process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
-      client_secret: process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/callback'
+      client_id: process.env.google_client_id || 'YOUR_CLIENT_ID',
+      client_secret: process.env.google_client_secret || 'YOUR_CLIENT_SECRET',
+      redirect_uri: process.env.google_redirect_uri || 'http://localhost:3000/api/auth/callback'
     };
     
     fs.writeFileSync(

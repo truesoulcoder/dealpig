@@ -17,10 +17,11 @@ import {
   Chip,
   User,
   Pagination,
+  SortDescriptor,
 } from "@heroui/react";
 
 // Icon components
-export const PlusIcon = ({size = 24, width, height, ...props}) => {
+export const PlusIcon = ({size = 24, width, height, ...props}: {size?: number, width?: number, height?: number, [key: string]: any}) => {
   return (
     <svg
       aria-hidden="true"
@@ -46,7 +47,7 @@ export const PlusIcon = ({size = 24, width, height, ...props}) => {
   );
 };
 
-export const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
+export const VerticalDotsIcon = ({size = 24, width, height, ...props}: {size?: number, width?: number, height?: number, [key: string]: any}) => {
   return (
     <svg
       aria-hidden="true"
@@ -66,7 +67,7 @@ export const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
   );
 };
 
-export const SearchIcon = (props) => {
+export const SearchIcon = (props: {[key: string]: any}) => {
   return (
     <svg
       aria-hidden="true"
@@ -96,7 +97,7 @@ export const SearchIcon = (props) => {
   );
 };
 
-export const ChevronDownIcon = ({strokeWidth = 1.5, ...otherProps}) => {
+export const ChevronDownIcon = ({strokeWidth = 1.5, ...otherProps}: {strokeWidth?: number, [key: string]: any}) => {
   return (
     <svg
       aria-hidden="true"
@@ -171,11 +172,11 @@ export default function AdvancedTable({
   emptyContent = "No data found"
 }: AdvancedTableProps) {
   const [filterValue, setFilterValue] = React.useState("");
-  const [selectedKeys, setSelectedKeys] = React.useState(new Set([]));
+  const [selectedKeys, setSelectedKeys] = React.useState<Set<string>>(new Set([]));
   const [visibleColumns, setVisibleColumns] = React.useState(new Set(initialVisibleColumns));
-  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState<Set<string>>(new Set(["all"]));
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
-  const [sortDescriptor, setSortDescriptor] = React.useState({
+  const [sortDescriptor, setSortDescriptor] = React.useState<SortDescriptor>({
     column: "name",
     direction: "ascending",
   });
@@ -184,7 +185,7 @@ export default function AdvancedTable({
   const hasSearchFilter = Boolean(filterValue);
 
   const headerColumns = React.useMemo(() => {
-    if (visibleColumns === "all") return columns;
+    if (visibleColumns.size === 0 || visibleColumns.has("all")) return columns;
 
     return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
   }, [visibleColumns, columns]);
@@ -198,9 +199,9 @@ export default function AdvancedTable({
       );
     }
     
-    if (statusFilter !== "all" && Array.from(statusFilter).length !== statusOptions.length) {
+    if (!statusFilter.has("all") && statusFilter.size !== statusOptions.length) {
       filteredData = filteredData.filter((item) =>
-        Array.from(statusFilter).includes(item.status),
+        statusFilter.has(item.status),
       );
     }
 
@@ -339,7 +340,7 @@ export default function AdvancedTable({
                 closeOnSelect={false}
                 selectedKeys={statusFilter}
                 selectionMode="multiple"
-                onSelectionChange={setStatusFilter}
+                onSelectionChange={(keys) => setStatusFilter(new Set(keys as Set<string>))}
               >
                 {statusOptions.map((status) => (
                   <DropdownItem key={status.uid} className="capitalize">
@@ -360,7 +361,7 @@ export default function AdvancedTable({
                 closeOnSelect={false}
                 selectedKeys={visibleColumns}
                 selectionMode="multiple"
-                onSelectionChange={setVisibleColumns}
+                onSelectionChange={(keys) => setVisibleColumns(new Set(keys as unknown as Set<string>))}
               >
                 {columns.map((column) => (
                   <DropdownItem key={column.uid} className="capitalize">
@@ -409,7 +410,7 @@ export default function AdvancedTable({
     return (
       <div className="py-2 px-2 flex justify-between items-center">
         <span className="w-[30%] text-small text-default-400">
-          {selectedKeys === "all"
+          {selectedKeys.has("all")
             ? "All items selected"
             : `${selectedKeys.size} of ${filteredItems.length} selected`}
         </span>
@@ -448,7 +449,7 @@ export default function AdvancedTable({
       sortDescriptor={sortDescriptor}
       topContent={topContent}
       topContentPlacement="outside"
-      onSelectionChange={setSelectedKeys}
+      onSelectionChange={(keys) => setSelectedKeys(new Set(keys as Set<string>))}
       onSortChange={setSortDescriptor}
     >
       <TableHeader columns={headerColumns}>
@@ -465,7 +466,7 @@ export default function AdvancedTable({
       <TableBody emptyContent={emptyContent} items={sortedItems}>
         {(item) => (
           <TableRow key={item.id}>
-            {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}
+            {(columnKey) => <TableCell>{renderCell(item, columnKey as string)}</TableCell>}
           </TableRow>
         )}
       </TableBody>

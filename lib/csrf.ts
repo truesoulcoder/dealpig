@@ -25,7 +25,7 @@ async function generateSecureRandomString(length: number): Promise<string> {
 
 // Secret should be at least 32 characters and stored in environment variables
 // We'll use an environment variable or generate a random one when the server starts
-const CSRF_SECRET = process.env.CSRF_SECRET || 
+const CSRF_SECRET = process.env.csrf_secret || 
   // This will only be generated once per server start, not per request
   "dealpig_csrf_secret_32char_min_secure_key";
 
