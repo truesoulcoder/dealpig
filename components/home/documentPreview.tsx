@@ -303,7 +303,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     return (
       <Card>
         <CardBody className="flex items-center justify-center min-h-[400px]">
-          <Spinner size="lg" color="primary" aria-label="Loading templates" />
+          <Spinner size="lg" color="blue-500" />
         </CardBody>
       </Card>
     );

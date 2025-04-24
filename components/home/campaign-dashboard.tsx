@@ -260,8 +260,8 @@ export default function CampaignDashboard() {
         </div>
         
         {loading ? (
-          <div className="flex justify-center p-8">
-            <Spinner size="lg" />
+          <div className="flex justify-center p-4">
+            <Spinner color="blue-500" />
           </div>
         ) : (
           <>
@@ -271,12 +271,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Email Performance</h2>
-                  {loadingEmailChart && <Spinner size="sm" color="primary" />}
+                  {loadingEmailChart && <Spinner size="sm" color="blue-500" />}
                 </CardHeader>
                 <CardBody>
                   {loadingEmailChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" />
+                      <Spinner size="lg" color="blue-500" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -302,12 +302,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Lead Status Distribution</h2>
-                  {loadingLeadChart && <Spinner size="sm" color="primary" />}
+                  {loadingLeadChart && <Spinner size="sm" color="blue-500" />}
                 </CardHeader>
                 <CardBody>
                   {loadingLeadChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" />
+                      <Spinner size="lg" color="blue-500" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -337,12 +337,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Weekly Campaign Performance</h2>
-                  {loadingWeeklyChart && <Spinner size="sm" color="primary" />}
+                  {loadingWeeklyChart && <Spinner size="sm" color="blue-500" />}
                 </CardHeader>
                 <CardBody>
                   {loadingWeeklyChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" />
+                      <Spinner size="lg" color="blue-500" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -368,12 +368,12 @@ export default function CampaignDashboard() {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Campaign KPI Comparison</h2>
-                  {loadingCampaignChart && <Spinner size="sm" color="primary" />}
+                  {loadingCampaignChart && <Spinner size="sm" color="blue-500" />}
                 </CardHeader>
                 <CardBody>
                   {loadingCampaignChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" />
+                      <Spinner size="lg" color="blue-500" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
@@ -396,12 +396,12 @@ export default function CampaignDashboard() {
               <Card className="md:col-span-2">
                 <CardHeader className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Sender Performance</h2>
-                  {loadingSenderChart && <Spinner size="sm" color="primary" />}
+                  {loadingSenderChart && <Spinner size="sm" color="blue-500" />}
                 </CardHeader>
                 <CardBody>
                   {loadingSenderChart ? (
                     <div className="h-[300px] flex items-center justify-center">
-                      <Spinner size="lg" />
+                      <Spinner size="lg" color="blue-500" />
                     </div>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
