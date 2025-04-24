@@ -215,7 +215,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     }
 
     loadTemplates();
-  }, [documentData]);
+  }, [documentData, editor?.commands]);
 
   // Handle template change
   const handleTemplateChange = (templateId: string) => {

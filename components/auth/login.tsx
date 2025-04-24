@@ -6,6 +6,7 @@ import { LoginFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
 import { Formik } from "formik";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
@@ -47,9 +48,11 @@ export const Login = () => {
   return (
     <div className="flex flex-col items-center max-w-md w-full mx-auto">
       <div className="mb-8 text-center">
-        <img 
+        <Image 
           src="/logo.png" 
           alt="DealPig Logo" 
+          width={64}
+          height={64}
           className="h-16 mx-auto mb-4" 
         />
         <h1 className="text-2xl font-bold">Welcome to DealPig</h1>

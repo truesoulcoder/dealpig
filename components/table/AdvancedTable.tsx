@@ -187,7 +187,7 @@ export default function AdvancedTable({
     if (visibleColumns === "all") return columns;
 
     return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
-  }, [visibleColumns, columns]);
+  }, [visibleColumns, columns, hasSearchFilter]);
 
   const filteredItems = React.useMemo(() => {
     let filteredData = [...data];

@@ -8,12 +8,12 @@ import { Divider } from "@heroui/react";
 import { getLeadById, getContactsByLeadId, Lead, Contact } from '@/lib/database';
 import EmailTrackingPanel from '@/components/table/emailTrackingPanel';
 
-type PageProps = {
+interface LeadDetailPageProps {
   params: { id: string }
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams?: { [key: string]: string | string[] | undefined }
 }
 
-export default function LeadDetailPage({ params }: PageProps) {
+export default function LeadDetailPage({ params }: LeadDetailPageProps) {
   const [lead, setLead] = useState<Lead | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);

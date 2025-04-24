@@ -83,7 +83,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   // Load leads with their email statuses
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [loadLeads]);
   
   // Function to load leads data
   const loadLeads = useCallback(async () => {
@@ -131,7 +131,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, statusFilter, emailStatusFilter]);
+  }, []);
 
   // Handle column visibility change
   const handleColumnVisibilityChange = useCallback((column: string) => {
