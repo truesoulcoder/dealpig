@@ -212,13 +212,12 @@ describe('DocumentPreview component', () => {
     });
     
     // Find edit and preview tabs
-    const viewModeTabs = await screen.findByTestId('view-mode-tabs');
-    const previewTab = screen.getByTestId('preview-tab');
-    const editTab = screen.getByTestId('edit-tab');
+    const previewTab = await screen.findByTestId('preview-tab');
+    const editTab = await screen.findByTestId('edit-tab');
     
-    // By default it should show editor content in edit mode
-    const editorContainer = await screen.findByTestId('editor-container');
-    expect(editorContainer).toBeInTheDocument();
+    // By default it should be in edit mode
+    expect(screen.getByTestId('editor-container')).toBeInTheDocument();
+    expect(screen.queryByTestId('preview-container')).not.toBeInTheDocument();
     
     // Click preview tab
     fireEvent.click(previewTab);
@@ -226,7 +225,7 @@ describe('DocumentPreview component', () => {
     // Now the preview container should be visible and editor container hidden
     await waitFor(() => {
       expect(screen.getByTestId('preview-container')).toBeInTheDocument();
-      expect(screen.queryByTestId('editor-content')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('editor-container')).not.toBeInTheDocument();
     });
     
     // Click edit tab again
@@ -235,6 +234,7 @@ describe('DocumentPreview component', () => {
     // Now editor should be visible again
     await waitFor(() => {
       expect(screen.getByTestId('editor-container')).toBeInTheDocument();
+      expect(screen.queryByTestId('preview-container')).not.toBeInTheDocument();
     });
   });
 });

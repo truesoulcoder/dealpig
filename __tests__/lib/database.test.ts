@@ -13,20 +13,33 @@ import { supabase } from '../../lib/supabaseClient';
 
 // Mock the Supabase client
 jest.mock('../../lib/supabaseClient', () => {
-  const mockSupabase = {
-    from: jest.fn().mockReturnThis(),
+  // Create a proper mock that resolves with our mock response
+  const mockResponse = { data: null, error: null };
+  
+  // Create terminal methods that resolve with the mockResponse
+  const terminalMethods = {
+    single: jest.fn().mockResolvedValue(mockResponse),
+    maybeSingle: jest.fn().mockResolvedValue(mockResponse),
+    insert: jest.fn().mockResolvedValue(mockResponse),
+    update: jest.fn().mockResolvedValue(mockResponse),
+    delete: jest.fn().mockResolvedValue(mockResponse)
+  };
+  
+  // Create chainable methods that return the mockChain
+  const mockChain = {
+    ...terminalMethods,
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
     order: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    match: jest.fn().mockReturnThis(),
-    single: jest.fn().mockReturnThis(),
-    maybeSingle: jest.fn().mockReturnThis(),
     range: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis(),
+    match: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    or: jest.fn().mockReturnThis()
+  };
+  
+  // Create the main supabase mock
+  const mockSupabase = {
+    from: jest.fn(() => mockChain)
   };
   
   return {
@@ -41,22 +54,24 @@ describe('Database Functions', () => {
     jest.clearAllMocks();
     mockResponse = { data: null, error: null };
     
-    // Make non-terminal methods return the mock itself for chaining
-    (supabase.from as jest.Mock).mockReturnThis();
-    (supabase.select as jest.Mock).mockReturnThis();
-    (supabase.eq as jest.Mock).mockReturnThis();
-    (supabase.order as jest.Mock).mockReturnThis();
-    (supabase.insert as jest.Mock).mockReturnThis();
-    (supabase.update as jest.Mock).mockReturnThis();
-    (supabase.match as jest.Mock).mockReturnThis();
-    (supabase.range as jest.Mock).mockReturnThis();
-    (supabase.limit as jest.Mock).mockReturnThis();
-    (supabase.or as jest.Mock).mockReturnThis();
+    // Get access to the mockChain object
+    const mockChain = (supabase.from as jest.Mock)();
     
-    // Make terminal methods return the mockResponse
-    (supabase.single as jest.Mock).mockResolvedValue(mockResponse);
-    (supabase.maybeSingle as jest.Mock).mockResolvedValue(mockResponse);
-    (supabase.delete as jest.Mock).mockResolvedValue(mockResponse);
+    // Update terminal methods to resolve with our current mockResponse
+    mockChain.single.mockResolvedValue(mockResponse);
+    mockChain.maybeSingle.mockResolvedValue(mockResponse);
+    mockChain.insert.mockResolvedValue(mockResponse);
+    mockChain.update.mockResolvedValue(mockResponse);
+    mockChain.delete.mockResolvedValue(mockResponse);
+    
+    // Make sure all chainable methods return the mockChain
+    mockChain.select.mockReturnThis();
+    mockChain.eq.mockReturnThis();
+    mockChain.order.mockReturnThis();
+    mockChain.range.mockReturnThis();
+    mockChain.or.mockReturnThis();
+    mockChain.match.mockReturnThis();
+    mockChain.limit.mockReturnThis();
   });
 
   describe('Leads Functions', () => {

@@ -150,7 +150,7 @@ export async function getLeads(status?: string, search?: string, limit = 100, of
 
   if (error) {
     console.error('Error fetching leads:', error);
-    return [];
+    return []; // Return empty array on error
   }
 
   return data as Lead[];
