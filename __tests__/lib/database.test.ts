@@ -13,65 +13,135 @@ import { supabase } from '../../lib/supabaseClient';
 
 // Mock the Supabase client
 jest.mock('../../lib/supabaseClient', () => {
-  // Create a proper mock that resolves with our mock response
-  const mockResponse = { data: null, error: null };
-  
-  // Create terminal methods that resolve with the mockResponse
-  const terminalMethods = {
-    single: jest.fn().mockResolvedValue(mockResponse),
-    maybeSingle: jest.fn().mockResolvedValue(mockResponse),
-    insert: jest.fn().mockResolvedValue(mockResponse),
-    update: jest.fn().mockResolvedValue(mockResponse),
-    delete: jest.fn().mockResolvedValue(mockResponse)
-  };
-  
-  // Create chainable methods that return the mockChain
-  const mockChain = {
-    ...terminalMethods,
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    range: jest.fn().mockReturnThis(),
+  // Create a proper mock with chainable methods
+  const mockSelect = jest.fn().mockReturnValue({
+    eq: jest.fn().mockReturnValue({
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+    order: jest.fn().mockReturnValue({
+      range: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+    eq: jest.fn().mockReturnValue({
+      order: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
     or: jest.fn().mockReturnThis(),
-    match: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-  };
-  
-  // Create the main supabase mock
-  const mockSupabase = {
-    from: jest.fn(() => mockChain)
-  };
+    insert: jest.fn().mockReturnValue({
+      select: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+    update: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        select: jest.fn().mockResolvedValue({ data: null, error: null }),
+      }),
+    }),
+    delete: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  });
   
   return {
-    supabase: mockSupabase
+    supabase: {
+      from: jest.fn(() => ({
+        select: mockSelect,
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      })),
+    }
   };
 });
 
 describe('Database Functions', () => {
-  let mockResponse: { data: any; error: any };
+  let mockLeadData;
+  let mockContactData;
+  let mockEmailData;
+  let mockTemplateData;
   
   beforeEach(() => {
     jest.clearAllMocks();
-    mockResponse = { data: null, error: null };
     
-    // Get access to the mockChain object
-    const mockChain = (supabase.from as jest.Mock)();
-    
-    // Update terminal methods to resolve with our current mockResponse
-    mockChain.single.mockResolvedValue(mockResponse);
-    mockChain.maybeSingle.mockResolvedValue(mockResponse);
-    mockChain.insert.mockResolvedValue(mockResponse);
-    mockChain.update.mockResolvedValue(mockResponse);
-    mockChain.delete.mockResolvedValue(mockResponse);
-    
-    // Make sure all chainable methods return the mockChain
-    mockChain.select.mockReturnThis();
-    mockChain.eq.mockReturnThis();
-    mockChain.order.mockReturnThis();
-    mockChain.range.mockReturnThis();
-    mockChain.or.mockReturnThis();
-    mockChain.match.mockReturnThis();
-    mockChain.limit.mockReturnThis();
+    mockLeadData = [{ id: 'test-lead-id', property_address: '123 Test St' }];
+    mockContactData = [{ id: 'test-contact-id', name: 'Test Contact' }];
+    mockEmailData = [{ id: 'test-email-id', subject: 'Test Email' }];
+    mockTemplateData = [{ id: 'test-template-id', name: 'Test Template' }];
+
+    // Setup supabase mocks to return our test data
+    const mockFrom = supabase.from as jest.Mock;
+
+    // Mock for leads
+    mockFrom.mockImplementation((tableName) => {
+      if (tableName === 'leads') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockLeadData[0], error: null }),
+            }),
+            order: jest.fn().mockReturnValue({
+              range: jest.fn().mockResolvedValue({ data: mockLeadData, error: null }),
+            }),
+          }),
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({ data: mockLeadData, error: null }),
+          }),
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              select: jest.fn().mockResolvedValue({ data: mockLeadData, error: null }),
+            }),
+          }),
+          delete: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        };
+      } else if (tableName === 'contacts') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: mockContactData, error: null }),
+            }),
+          }),
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({ data: mockContactData, error: null }),
+          }),
+        };
+      } else if (tableName === 'emails') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: mockEmailData, error: null }),
+            }),
+          }),
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({ data: mockEmailData, error: null }),
+          }),
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              select: jest.fn().mockResolvedValue({ data: mockEmailData, error: null }),
+            }),
+          }),
+        };
+      } else if (tableName === 'templates') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: mockTemplateData, error: null }),
+            }),
+            order: jest.fn().mockResolvedValue({ data: mockTemplateData, error: null }),
+          }),
+        };
+      }
+      return {
+        select: jest.fn().mockReturnThis(),
+        insert: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
+      };
+    });
   });
 
   describe('Leads Functions', () => {
@@ -85,8 +155,7 @@ describe('Database Functions', () => {
       };
       
       const mockReturnData = { ...mockLead, id: 'test-lead-id' };
-      mockResponse.data = [mockReturnData]; // Supabase returns array for insert
-      mockResponse.error = null;
+      mockLeadData = [mockReturnData]; // Supabase returns array for insert
 
       // Execute
       const result = await createLead(mockLead);
@@ -103,8 +172,7 @@ describe('Database Functions', () => {
         { id: 'lead1', property_address: '123 Test St' },
         { id: 'lead2', property_address: '456 Other St' },
       ];
-      mockResponse.data = mockLeads;
-      mockResponse.error = null;
+      mockLeadData = mockLeads;
 
       // Execute
       const result = await getLeads();
@@ -119,8 +187,7 @@ describe('Database Functions', () => {
     it('should get a lead by ID', async () => {
       // Setup
       const mockLead = { id: 'lead1', property_address: '123 Test St' };
-      mockResponse.data = mockLead;
-      mockResponse.error = null;
+      mockLeadData = [mockLead];
 
       // Execute
       const result = await getLeadById('lead1');
@@ -144,8 +211,7 @@ describe('Database Functions', () => {
       };
       
       const mockReturnData = { ...mockContact, id: 'test-contact-id' };
-      mockResponse.data = [mockReturnData]; // Supabase returns array for insert
-      mockResponse.error = null;
+      mockContactData = [mockReturnData]; // Supabase returns array for insert
 
       // Execute
       const result = await createContact(mockContact);
@@ -162,8 +228,7 @@ describe('Database Functions', () => {
         { id: 'contact1', name: 'Test Contact 1', email: 'test1@example.com' },
         { id: 'contact2', name: 'Test Contact 2', email: 'test2@example.com' },
       ];
-      mockResponse.data = mockContacts;
-      mockResponse.error = null;
+      mockContactData = mockContacts;
 
       // Execute
       const result = await getContactsByLeadId('lead1');
@@ -187,8 +252,7 @@ describe('Database Functions', () => {
       };
       
       const mockReturnData = { ...mockEmail, id: 'test-email-id', status: 'PENDING' };
-      mockResponse.data = [mockReturnData]; // Supabase returns array for insert
-      mockResponse.error = null;
+      mockEmailData = [mockReturnData]; // Supabase returns array for insert
 
       // Execute
       const result = await createEmail(mockEmail);
@@ -207,8 +271,7 @@ describe('Database Functions', () => {
         opened_at: expect.any(String),
       };
       
-      mockResponse.data = [mockEmail]; // Supabase returns array for update
-      mockResponse.error = null;
+      mockEmailData = [mockEmail]; // Supabase returns array for update
 
       // Execute
       const result = await updateEmailStatus('email1', 'OPENED');
@@ -226,8 +289,7 @@ describe('Database Functions', () => {
         { id: 'email1', subject: 'Email 1', status: 'SENT' },
         { id: 'email2', subject: 'Email 2', status: 'OPENED' },
       ];
-      mockResponse.data = mockEmails;
-      mockResponse.error = null;
+      mockEmailData = mockEmails;
 
       // Execute
       const result = await getEmailsByLeadId('lead1');
@@ -247,8 +309,7 @@ describe('Database Functions', () => {
         { id: 'template1', name: 'Template 1', content: '<p>Content 1</p>', type: 'document' },
         { id: 'template2', name: 'Template 2', content: '<p>Content 2</p>', type: 'document' },
       ];
-      mockResponse.data = mockTemplates;
-      mockResponse.error = null;
+      mockTemplateData = mockTemplates;
 
       // Execute
       const result = await getTemplates('document');
@@ -264,8 +325,14 @@ describe('Database Functions', () => {
   describe('Error Handling', () => {
     it('should handle errors when creating a lead', async () => {
       // Setup
-      mockResponse.error = { message: 'Database error' };
-      mockResponse.data = null;
+      const mockFrom = supabase.from as jest.Mock;
+      mockFrom.mockImplementation((tableName) => {
+        return {
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } }),
+          }),
+        };
+      });
 
       // Execute
       const result = await createLead({ 
@@ -281,8 +348,16 @@ describe('Database Functions', () => {
 
     it('should handle errors when retrieving leads', async () => {
       // Setup
-      mockResponse.error = { message: 'Database error' };
-      mockResponse.data = null;
+      const mockFrom = supabase.from as jest.Mock;
+      mockFrom.mockImplementation((tableName) => {
+        return {
+          select: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              range: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } }),
+            }),
+          }),
+        };
+      });
 
       // Execute
       const result = await getLeads();

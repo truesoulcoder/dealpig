@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { LeadsTable } from '@/components/table/leads-table';
+import { LeadsTable } from '@/components/table/leadsTable';
 import * as database from '@/lib/database';
 import { trpc } from '@/app/providers/trpc-provider';
 

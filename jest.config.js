@@ -15,6 +15,7 @@ const customJestConfig = {
     // Mock packages to prevent dynamic import issues
     '@heroui/ripple': '<rootDir>/__mocks__/heroui-ripple.js',
     '@heroui/react/outline': '<rootDir>/__mocks__/heroui-react-outline.js',
+    '@nextui-org/button': '<rootDir>/__mocks__/nextui-button.js',
   },
   testMatch: [
     "**/__tests__/**/*.ts?(x)",
