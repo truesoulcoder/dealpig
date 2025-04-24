@@ -29,10 +29,10 @@ import {
   Checkbox,
   Spinner
 } from "@heroui/react";
-import { SearchIcon } from "@heroui-react-outline/SearchIcon";
-import { ChevronDownIcon } from "@heroui-react-outline/ChevronDownIcon";
-import { PlusIcon } from "@heroui-react-outline/PlusIcon";
-import { VerticalDotsIcon } from "@heroui-react-outline/VerticalDotsIcon";
+import { MagnifyingGlassIcon as SearchIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { PlusIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon as VerticalDotsIcon } from "@heroicons/react/24/outline";
 import { columns, statusColorMap, statusOptions, emailStatusOptions } from "./tableData";
 import { getLeads } from "@/actions/ingestLeads.action";
 import { useRouter } from "next/navigation";

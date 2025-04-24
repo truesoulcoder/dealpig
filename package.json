@@ -79,6 +79,7 @@
       "nodemailer": "^6.4.11",
       "papaparse": "^5.5.2",
       "pdf-lib": "^1.17.1",
+      "pizzip": "^3.1.8",
       "prettier": "^3.5.3",
       "react": "19.1.0",
       "react-dom": "19.1.0",
