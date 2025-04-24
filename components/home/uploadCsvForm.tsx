@@ -68,23 +68,6 @@ export default function UploadCsvForm() {
             campaignName: ''
           });
         }
-        
-          const { error } = await supabase.from('leads').insert(lead);
-          
-          if (error) {
-            console.error('Error inserting lead:', error.message);
-            failedCount++;
-          } else {
-            successCount++;
-          }
-        }
-        
-        setUploadStats({
-          total: results.data.length,
-          success: successCount,
-          failed: failedCount
-        });
-        
       } catch (error) {
         console.error('Error processing CSV:', error);
       } finally {

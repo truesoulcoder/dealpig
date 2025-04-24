@@ -60,6 +60,71 @@ export default function CampaignDashboard() {
     }
   };
   
+  // Load email performance data with useCallback
+  const loadEmailPerformance = useCallback(async () => {
+    setLoadingEmailChart(true);
+    try {
+      const data = await getEmailPerformance(timeRange);
+      setEmailPerformanceData(data);
+    } catch (error) {
+      console.error('Error loading email performance data:', error);
+    } finally {
+      setLoadingEmailChart(false);
+    }
+  }, [timeRange]);
+  
+  // Load lead status distribution with useCallback
+  const loadLeadStatus = useCallback(async () => {
+    setLoadingLeadChart(true);
+    try {
+      const data = await getLeadStatusDistribution();
+      setLeadStatusData(data);
+    } catch (error) {
+      console.error('Error loading lead status data:', error);
+    } finally {
+      setLoadingLeadChart(false);
+    }
+  }, []);
+  
+  // Load sender performance data with useCallback
+  const loadSenderPerformance = useCallback(async () => {
+    setLoadingSenderChart(true);
+    try {
+      const data = await getSenderPerformance(timeRange);
+      setSenderPerformanceData(data);
+    } catch (error) {
+      console.error('Error loading sender performance data:', error);
+    } finally {
+      setLoadingSenderChart(false);
+    }
+  }, [timeRange]);
+  
+  // Load campaign comparison data with useCallback
+  const loadCampaignComparison = useCallback(async () => {
+    setLoadingCampaignChart(true);
+    try {
+      const data = await getCampaignComparison(timeRange);
+      setCampaignComparisonData(data);
+    } catch (error) {
+      console.error('Error loading campaign comparison data:', error);
+    } finally {
+      setLoadingCampaignChart(false);
+    }
+  }, [timeRange]);
+  
+  // Load weekly performance data with useCallback
+  const loadWeeklyPerformance = useCallback(async () => {
+    setLoadingWeeklyChart(true);
+    try {
+      const data = await getWeeklyPerformance(timeRange);
+      setWeeklyPerformanceData(data);
+    } catch (error) {
+      console.error('Error loading weekly performance data:', error);
+    } finally {
+      setLoadingWeeklyChart(false);
+    }
+  }, [timeRange]);
+  
   // Load all analytics data with useCallback
   const loadAllAnalytics = useCallback(() => {
     loadEmailPerformance();
@@ -67,7 +132,7 @@ export default function CampaignDashboard() {
     loadSenderPerformance();
     loadCampaignComparison();
     loadWeeklyPerformance();
-  }, [/* dependencies of the inner functions */]);
+  }, [loadEmailPerformance, loadLeadStatus, loadSenderPerformance, loadCampaignComparison, loadWeeklyPerformance]);
   
   // Fetch campaigns and analytics data on component mount
   useEffect(() => {
@@ -79,71 +144,6 @@ export default function CampaignDashboard() {
   useEffect(() => {
     loadAllAnalytics();
   }, [timeRange, loadAllAnalytics]);
-  
-  // Load email performance data
-  const loadEmailPerformance = async () => {
-    setLoadingEmailChart(true);
-    try {
-      const data = await getEmailPerformance(timeRange);
-      setEmailPerformanceData(data);
-    } catch (error) {
-      console.error('Error loading email performance data:', error);
-    } finally {
-      setLoadingEmailChart(false);
-    }
-  };
-  
-  // Load lead status distribution
-  const loadLeadStatus = async () => {
-    setLoadingLeadChart(true);
-    try {
-      const data = await getLeadStatusDistribution();
-      setLeadStatusData(data);
-    } catch (error) {
-      console.error('Error loading lead status data:', error);
-    } finally {
-      setLoadingLeadChart(false);
-    }
-  };
-  
-  // Load sender performance data
-  const loadSenderPerformance = async () => {
-    setLoadingSenderChart(true);
-    try {
-      const data = await getSenderPerformance(timeRange);
-      setSenderPerformanceData(data);
-    } catch (error) {
-      console.error('Error loading sender performance data:', error);
-    } finally {
-      setLoadingSenderChart(false);
-    }
-  };
-  
-  // Load campaign comparison data
-  const loadCampaignComparison = async () => {
-    setLoadingCampaignChart(true);
-    try {
-      const data = await getCampaignComparison(timeRange);
-      setCampaignComparisonData(data);
-    } catch (error) {
-      console.error('Error loading campaign comparison data:', error);
-    } finally {
-      setLoadingCampaignChart(false);
-    }
-  };
-  
-  // Load weekly performance data
-  const loadWeeklyPerformance = async () => {
-    setLoadingWeeklyChart(true);
-    try {
-      const data = await getWeeklyPerformance(timeRange);
-      setWeeklyPerformanceData(data);
-    } catch (error) {
-      console.error('Error loading weekly performance data:', error);
-    } finally {
-      setLoadingWeeklyChart(false);
-    }
-  };
   
   // Handle campaign creation
   const handleCreateCampaign = () => {

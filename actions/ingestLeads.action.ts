@@ -326,3 +326,25 @@ export async function getLeads() {
     return [];
   }
 }
+
+// Add updateLead function
+export async function updateLead(lead: Partial<Lead> & { id: string }) {
+  try {
+    const { updateLead: databaseUpdateLead } = await import('@/lib/database');
+    return databaseUpdateLead(lead);
+  } catch (error) {
+    console.error('Error in updateLead action:', error);
+    throw new Error(`Failed to update lead: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// Add deleteLead function
+export async function deleteLead(leadId: string) {
+  try {
+    const { deleteLead: databaseDeleteLead } = await import('@/lib/database');
+    return databaseDeleteLead(leadId);
+  } catch (error) {
+    console.error('Error in deleteLead action:', error);
+    throw new Error(`Failed to delete lead: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}

@@ -4,6 +4,7 @@ import { useGetLeadsQuery } from '../generated/graphql';
 import { Spinner } from '@fluentui/react-components';
 import { Table } from '@fluentui/react-components/unstable';
 import { useTable } from 'react-table';
+import React from 'react';
 
 export const LeadsTable = () => {
   const { data, loading, error } = useGetLeadsQuery();
@@ -52,9 +53,9 @@ export const LeadsTable = () => {
     <Table {...getTableProps()} aria-label="Leads Table">
       <Table.Header>
         {headerGroups.map(headerGroup => (
-          <Table.Row {...headerGroup.getHeaderGroupProps()}>
+          <Table.Row {...headerGroup.getHeaderGroupProps()} key={headerGroup.id}>
             {headerGroup.headers.map(column => (
-              <Table.Cell {...column.getHeaderProps()}>{column.render('Header')}</Table.Cell>
+              <Table.Cell {...column.getHeaderProps()} key={column.id}>{column.render('Header')}</Table.Cell>
             ))}
           </Table.Row>
         ))}
@@ -63,9 +64,9 @@ export const LeadsTable = () => {
         {rows.map(row => {
           prepareRow(row);
           return (
-            <Table.Row {...row.getRowProps()}>
+            <Table.Row {...row.getRowProps()} key={row.id}>
               {row.cells.map(cell => {
-                return <Table.Cell {...cell.getCellProps()}>{cell.render('Cell')}</Table.Cell>
+                return <Table.Cell {...cell.getCellProps()} key={cell.column.id}>{cell.render('Cell')}</Table.Cell>
               })}
             </Table.Row>
           );
