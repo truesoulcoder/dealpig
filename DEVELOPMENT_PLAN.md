@@ -5,10 +5,10 @@ This document outlines the planned development roadmap, testing strategy, and ma
 ## Current Issues
 
 1. **Testing Framework Issues**:
-   - Missing dependency `@testing-library/dom` has been installed, but tests still need fixes
-   - Database test mocks don't match actual function signatures
-   - Email sending tests are failing due to incorrect mocking of Gmail API
-   - Document generation tests failing due to docx.Header constructor issues
+   - ✅ Missing dependency `@testing-library/dom` has been installed, but tests still need fixes
+   - ✅ Database test mocks don't match actual function signatures - Fixed with proper mock implementation
+   - ✅ Email sending tests are failing due to incorrect mocking of Gmail API - Fixed with comprehensive Gmail API mocking
+   - ✅ Document generation tests failing due to docx.Header constructor issues - Fixed with proper docx library mocking
 
 2. **React Version Compatibility**:
    - The `react-draft-wysiwyg` package is not compatible with React 19
@@ -20,8 +20,8 @@ This document outlines the planned development roadmap, testing strategy, and ma
 ## Short-term Improvements (1-3 months)
 
 1. **Fix Testing Framework**:
-   - Update test mocks to match actual function signatures
-   - Implement proper mocking for Gmail API and docx library
+   - ✅ Update test mocks to match actual function signatures
+   - ✅ Implement proper mocking for Gmail API and docx library
    - Aim for >80% test coverage
 
 2. **Security Hardening**:
@@ -44,17 +44,17 @@ This document outlines the planned development roadmap, testing strategy, and ma
 ## Mid-term Improvements (3-6 months)
 
 1. **Feature Enhancements**:
-   - Advanced search and filtering
-   - Bulk actions for leads
-   - Custom document templates
-   - Email scheduling
-   - Pipeline visualization
+   - ✅ Advanced search and filtering - Implemented in LeadsTable with status and email status filters
+   - ❌ Bulk actions for leads - Not yet implemented
+   - ✅ Custom document templates - Implemented with template selection and editing in DocumentPreview
+   - ❌ Email scheduling - Not yet implemented
+   - ❌ Pipeline visualization - Not yet implemented
 
 2. **Technical Debt**:
-   - Replace `react-draft-wysiwyg` with React 19 compatible editor
-   - Migrate to typed API endpoints with tRPC
-   - Component library standardization
-   - Extract shared logic to custom hooks
+   - ❌ Replace `react-draft-wysiwyg` with React 19 compatible editor - Still using legacy peer deps
+   - ❌ Migrate to typed API endpoints with tRPC - Not yet implemented
+   - ✅ Component library standardization - Consistently using NextUI/HeroUI components
+   - ✅ Extract shared logic to custom hooks - Implemented hooks for common functionality
 
 3. **Integration**:
    - Add Google Calendar integration
