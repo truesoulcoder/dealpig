@@ -1,219 +1,158 @@
 "use server";
 
-import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType, HeadingLevel, BorderStyle, Header } from 'docx';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
+import { Lead, getLead, updateLead } from '@/lib/database';
 
-interface GenerateLoiParams {
+interface LoiData {
   propertyAddress: string;
-  propertyCity: string;
-  propertyState: string;
-  propertyZip: string;
-  recipientName: string;
   offerPrice: number;
   earnestMoney: number;
-  closingDate: string;
-  companyLogoPath?: string; // Optional path to company logo
+  inspectionDays: number;
+  closingDays: number;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone: string;
 }
 
-export async function generateLoi(params: GenerateLoiParams): Promise<string> {
-  const {
-    propertyAddress,
-    propertyCity,
-    propertyState,
-    propertyZip,
-    recipientName,
-    offerPrice,
-    earnestMoney,
-    closingDate,
-    companyLogoPath,
-  } = params;
+interface GenerateLoiResult {
+  success: boolean;
+  message: string;
+  pdfBytes?: Uint8Array;
+  filename?: string;
+  error?: string;
+}
 
-  // Default to the standard logo if no custom logo is provided
-  const logoPath = companyLogoPath || path.join(process.cwd(), 'public', 'logo.png');
-  
-  // Check if logo exists
-  let logoBuffer;
+// Core logic extracted to be testable
+export async function generateLoiCore(
+  loiData: LoiData,
+  leadId?: string,
+  dbGetLead = getLead,
+  dbUpdateLead = updateLead
+): Promise<GenerateLoiResult> {
   try {
-    logoBuffer = fs.readFileSync(logoPath);
+    let lead: Lead | null = null;
+
+    // If leadId is provided, get the lead and use its address
+    if (leadId) {
+      lead = await dbGetLead(leadId);
+      if (!lead) {
+        return {
+          success: false,
+          message: `Lead with ID ${leadId} not found`,
+          error: 'Lead not found'
+        };
+      }
+
+      // Use lead data if available
+      loiData.propertyAddress = `${lead.property_address}, ${lead.property_city}, ${lead.property_state} ${lead.property_zip}`;
+    }
+
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage();
+    const { width, height } = page.getSize();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    // Add current date
+    const date = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    page.drawText(`Date: ${date}`, {
+      x: 50,
+      y: height - 50,
+      size: 12,
+      font
+    });
+    
+    // Add letterhead
+    page.drawText('LETTER OF INTENT TO PURCHASE REAL ESTATE', {
+      x: 50,
+      y: height - 100,
+      size: 16,
+      font: boldFont
+    });
+    
+    // Add property info
+    page.drawText(`RE: ${loiData.propertyAddress}`, {
+      x: 50,
+      y: height - 150,
+      size: 12,
+      font: boldFont
+    });
+    
+    // Add LOI body
+    let yPosition = height - 200;
+    
+    const drawParagraph = (text: string, spacing = 20) => {
+      page.drawText(text, {
+        x: 50,
+        y: yPosition,
+        size: 12,
+        font,
+        lineHeight: 16,
+        maxWidth: width - 100
+      });
+      yPosition -= spacing;
+    };
+    
+    drawParagraph(`Dear Property Owner,`);
+    drawParagraph(`This letter expresses our interest in purchasing the property located at ${loiData.propertyAddress}.`, 40);
+    
+    drawParagraph(`We offer the following terms:`, 30);
+    drawParagraph(`1. Purchase Price: $${loiData.offerPrice.toLocaleString()}`, 25);
+    drawParagraph(`2. Earnest Money: $${loiData.earnestMoney.toLocaleString()}`, 25);
+    drawParagraph(`3. Inspection Period: ${loiData.inspectionDays} days`, 25);
+    drawParagraph(`4. Closing Timeline: ${loiData.closingDays} days from acceptance`, 40);
+    
+    drawParagraph(`This letter of intent is not a binding contract but an expression of our interest in the property. We look forward to discussing this opportunity further and potentially moving toward a formal purchase agreement.`, 40);
+    
+    drawParagraph(`Sincerely,`, 30);
+    drawParagraph(`${loiData.buyerName}`, 25);
+    drawParagraph(`Email: ${loiData.buyerEmail}`, 25);
+    drawParagraph(`Phone: ${loiData.buyerPhone}`, 25);
+    
+    // Generate the PDF
+    const pdfBytes = await pdfDoc.save();
+    
+    // Generate filename
+    const cleanAddress = loiData.propertyAddress
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
+    const filename = `${cleanAddress}-LOI.pdf`;
+    
+    // If we have a lead, update it
+    if (lead && leadId) {
+      await dbUpdateLead(leadId, {
+        ...lead,
+        loi_generated: true,
+        loi_filename: filename,
+        offer_price: loiData.offerPrice
+      });
+    }
+    
+    return {
+      success: true,
+      message: 'LOI generated successfully',
+      pdfBytes,
+      filename
+    };
   } catch (error) {
-    console.warn(`Logo not found at ${logoPath}. Proceeding without logo.`);
+    console.error('Error generating LOI:', error);
+    return {
+      success: false,
+      message: `Failed to generate LOI: ${error instanceof Error ? error.message : String(error)}`,
+      error: String(error)
+    };
   }
+}
 
-  const doc = new Document({
-    styles: {
-      paragraphStyles: [
-        {
-          id: "normal",
-          name: "Normal",
-          run: {
-            size: 24,
-            font: "Arial",
-          },
-          paragraph: {
-            spacing: {
-              line: 276, // 1.15x line spacing
-            },
-          },
-        },
-        {
-          id: "heading",
-          name: "Heading",
-          run: {
-            size: 36,
-            bold: true,
-            font: "Arial",
-          },
-          paragraph: {
-            spacing: {
-              after: 240,
-            },
-          },
-        }
-      ]
-    },
-    sections: [
-      {
-        headers: {
-          default: new Header({
-            children: logoBuffer ? [
-              new Paragraph({
-                alignment: AlignmentType.RIGHT,
-                children: [
-                  new ImageRun({
-                    data: logoBuffer,
-                    transformation: {
-                      width: 100,
-                      height: 100,
-                    },
-                    type: "png", // Specify the type explicitly
-                  }),
-                ],
-              }),
-            ] : [],
-          }),
-        },
-        children: [
-          new Paragraph({
-            style: "heading",
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({ text: `Letter of Intent`, bold: true, size: 36 }),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            children: [
-              new TextRun({ text: `Date: ${new Date().toLocaleDateString()}`, bold: true }),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            spacing: {
-              before: 200,
-            },
-            children: [
-              new TextRun({ text: `Dear ${recipientName},`, bold: true }),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            spacing: {
-              before: 200,
-            },
-            children: [
-              new TextRun(
-                "Please accept this letter as a formal expression of interest to purchase the property located at:"
-              ),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            alignment: AlignmentType.CENTER,
-            spacing: {
-              before: 200,
-              after: 200,
-            },
-            children: [
-              new TextRun({
-                text: `${propertyAddress}, ${propertyCity}, ${propertyState} ${propertyZip}`,
-                bold: true,
-              }),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            children: [
-              new TextRun("I am pleased to offer the following terms:"),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            spacing: {
-              before: 200,
-            },
-            children: [
-              new TextRun({ text: `Purchase Price: `, bold: true }),
-              new TextRun(`$${offerPrice.toLocaleString()}`),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            children: [
-              new TextRun({ text: `Earnest Money Deposit: `, bold: true }),
-              new TextRun(`$${earnestMoney.toLocaleString()}`),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            children: [
-              new TextRun({ text: `Closing Date: `, bold: true }),
-              new TextRun(`${closingDate}`),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            spacing: {
-              before: 400,
-            },
-            children: [
-              new TextRun(
-                "This Letter of Intent is non-binding and subject to the execution of a definitive Purchase Agreement. I look forward to your favorable response."
-              ),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            spacing: {
-              before: 400,
-            },
-            children: [
-              new TextRun("Sincerely,"),
-            ],
-          }),
-          new Paragraph({
-            style: "normal",
-            spacing: {
-              before: 600,
-            },
-            children: [
-              new TextRun("_______________________________"),
-            ],
-          }),
-        ],
-      },
-    ],
-  });
-
-  // Create a unique filename using timestamp
-  const timestamp = Date.now();
-  const filename = `generated-loi-${timestamp}.docx`;
-  const outputPath = path.join(process.cwd(), 'public', filename);
-  
-  // Save the file
-  const buffer = await Packer.toBuffer(doc);
-  fs.writeFileSync(outputPath, buffer);
-
-  // Return a public URL path that can be used to download the file
-  return `/generated-loi-${timestamp}.docx`;
+// Server action that uses the core logic
+export async function generateLoi(loiData: LoiData, leadId?: string): Promise<GenerateLoiResult> {
+  return generateLoiCore(loiData, leadId);
 }
