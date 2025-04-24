@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Card, CardBody, CardHeader } from "@nextui-org/card";
-import { Button } from '@nextui-org/button';
+import { Card, CardBody, CardHeader, Button } from "@heroui/react";
 import { useRouter } from 'next/navigation';
 import { FaPlus } from "react-icons/fa6";
 import LeadsTable from '@/components/table/leadsTable';

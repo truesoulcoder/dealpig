@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader } from "@heroui/react/card";
-import { Button } from '@heroui/react/button';
-import { Input } from '@heroui/react/input';
-import { Textarea } from '@heroui/react/textarea';
-import { Select, SelectItem } from '@heroui/react/select';
-import { Spinner } from '@heroui/react/spinner';
+import { Card, CardBody, CardHeader, Button, Input, Textarea, Select, Spinner } from "@heroui/react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/app/providers/trpc-provider';
 import dynamic from 'next/dynamic';
@@ -15,6 +10,11 @@ import dynamic from 'next/dynamic';
 const DynamicEditor = dynamic(
   () => import('@/components/home/emailEditor'),
   { ssr: false, loading: () => <Spinner label="Loading editor..." /> }
+);
+
+// Temporary solution for missing SelectItem
+const SelectItem = ({ children, value, ...props }: { children: React.ReactNode, value: string, [key: string]: any }) => (
+  <option value={value} {...props}>{children}</option>
 );
 
 export default function BulkEmailPage() {
@@ -28,7 +28,7 @@ export default function BulkEmailPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState(false);
   const [leadDetails, setLeadDetails] = useState<any[]>([]);
-  
+
   // Get templates query
   const templatesQuery = trpc.emails.getTemplates.useQuery({ type: 'email' });
   

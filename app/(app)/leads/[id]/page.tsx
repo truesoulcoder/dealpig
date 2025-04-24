@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardBody, CardHeader } from "@nextui-org/card";
-import { Divider } from "@nextui-org/divider";
-import { Button, ButtonGroup } from "@nextui-org/button";
-import { Spinner } from "@nextui-org/spinner";
-import { Chip } from "@nextui-org/chip";
-import { Tabs, Tab } from "@nextui-org/tabs";
+import { Card, CardBody, CardHeader, Chip, Button, ButtonGroup, Spinner, Tabs, Tab } from "@heroui/react";
+import { Divider } from "@heroui/react";
 
 import { getLeadById, getContactsByLeadId, Lead, Contact } from '@/lib/database';
 import EmailTrackingPanel from '@/components/table/emailTrackingPanel';
@@ -223,11 +219,7 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
       </Card>
       
       {/* Tabs for different sections */}
-      <Tabs 
-        selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(key as string)}
-        className="mb-6"
-      >
+      <Tabs aria-label="Lead details tabs">
         <Tab key="details" title="Property Details">
           <Card shadow="sm">
             <CardBody>

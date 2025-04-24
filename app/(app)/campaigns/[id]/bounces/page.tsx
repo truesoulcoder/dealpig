@@ -3,15 +3,34 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabaseClient } from '@/lib/supabaseClient';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useMediaQuery } from '@/components/hooks/use-media-query';
+import { Card, CardBody, CardHeader, Chip, Button, Spinner, Table } from "@heroui/react";
 import { format } from 'date-fns';
 import { ArrowLeftIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+
+// Simple CardTitle component since it's not included in @heroui/react
+const CardTitle = ({ className = "", children }: { className?: string, children: React.ReactNode }) => (
+  <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
+);
+
+// Helper for responsive design
+const useMediaQuery = (query: string): boolean => {
+  const [matches, setMatches] = useState(false);
+  
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    if (media.matches !== matches) {
+      setMatches(media.matches);
+    }
+    
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    
+    return () => media.removeEventListener('change', listener);
+  }, [matches, query]);
+  
+  return matches;
+};
 
 interface BounceRecord {
   id: string;
@@ -43,7 +62,7 @@ export default function CampaignBouncesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [campaign, setCampaign] = useState<CampaignDetails | null>(null);
   const [bounces, setBounces] = useState<BounceRecord[]>([]);
-  
+
   useEffect(() => {
     async function fetchBounceData() {
       setIsLoading(true);
@@ -114,11 +133,11 @@ export default function CampaignBouncesPage() {
     return (
       <div className="container py-6 space-y-6">
         <div className="flex items-center gap-4">
-          <Skeleton className="h-8 w-8" />
-          <Skeleton className="h-8 w-48" />
+          <Spinner size="md" />
+          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
         </div>
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-60 w-full" />
+        <div className="h-40 w-full bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-60 w-full bg-gray-200 rounded animate-pulse"></div>
       </div>
     );
   }
@@ -127,16 +146,14 @@ export default function CampaignBouncesPage() {
     <div className="container py-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/campaigns/${campaignId}`}>
-              <ArrowLeftIcon className="h-4 w-4" />
-            </Link>
+          <Button color="default" size="sm" as={Link} href={`/campaigns/${campaignId}`}>
+            <ArrowLeftIcon className="h-4 w-4" />
           </Button>
           <h1 className="text-xl font-semibold">Bounce Report</h1>
-          {campaign && <span className="text-muted-foreground">- {campaign.name}</span>}
+          {campaign && <span className="text-gray-500">- {campaign.name}</span>}
         </div>
         {bounces.length > 0 && (
-          <Button variant="outline" size="sm" onClick={exportCsv}>
+          <Button color="default" size="sm" onClick={exportCsv}>
             <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
@@ -149,41 +166,41 @@ export default function CampaignBouncesPage() {
             <CardHeader className="py-2">
               <CardTitle className="text-sm">Total Bounces</CardTitle>
             </CardHeader>
-            <CardContent className="py-2">
+            <CardBody className="py-2">
               <p className="text-2xl font-semibold">
                 {campaign.stats?.bounced || 0}
               </p>
-            </CardContent>
+            </CardBody>
           </Card>
           <Card>
             <CardHeader className="py-2">
               <CardTitle className="text-sm">Hard Bounces</CardTitle>
             </CardHeader>
-            <CardContent className="py-2">
+            <CardBody className="py-2">
               <p className="text-2xl font-semibold">
                 {campaign.stats?.hard_bounces || 0}
               </p>
-            </CardContent>
+            </CardBody>
           </Card>
           <Card>
             <CardHeader className="py-2">
               <CardTitle className="text-sm">Soft Bounces</CardTitle>
             </CardHeader>
-            <CardContent className="py-2">
+            <CardBody className="py-2">
               <p className="text-2xl font-semibold">
                 {campaign.stats?.soft_bounces || 0}
               </p>
-            </CardContent>
+            </CardBody>
           </Card>
           <Card>
             <CardHeader className="py-2">
               <CardTitle className="text-sm">Bounce Rate</CardTitle>
             </CardHeader>
-            <CardContent className="py-2">
+            <CardBody className="py-2">
               <p className="text-2xl font-semibold">
                 {campaign.stats?.bounce_rate?.toFixed(1) || '0.0'}%
               </p>
-            </CardContent>
+            </CardBody>
           </Card>
         </div>
       )}
@@ -192,74 +209,72 @@ export default function CampaignBouncesPage() {
         <CardHeader>
           <CardTitle>Bounced Emails</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardBody>
           {bounces.length === 0 ? (
             <div className="flex justify-center items-center py-10">
-              <p className="text-muted-foreground">No bounce data available for this campaign</p>
+              <p className="text-gray-500">No bounce data available for this campaign</p>
             </div>
           ) : isMobile ? (
             // Mobile view - card list
             <div className="space-y-4">
               {bounces.map((bounce) => (
                 <Card key={bounce.id}>
-                  <CardContent className="py-4">
+                  <CardBody className="py-4">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <p className="font-medium">{bounce.email}</p>
-                        <Badge variant={bounce.bounce_type === 'hard' ? 'destructive' : 'outline'}>
+                        <Chip color={bounce.bounce_type === 'hard' ? 'danger' : 'warning'}>
                           {bounce.bounce_type}
-                        </Badge>
+                        </Chip>
                       </div>
                       {bounce.description && (
-                        <p className="text-xs text-muted-foreground">{bounce.description}</p>
+                        <p className="text-xs text-gray-500">{bounce.description}</p>
                       )}
                       {bounce.bounce_code && (
                         <p className="text-xs">Code: {bounce.bounce_code}</p>
                       )}
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-gray-500">
                         {format(new Date(bounce.timestamp), 'MMM d, yyyy h:mm a')}
                       </p>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               ))}
             </div>
           ) : (
             // Desktop view - table
             <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Bounce Type</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead className="text-right">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <Table aria-label="Bounced emails">
+                <Table.Header>
+                  <Table.Column>Email</Table.Column>
+                  <Table.Column>Bounce Type</Table.Column>
+                  <Table.Column>Reason</Table.Column>
+                  <Table.Column>Code</Table.Column>
+                  <Table.Column align="right">Date</Table.Column>
+                </Table.Header>
+                <Table.Body>
                   {bounces.map((bounce) => (
-                    <TableRow key={bounce.id}>
-                      <TableCell className="font-medium">{bounce.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={bounce.bounce_type === 'hard' ? 'destructive' : 'outline'}>
+                    <Table.Row key={bounce.id}>
+                      <Table.Cell className="font-medium">{bounce.email}</Table.Cell>
+                      <Table.Cell>
+                        <Chip color={bounce.bounce_type === 'hard' ? 'danger' : 'warning'}>
                           {bounce.bounce_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
+                        </Chip>
+                      </Table.Cell>
+                      <Table.Cell className="max-w-xs truncate">
                         {bounce.description || '-'}
-                      </TableCell>
-                      <TableCell>{bounce.bounce_code || '-'}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      </Table.Cell>
+                      <Table.Cell>{bounce.bounce_code || '-'}</Table.Cell>
+                      <Table.Cell className="text-right text-gray-500">
                         {format(new Date(bounce.timestamp), 'MMM d, yyyy HH:mm')}
-                      </TableCell>
-                    </TableRow>
+                      </Table.Cell>
+                    </Table.Row>
                   ))}
-                </TableBody>
+                </Table.Body>
               </Table>
             </div>
           )}
-        </CardContent>
+        </CardBody>
       </Card>
     </div>
   );

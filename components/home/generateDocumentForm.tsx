@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import { generateLoi } from '@/actions/generateLoi.action';
-import { Button } from '@nextui-org/button';
-import { Card, CardBody } from '@nextui-org/card';
+import { Button, Card, CardBody } from '@heroui/react';
 import DocumentPreview from './documentPreview';
 import dynamic from 'next/dynamic';
-import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 // Dynamically import DocumentPreview to avoid SSR issues with the editor
 const DynamicDocumentPreview = dynamic(() => import('./documentPreview'), { ssr: false });
@@ -87,15 +86,34 @@ export default function GenerateDocumentForm() {
           logging: false,
         });
         
-        // Convert the canvas to a PDF
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = 210; // A4 width in mm
-        const pageHeight = 297; // A4 height in mm
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        // Convert the canvas to a PDF using pdf-lib
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage([canvas.width / 2, canvas.height / 2]);
         
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-        pdf.save(`LOI-${propertyAddress.replace(/[^a-z0-9]/gi, '-')}.pdf`);
+        // Add the image to the PDF
+        const imgData = canvas.toDataURL('image/png').replace(/^data:image\/(png|jpg);base64,/, '');
+        const img = await pdfDoc.embedPng(Buffer.from(imgData, 'base64'));
+        const { width, height } = page.getSize();
+        
+        page.drawImage(img, {
+          x: 0,
+          y: 0,
+          width,
+          height,
+        });
+        
+        // Save the PDF
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `LOI-${propertyAddress.replace(/[^a-z0-9]/gi, '-')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       } catch (pdfError) {
         console.error('Error generating PDF:', pdfError);
       }

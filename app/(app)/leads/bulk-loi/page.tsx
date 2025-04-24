@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader, CardFooter } from "@heroui/react/card";
-import { Button } from '@heroui/react/button';
-import { Spinner } from '@heroui/react/spinner';
-import { Select, SelectItem } from '@heroui/react/select';
-import { Chip } from '@heroui/react/chip';
+import { Card, CardBody, CardHeader, CardFooter, Button, Spinner, Select, Chip } from "@heroui/react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/app/providers/trpc-provider';
 import { FaFileAlt, FaDownload, FaEnvelope } from 'react-icons/fa';
+
+// Temporary solution for missing SelectItem
+const SelectItem = ({ children, value, ...props }: { children: React.ReactNode, value: string, [key: string]: any }) => (
+  <option value={value} {...props}>{children}</option>
+);
 
 export default function BulkLoiPage() {
   const searchParams = useSearchParams();
@@ -220,6 +221,7 @@ export default function BulkLoiPage() {
               isLoading={isGenerating}
               isDisabled={selectedLeads.length === 0}
               startContent={<FaFileAlt />}
+
             >
               Generate {selectedLeads.length} LOIs
             </Button>

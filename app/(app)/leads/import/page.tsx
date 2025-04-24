@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardBody, CardHeader, CardFooter } from "@nextui-org/card";
-import { Button } from "@nextui-org/button";
-import { Divider } from "@nextui-org/divider";
+import { Card, CardBody, CardHeader, CardFooter, Button, Divider } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { FaArrowLeft, FaUpload, FaDownload, FaFileAlt } from "react-icons/fa";
 import { uploadCsv } from "@/actions/ingestLeads.action";

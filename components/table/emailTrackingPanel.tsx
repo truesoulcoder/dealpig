@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader } from '@nextui-org/card';
-import { Chip } from '@nextui-org/chip';
-import { Spinner } from '@nextui-org/spinner';
-import { Button } from '@nextui-org/button';
+import { Card, CardBody, CardHeader, Chip, Spinner, Button } from '@heroui/react';
 import { Email, getEmailsByLeadId } from '@/lib/database';
 
 interface EmailTrackingPanelProps {

@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { FormikProvider, Form, useFormik } from 'formik';
 import * as Yup from 'yup';
 import Papa from 'papaparse';
-import { Button } from '@nextui-org/button';
-import { Card, CardBody } from '@nextui-org/card';
+import { Button, Card, CardBody } from '@heroui/react';
 import { supabase } from '@/lib/supabaseClient';
 
 const UploadCsvSchema = Yup.object().shape({
