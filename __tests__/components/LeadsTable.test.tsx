@@ -9,24 +9,29 @@ jest.mock('../../lib/database', () => ({
   getEmailsByLeadId: jest.fn()
 }));
 
+// Mock HeroUI components
+jest.mock('@heroui/react', () => {
+  return {
+    Table: ({ children }: { children: React.ReactNode }) => <table>{children}</table>,
+    TableHeader: ({ children }: { children: React.ReactNode }) => <thead>{children}</thead>,
+    TableColumn: ({ children }: { children: React.ReactNode }) => <th>{children}</th>,
+    TableBody: ({ children }: { children: React.ReactNode }) => <tbody>{children}</tbody>,
+    TableRow: ({ children, ...props }: { children: React.ReactNode }) => <tr {...props}>{children}</tr>,
+    TableCell: ({ children }: { children: React.ReactNode }) => <td>{children}</td>,
+    Chip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Button: ({ children, ...props }: { children: React.ReactNode }) => <button {...props}>{children}</button>,
+    Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Pagination: () => <div data-testid="pagination" />,
+    Input: ({ placeholder, ...props }: { placeholder: string }) => <input placeholder={placeholder} {...props} />,
+    Dropdown: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DropdownTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DropdownItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
+  };
+});
+
 // Creating a direct mock for the icon imports
 jest.mock('@heroui/react/outline', () => {
-  return {
-    SearchIcon: () => <svg data-testid="search-icon" />,
-    FilterIcon: () => <svg data-testid="filter-icon" />,
-    DotsVerticalIcon: () => <svg data-testid="dots-icon" />,
-    TrashIcon: () => <svg data-testid="trash-icon" />,
-    PencilIcon: () => <svg data-testid="pencil-icon" />,
-    MailIcon: () => <svg data-testid="mail-icon" />,
-    DocumentIcon: () => <svg data-testid="document-icon" />,
-    PhoneIcon: () => <svg data-testid="phone-icon" />,
-    ChevronLeftIcon: () => <svg data-testid="chevron-left-icon" />,
-    ChevronRightIcon: () => <svg data-testid="chevron-right-icon" />
-  };
-}, { virtual: true });
-
-// Also mock potentially alternate icon import paths
-jest.mock('@heroui/icons', () => {
   return {
     SearchIcon: () => <svg data-testid="search-icon" />,
     FilterIcon: () => <svg data-testid="filter-icon" />,
