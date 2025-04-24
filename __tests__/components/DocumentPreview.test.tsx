@@ -132,8 +132,10 @@ describe('DocumentPreview component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock the templates returned from the database
-    (getTemplates as jest.Mock).mockResolvedValue(mockTemplates);
+    // Set up the promises before they're used
+    (getTemplates as jest.Mock).mockImplementation(() => {
+      return Promise.resolve(mockTemplates);
+    });
   });
 
   it('renders the document preview component', async () => {

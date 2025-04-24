@@ -39,10 +39,18 @@ interface InputProps {
 
 // Mock HeroUI components
 jest.mock('@heroui/react', () => ({
-  Button: ({ children, onPress, ...props }: ButtonProps) => (
-    <button onClick={onPress} data-testid="login-button" {...props}>{children}</button>
+  Button: ({ children, onPress, isDisabled, isLoading, ...props }: ButtonProps) => (
+    <button 
+      onClick={onPress} 
+      data-testid="login-button" 
+      disabled={isDisabled} 
+      aria-busy={isLoading}
+      {...props}
+    >
+      {isLoading ? 'Loading...' : children}
+    </button>
   ),
-  Input: ({ label, type, value, onChange, errorMessage, isInvalid, ...props }: InputProps) => (
+  Input: ({ label, type, value, onChange, errorMessage, isInvalid, isDisabled, ...props }: InputProps) => (
     <div>
       <label htmlFor={`input-${type}`}>{label}</label>
       <input 
@@ -52,6 +60,7 @@ jest.mock('@heroui/react', () => ({
         value={value} 
         onChange={(e) => onChange && onChange(e.target.value)}
         aria-invalid={isInvalid}
+        disabled={isDisabled}
         {...props}
       />
       {isInvalid && <div data-testid={`error-${type}`} className="error-message">{errorMessage}</div>}

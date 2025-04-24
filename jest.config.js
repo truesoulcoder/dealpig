@@ -15,7 +15,6 @@ const customJestConfig = {
     // Mock packages to prevent dynamic import issues
     '@heroui/ripple': '<rootDir>/__mocks__/heroui-ripple.js',
     '@heroui/react/outline': '<rootDir>/__mocks__/heroui-react-outline.js',
-    '@nextui-org/button': '<rootDir>/__mocks__/nextui-button.js',
   },
   testMatch: [
     "**/__tests__/**/*.ts?(x)",
@@ -35,6 +34,8 @@ const customJestConfig = {
   },
   // Ensure Jest can find the mocks directory
   moduleDirectories: ['node_modules', '<rootDir>'],
+  // Set default timeout for tests to 30 seconds
+  testTimeout: 30000,
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

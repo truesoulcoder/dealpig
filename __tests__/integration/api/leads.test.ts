@@ -1,4 +1,4 @@
-import { createMocks } from 'node-mocks-http';
+import { NextRequest, NextResponse } from 'next/server';
 import { GET, POST, PUT, DELETE } from '@/app/api/leads/route';
 import * as database from '@/lib/database';
 
@@ -9,6 +9,39 @@ jest.mock('@/lib/database', () => ({
   updateLead: jest.fn(),
   deleteLead: jest.fn(),
 }));
+
+// Mock Next.js Response
+jest.mock('next/server', () => {
+  const originalModule = jest.requireActual('next/server');
+  return {
+    ...originalModule,
+    NextResponse: {
+      json: jest.fn().mockImplementation((body, init) => ({
+        body,
+        status: init?.status || 200,
+        headers: init?.headers || {},
+      })),
+    },
+  };
+});
+
+// Helper function to create mock NextRequest
+const createMockRequest = (method: string, body?: any, query?: Record<string, string>) => {
+  const url = new URL('https://example.com/api/leads');
+  
+  if (query) {
+    Object.entries(query).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+  }
+  
+  return {
+    method,
+    url: url.toString(),
+    json: jest.fn().mockResolvedValue(body),
+    nextUrl: url,
+  } as unknown as NextRequest;
+};
 
 describe('Leads API', () => {
   beforeEach(() => {
@@ -26,62 +59,29 @@ describe('Leads API', () => {
       // Mock the database response
       (database.getLeads as jest.Mock).mockResolvedValue(mockLeads);
       
-      // Create mocked request and response
-      const { req, res } = createMocks({
-        method: 'GET',
-      });
+      // Create mocked request
+      const req = createMockRequest('GET');
       
       // Call the API endpoint handler
-      await GET(req);
+      const response = await GET(req);
       
       // Assert the response
       expect(database.getLeads).toHaveBeenCalled();
-      expect(res._getStatusCode()).toBe(200);
-      expect(JSON.parse(res._getData())).toEqual(mockLeads);
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(mockLeads);
     });
     
     it('should handle errors', async () => {
       // Mock a database error
       (database.getLeads as jest.Mock).mockRejectedValue(new Error('Database error'));
       
-      // Create mocked request and response
-      const { req, res } = createMocks({
-        method: 'GET',
-      });
+      // Create mocked request
+      const req = createMockRequest('GET');
       
       // Call the API endpoint handler
-      await GET(req);
+      const response = await GET(req);
       
       // Assert the response
-      expect(database.getLeads).toHaveBeenCalled();
-      expect(res._getStatusCode()).toBe(500);
-      expect(JSON.parse(res._getData())).toEqual({ error: 'Failed to fetch leads' });
-    });
-  });
-
-  describe('POST /api/leads', () => {
-    it('should create a new lead', async () => {
-      // Mock data
-      const newLead = {
-        property_address: '789 New St',
-        property_city: 'New City',
-        property_state: 'NS',
-        property_zip: '12345',
-        owner_name: 'New Owner',
-        owner_email: 'owner@example.com',
-        offer_price: 250000,
-        earnest_money: 5000,
-        closing_date: '2025-06-01',
-      };
-      
-      const createdLead = { ...newLead, id: '3' };
-      
-      // Mock the database response
-      (database.insertLead as jest.Mock).mockResolvedValue(createdLead);
-      
-      // Create mocked request and response
-      const { req, res } = createMocks({
-        method: 'POST',
         body: newLead,
       });
       

@@ -151,6 +151,9 @@ export async function createLead(lead: Lead): Promise<Lead | null> {
   return data[0] as Lead;
 }
 
+// Add insertLead as an alias for createLead to match what the tests are expecting
+export const insertLead = createLead;
+
 export async function getLeadById(id: string): Promise<Lead | null> {
   const { data, error } = await supabase
     .from('leads')
