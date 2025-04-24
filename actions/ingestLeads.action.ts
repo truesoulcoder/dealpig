@@ -3,7 +3,17 @@
 import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
-import { createLead, createContact, createLeadSource, Lead, Contact, LeadSource } from '@/lib/database';
+import { 
+  createLead, 
+  createContact, 
+  createLeadSource, 
+  createCampaign,
+  addLeadsToCampaign,
+  Lead, 
+  Contact, 
+  LeadSource,
+  Campaign
+} from '@/lib/database';
 
 interface CsvLead {
   property_address: string;
@@ -29,6 +39,7 @@ interface IngestResult {
   insertedContacts: number;
   errors: string[];
   sourceId?: string;
+  campaignId?: string;
 }
 
 // Core logic extracted to be testable
@@ -37,7 +48,9 @@ export async function ingestLeadsFromCsvCore(
   fileName: string,
   dbCreateLeadSource = createLeadSource,
   dbCreateLead = createLead,
-  dbCreateContact = createContact
+  dbCreateContact = createContact,
+  dbCreateCampaign = createCampaign,
+  dbAddLeadsToCampaign = addLeadsToCampaign
 ): Promise<IngestResult> {
   try {
     // Parse CSV content
@@ -58,10 +71,12 @@ export async function ingestLeadsFromCsvCore(
       };
     }
 
-    // Create a lead source record to track this import
-    const sourceName = `Import ${new Date().toLocaleString()}`;
+    // Extract base filename without extension to use as name
+    const baseFileName = path.basename(fileName, '.csv');
+    
+    // Create a lead source record using the filename as the name
     const leadSource: LeadSource = {
-      name: sourceName,
+      name: baseFileName, // Use the CSV filename (without extension) as the lead source name
       file_name: fileName,
       last_imported: new Date().toISOString(),
       record_count: rows.length,
@@ -73,6 +88,7 @@ export async function ingestLeadsFromCsvCore(
     let insertedLeads = 0;
     let insertedContacts = 0;
     const errors: string[] = [];
+    const leadIds: string[] = [];
 
     // Process each row in the CSV
     for (const row of rows) {
@@ -102,8 +118,9 @@ export async function ingestLeadsFromCsvCore(
         // Insert the lead
         const newLead = await dbCreateLead(lead);
         
-        if (newLead) {
+        if (newLead && newLead.id) {
           insertedLeads++;
+          leadIds.push(newLead.id);
 
           // If contact information is provided, create a contact record
           if (row.contact_name && row.contact_email && newLead.id) {
@@ -129,14 +146,46 @@ export async function ingestLeadsFromCsvCore(
       }
     }
 
+    // Automatically create a campaign for this lead list
+    let campaignId: string | undefined;
+    if (leadIds.length > 0 && sourceId) {
+      try {
+        // Create a new campaign with default settings
+        const campaign: Campaign = {
+          name: `${baseFileName} Campaign`,
+          description: `Auto-generated campaign for ${baseFileName} lead list`,
+          status: 'DRAFT',
+          leads_per_day: 10, // Default value
+          start_time: '09:00',  // Default value
+          end_time: '17:00',    // Default value
+          min_interval_minutes: 15,  // Default value
+          max_interval_minutes: 45,  // Default value
+          attachment_type: 'PDF',    // Default value
+          total_leads: leadIds.length
+        };
+
+        const newCampaign = await dbCreateCampaign(campaign);
+        
+        if (newCampaign && newCampaign.id) {
+          campaignId = newCampaign.id;
+          
+          // Add the leads to the campaign
+          await dbAddLeadsToCampaign(campaignId, leadIds);
+        }
+      } catch (error) {
+        errors.push(`Error creating campaign: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
     return {
       success: insertedLeads > 0,
-      message: `Processed ${rows.length} rows, inserted ${insertedLeads} leads and ${insertedContacts} contacts`,
+      message: `Processed ${rows.length} rows, inserted ${insertedLeads} leads and ${insertedContacts} contacts${campaignId ? ', and created a campaign' : ''}`,
       totalRows: rows.length,
       insertedLeads,
       insertedContacts,
       errors,
-      sourceId
+      sourceId,
+      campaignId
     };
   } catch (error) {
     console.error('Error parsing CSV:', error);

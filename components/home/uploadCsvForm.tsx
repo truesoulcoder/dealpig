@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import { FormikProvider, Form, useFormik } from 'formik';
 import * as Yup from 'yup';
-import Papa from 'papaparse';
 import { Button, Card, CardBody } from '@heroui/react';
-import { supabase } from '@/lib/supabaseClient';
+import { uploadCsv } from '@/actions/ingestLeads.action';
 
 const UploadCsvSchema = Yup.object().shape({
   csvFile: Yup.mixed()
@@ -23,6 +22,7 @@ export default function UploadCsvForm() {
     total: number;
     success: number;
     failed: number;
+    campaignName: string;
   } | null>(null);
 
   const formik = useFormik({
@@ -37,38 +37,38 @@ export default function UploadCsvForm() {
       setUploadStats(null);
       
       try {
-        // Parse the CSV file
-        const results = await new Promise<Papa.ParseResult<any>>((resolve, reject) => {
-          Papa.parse(values.csvFile, {
-            header: true,
-            skipEmptyLines: true,
-            complete: resolve,
-            error: reject
+        // Create FormData to send the file
+        const formData = new FormData();
+        formData.append('file', values.csvFile);
+        
+        // Use the server action to upload the CSV
+        // This will use the filename as the campaign name
+        const result = await uploadCsv(formData);
+        
+        if (result.success) {
+          // Get filename without extension to display as campaign name
+          const filename = values.csvFile.name;
+          const campaignName = filename.endsWith('.csv') 
+            ? filename.slice(0, -4) 
+            : filename;
+            
+          setUploadStats({
+            total: result.totalRows,
+            success: result.insertedLeads,
+            failed: result.totalRows - result.insertedLeads,
+            campaignName
           });
-        });
+        } else {
+          console.error('Upload failed:', result.message);
+          // Show error stats
+          setUploadStats({
+            total: result.totalRows,
+            success: result.insertedLeads,
+            failed: result.totalRows - result.insertedLeads,
+            campaignName: ''
+          });
+        }
         
-        // Process the data and insert into Supabase
-        let successCount = 0;
-        let failedCount = 0;
-        
-        for (const row of results.data) {
-          // Transform field names to match the database schema
-          const lead = {
-            property_address: row.property_address || row.address || '',
-            property_city: row.property_city || row.city || '',
-            property_state: row.property_state || row.state || '',
-            property_zip: row.property_zip || row.zip || '',
-            wholesale_value: parseFloat(row.wholesale_value || '0') || 0,
-            market_value: parseFloat(row.market_value || '0') || 0,
-            days_on_market: parseInt(row.days_on_market || '0') || 0,
-            mls_status: row.mls_status || '',
-            mls_list_date: row.mls_list_date || null,
-            mls_list_price: parseFloat(row.mls_list_price || '0') || null,
-            status: row.status || 'new',
-            email_status: 'pending',
-            source_id: row.source_id || null
-          };
-
           const { error } = await supabase.from('leads').insert(lead);
           
           if (error) {
