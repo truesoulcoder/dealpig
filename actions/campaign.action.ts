@@ -43,3 +43,14 @@ export async function completeCampaign(campaignId: string): Promise<boolean> {
     return false;
   }
 }
+
+// Export function to get emails by lead ID
+export async function getEmailsByLead(leadId: string) {
+  try {
+    const { getEmailsByLeadId } = await import('@/lib/database');
+    return getEmailsByLeadId(leadId);
+  } catch (error) {
+    console.error('Error in getEmailsByLead action:', error);
+    return [];
+  }
+}

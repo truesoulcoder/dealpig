@@ -58,14 +58,14 @@ export const RenderCell = ({ user, columnKey }: Props) => {
         <div className="flex items-center gap-4 ">
           <div>
             <Tooltip content="Details">
-              <button onClick={() => console.log("View user", user.id)}>
+              <button onPress={() => console.log("View user", user.id)}>
                 <EyeIcon size={20} fill="#979797" />
               </button>
             </Tooltip>
           </div>
           <div>
             <Tooltip content="Edit user" color="secondary">
-              <button onClick={() => console.log("Edit user", user.id)}>
+              <button onPress={() => console.log("Edit user", user.id)}>
                 <EditIcon size={20} fill="#979797" />
               </button>
             </Tooltip>
@@ -74,7 +74,7 @@ export const RenderCell = ({ user, columnKey }: Props) => {
             <Tooltip
               content="Delete user"
               color="danger"
-              onClick={() => console.log("Delete user", user.id)}
+              onPress={() => console.log("Delete user", user.id)}
             >
               <button>
                 <DeleteIcon size={20} fill="#FF0080" />

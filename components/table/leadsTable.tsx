@@ -36,12 +36,13 @@ import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { EllipsisVerticalIcon as VerticalDotsIcon } from "@heroicons/react/24/outline";
 import { columns, statusColorMap, statusOptions, emailStatusOptions } from "./tableData";
-import { getLeads } from "@/actions/ingestLeads.action";
+import { getLeads, updateLead, deleteLead } from "@/actions/ingestLeads.action";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { generateLoi } from "@/actions/generateLoi.action";
 import { sendLoiEmail } from "@/actions/sendLoiEmail.action";
 import { Lead } from "@/helpers/types";
+import { getEmailsByLead } from "@/actions/campaign.action";
 
 interface LeadWithEmail extends Lead {
   email_status?: string;
@@ -51,6 +52,17 @@ interface LeadWithEmail extends Lead {
 
 interface LeadsTableProps {
   onRowClick?: (leadId: string) => void;
+}
+
+// Helper function to get emails by lead ID
+async function getEmailsByLeadId(leadId: string) {
+  try {
+    const emails = await getEmailsByLead(leadId);
+    return emails || [];
+  } catch (error) {
+    console.error(`Error fetching emails for lead ${leadId}:`, error);
+    return [];
+  }
 }
 
 export default function LeadsTable({ onRowClick }: LeadsTableProps) {
@@ -71,6 +83,8 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   });
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
   const [bulkStatus, setBulkStatus] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
   
   // Modal state for bulk email
@@ -123,6 +137,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
       setLeads(leadsWithEmailStatus);
     } catch (error) {
       console.error('Error fetching leads with email status:', error);
+      toast.error("Failed to load leads. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -158,8 +173,8 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
         lead.property_city?.toLowerCase().includes(query) ||
         lead.property_zip?.toLowerCase().includes(query) ||
         (lead.contacts && lead.contacts.some(contact => 
-          contact.name.toLowerCase().includes(query) || 
-          contact.email.toLowerCase().includes(query)
+          contact.name?.toLowerCase().includes(query) || 
+          contact.email?.toLowerCase().includes(query)
         ))
       );
     }
@@ -302,17 +317,18 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
     if (!bulkStatus) return;
     
     try {
+      setIsUpdating(true);
       // Update each selected lead with the new status
       await Promise.all(
         selectedLeads.map(lead => {
           if (!lead.id) return Promise.resolve();
-          return updateLeadMutation.mutate({
+          return updateLead({
             id: lead.id,
             status: bulkStatus,
-            property_address: lead.property_address,
-            property_city: lead.property_city,
-            property_state: lead.property_state,
-            property_zip: lead.property_zip,
+            property_address: lead.property_address || '',
+            property_city: lead.property_city || '',
+            property_state: lead.property_state || '',
+            property_zip: lead.property_zip || '',
             owner_name: lead.owner_name || '',
             owner_email: lead.contacts?.[0]?.email || '',
             offer_price: lead.offer_price || 0
@@ -321,10 +337,15 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
       );
       
       // Successfully updated
+      toast.success(`Updated status for ${selectedLeads.length} leads`);
+      loadLeads(); // Reload leads to show updated status
       onCloseStatusModal();
       setSelectedKeys(new Set([]));
     } catch (error) {
       console.error('Error in bulk status update:', error);
+      toast.error('Failed to update lead statuses');
+    } finally {
+      setIsUpdating(false);
     }
   };
   
@@ -336,19 +357,25 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   // Process bulk delete
   const processBulkDelete = async () => {
     try {
+      setIsDeleting(true);
       // Delete each selected lead
       await Promise.all(
         selectedLeads.map(lead => {
           if (!lead.id) return Promise.resolve();
-          return deleteLeadMutation.mutate(lead.id);
+          return deleteLead(lead.id);
         })
       );
       
       // Successfully deleted
+      toast.success(`Deleted ${selectedLeads.length} leads`);
+      loadLeads(); // Reload leads to show updated list
       onCloseDeleteModal();
       setSelectedKeys(new Set([]));
     } catch (error) {
       console.error('Error in bulk delete:', error);
+      toast.error('Failed to delete leads');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -370,7 +397,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   };
 
   if (loading) {
-    return <div className="flex justify-center p-4"><span>Loading leads...</span></div>;
+    return <div className="flex justify-center p-4"><Spinner /></div>;
   }
 
   return (
@@ -404,6 +431,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
               closeOnSelect={false}
               selectedKeys={visibleColumns}
               selectionMode="multiple"
+              onSelectionChange={handleColumnVisibilityChange as any}
             >
               <DropdownItem key="property_address">Address</DropdownItem>
               <DropdownItem key="property_city">City</DropdownItem>
@@ -478,8 +506,10 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
                 </Button>
               </DropdownTrigger>
               <DropdownMenu aria-label="Bulk Actions">
-                <DropdownItem key="bulk-loi" onClick={handleBulkLOI}>Generate LOIs</DropdownItem>
-                <DropdownItem key="bulk-email" onClick={handleBulkEmail}>Send Emails</DropdownItem>
+                <DropdownItem key="bulk-loi" onPress={handleBulkGenerateLOI}>Generate LOIs</DropdownItem>
+                <DropdownItem key="bulk-email" onPress={handleBulkSendEmail}>Send Emails</DropdownItem>
+                <DropdownItem key="bulk-status" onPress={handleBulkStatusUpdate}>Update Status</DropdownItem>
+                <DropdownItem key="bulk-delete" onPress={handleBulkDelete} className="text-danger">Delete</DropdownItem>
               </DropdownMenu>
             </Dropdown>
           )}
@@ -558,7 +588,8 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
                         <DropdownMenu>
                           <DropdownItem 
                             key="generate-loi" 
-                            onClick={(e) => {
+                            onPress={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               lead.id && handleGenerateLOI(lead.id, e);
                             }}
@@ -567,7 +598,8 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
                           </DropdownItem>
                           <DropdownItem 
                             key="send-email"
-                            onClick={(e) => {
+                            onPress={(e) => {
+                              e.preventDefault();
                               e.stopPropagation();
                               lead.id && handleSendEmail(lead.id, e);
                             }}
@@ -577,7 +609,8 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
                           {onRowClick && lead.id && (
                             <DropdownItem 
                               key="view"
-                              onClick={(e) => {
+                              onPress={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 handleRowClick(lead.id!);
                               }}
@@ -652,10 +685,10 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
             </p>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onClick={onCloseEmailModal}>
+            <Button variant="flat" onPress={onCloseEmailModal}>
               Cancel
             </Button>
-            <Button color="primary" onClick={processBulkEmail}>
+            <Button color="primary" onPress={processBulkEmail}>
               Proceed
             </Button>
           </ModalFooter>
@@ -683,14 +716,14 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
             </Select>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onClick={onCloseStatusModal}>
+            <Button variant="flat" onPress={onCloseStatusModal}>
               Cancel
             </Button>
             <Button 
               color="primary" 
-              onClick={processBulkStatusUpdate}
+              onPress={processBulkStatusUpdate}
               isDisabled={!bulkStatus}
-              isLoading={updateLeadMutation.isLoading}
+              isLoading={isUpdating}
             >
               Update Status
             </Button>
@@ -707,13 +740,13 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
             <p className="mt-2">You are about to delete {selectedLeads.length} lead(s). Are you sure you want to proceed?</p>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onClick={onCloseDeleteModal}>
+            <Button variant="flat" onPress={onCloseDeleteModal}>
               Cancel
             </Button>
             <Button 
               color="danger" 
-              onClick={processBulkDelete}
-              isLoading={deleteLeadMutation.isLoading}
+              onPress={processBulkDelete}
+              isLoading={isDeleting}
             >
               Delete Leads
             </Button>
