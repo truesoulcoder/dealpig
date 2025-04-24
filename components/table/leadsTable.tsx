@@ -80,12 +80,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   // Modal state for bulk status update
   const { isOpen: isStatusModalOpen, onOpen: onOpenStatusModal, onClose: onCloseStatusModal } = useDisclosure();
 
-  // Load leads with their email statuses
-  useEffect(() => {
-    loadLeads();
-  }, [loadLeads]);
-  
-  // Function to load leads data
+  // Function to load leads data - MOVED UP before useEffect
   const loadLeads = useCallback(async () => {
     try {
       setLoading(true);
@@ -133,7 +128,12 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
     }
   }, []);
 
-  // Handle column visibility change
+  // Load leads with their email statuses
+  useEffect(() => {
+    loadLeads();
+  }, [loadLeads]);
+  
+  // Function to load leads data
   const handleColumnVisibilityChange = useCallback((column: string) => {
     setVisibleColumns((prevColumns) => {
       const newColumns = new Set(prevColumns);

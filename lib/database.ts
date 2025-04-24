@@ -173,34 +173,73 @@ export async function getLeadById(id: string): Promise<Lead | null> {
 }
 
 export async function getLeads(status?: string, search?: string, limit = 100, offset = 0): Promise<Lead[]> {
-  let query = supabase.from('leads').select(`
-    *,
-    contacts (*)
-  `);
+  try {
+    // First, fetch the leads
+    let query = supabase.from('leads').select('*');
 
-  if (status) {
-    query = query.eq('status', status);
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    if (search) {
+      query = query.or(`
+        property_address.ilike.%${search}%,
+        property_city.ilike.%${search}%,
+        property_state.ilike.%${search}%,
+        property_zip.ilike.%${search}%
+      `);
+    }
+
+    const { data: leadsData, error: leadsError } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (leadsError) {
+      console.error('Error fetching leads:', leadsError);
+      return []; // Return empty array on error
+    }
+
+    // Now fetch all contacts for these leads in a single query
+    if (leadsData && leadsData.length > 0) {
+      const leadIds = leadsData.map(lead => lead.id);
+      
+      const { data: contactsData, error: contactsError } = await supabase
+        .from('contacts')
+        .select('*')
+        .in('lead_id', leadIds)
+        .order('is_primary', { ascending: false });
+
+      if (contactsError) {
+        console.error('Error fetching contacts:', contactsError);
+        // Return leads without contacts
+        return leadsData as Lead[];
+      }
+
+      // Group contacts by lead_id
+      const contactsByLeadId: Record<string, Contact[]> = {};
+      contactsData?.forEach(contact => {
+        if (!contactsByLeadId[contact.lead_id]) {
+          contactsByLeadId[contact.lead_id] = [];
+        }
+        contactsByLeadId[contact.lead_id].push(contact as Contact);
+      });
+
+      // Attach contacts to their leads
+      const leadsWithContacts = leadsData.map(lead => {
+        return {
+          ...lead,
+          contacts: contactsByLeadId[lead.id || ''] || []
+        };
+      });
+
+      return leadsWithContacts as Lead[];
+    }
+
+    return leadsData as Lead[];
+  } catch (error) {
+    console.error('Error in getLeads:', error);
+    return [];
   }
-
-  if (search) {
-    query = query.or(`
-      property_address.ilike.%${search}%,
-      property_city.ilike.%${search}%,
-      property_state.ilike.%${search}%,
-      property_zip.ilike.%${search}%
-    `);
-  }
-
-  const { data, error } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) {
-    console.error('Error fetching leads:', error);
-    return []; // Return empty array on error
-  }
-
-  return data as Lead[];
 }
 
 export async function updateLead(id: string, updates: Partial<Lead>): Promise<Lead | null> {

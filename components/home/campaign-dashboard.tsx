@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardBody, CardHeader, Button, Spinner } from "@heroui/react";
 import { FaPlus } from "react-icons/fa";
-import { getCampaigns, Campaign } from '@/lib/database';
+import { Campaign } from '@/lib/database'; // Keep the type import
+import { getCampaigns } from '@/actions/campaign.action'; // Import the server action instead
 import { useRouter } from 'next/navigation';
 import CampaignCard from './campaign-card';
 
@@ -50,6 +51,7 @@ export default function CampaignDashboard() {
     setActiveCampaigns(active);
   };
   
+  // Rest of the component remains unchanged
   return (
     <div>
       {/* Campaign Status Overview */}

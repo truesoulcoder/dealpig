@@ -78,7 +78,7 @@ This document outlines envisioned purpose and the planned development roadmap, t
 1. **Feature Enhancements**:
    - ✅ Advanced search and filtering - Implemented in LeadsTable with status and email status filters
    - ✅ Custom document templates - Implemented with template selection and editing in DocumentPreview
-   - ❌ Email scheduling - Not yet implemented
+   - ✅ Email scheduling - Implemented with bulk email functionality and campaign scheduling system
    - ❌ Pipeline visualization - Not yet implemented
 
 2. **Technical Debt**:
