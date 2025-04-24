@@ -26,8 +26,22 @@ interface CsvLead {
   mls_status?: string;
   mls_list_date?: string;
   mls_list_price?: string;
-  contact_name?: string;
-  contact_email?: string;
+  owner_type?: string;
+  property_type?: string;
+  beds?: string;
+  baths?: string;
+  square_footage?: string;
+  year_built?: string;
+  assessed_total?: string;
+  contact1name?: string;
+  contact1phone_1?: string;
+  contact1email_1?: string;
+  contact2name?: string;
+  contact2phone_1?: string;
+  contact2email_1?: string;
+  contact3name?: string;
+  contact3phone_1?: string;
+  contact3email_1?: string;
   [key: string]: string | undefined;
 }
 
@@ -99,7 +113,7 @@ export async function ingestLeadsFromCsvCore(
           continue;
         }
 
-        // Convert numeric values
+        // Convert numeric values and prepare lead with contact information
         const lead: Lead = {
           property_address: row.property_address,
           property_city: row.property_city,
@@ -111,6 +125,23 @@ export async function ingestLeadsFromCsvCore(
           mls_status: row.mls_status,
           mls_list_date: row.mls_list_date,
           mls_list_price: row.mls_list_price ? parseFloat(row.mls_list_price) : undefined,
+          owner_type: row.owner_type,
+          property_type: row.property_type,
+          beds: row.beds,
+          baths: row.baths,
+          square_footage: row.square_footage,
+          year_built: row.year_built,
+          assessed_total: row.assessed_total ? parseFloat(row.assessed_total) : undefined,
+          // Add contact fields directly to the lead
+          contact1name: row.contact1name,
+          contact1phone_1: row.contact1phone_1,
+          contact1email_1: row.contact1email_1,
+          contact2name: row.contact2name,
+          contact2phone_1: row.contact2phone_1,
+          contact2email_1: row.contact2email_1,
+          contact3name: row.contact3name,
+          contact3phone_1: row.contact3phone_1,
+          contact3email_1: row.contact3email_1,
           source_id: sourceId,
           status: 'NEW'
         };
@@ -122,21 +153,58 @@ export async function ingestLeadsFromCsvCore(
           insertedLeads++;
           leadIds.push(newLead.id);
 
-          // If contact information is provided, create a contact record
-          if (row.contact_name && row.contact_email && newLead.id) {
-            const contact: Contact = {
-              name: row.contact_name,
-              email: row.contact_email,
+          // Create contacts from the lead's contact fields
+          let contactsCreated = 0;
+          
+          // Create Contact 1 if name and email exist
+          if (row.contact1name && row.contact1email_1 && newLead.id) {
+            const contact1: Contact = {
+              name: row.contact1name,
+              email: row.contact1email_1,
               lead_id: newLead.id,
               is_primary: true
             };
 
-            const newContact = await dbCreateContact(contact);
+            const newContact = await dbCreateContact(contact1);
             if (newContact) {
-              insertedContacts++;
-            } else {
-              errors.push(`Failed to insert contact for lead: ${newLead.id}`);
+              contactsCreated++;
             }
+          }
+          
+          // Create Contact 2 if name and email exist
+          if (row.contact2name && row.contact2email_1 && newLead.id) {
+            const contact2: Contact = {
+              name: row.contact2name,
+              email: row.contact2email_1,
+              lead_id: newLead.id,
+              is_primary: false
+            };
+
+            const newContact = await dbCreateContact(contact2);
+            if (newContact) {
+              contactsCreated++;
+            }
+          }
+          
+          // Create Contact 3 if name and email exist
+          if (row.contact3name && row.contact3email_1 && newLead.id) {
+            const contact3: Contact = {
+              name: row.contact3name,
+              email: row.contact3email_1,
+              lead_id: newLead.id,
+              is_primary: false
+            };
+
+            const newContact = await dbCreateContact(contact3);
+            if (newContact) {
+              contactsCreated++;
+            }
+          }
+          
+          insertedContacts += contactsCreated;
+          
+          if (contactsCreated === 0) {
+            errors.push(`No valid contacts found for lead: ${newLead.id}`);
           }
         } else {
           errors.push(`Failed to insert lead: ${row.property_address}`);

@@ -79,7 +79,6 @@ This document outlines envisioned purpose and the planned development roadmap, t
    - ✅ Advanced search and filtering - Implemented in LeadsTable with status and email status filters
    - ✅ Custom document templates - Implemented with template selection and editing in DocumentPreview
    - ✅ Email scheduling - Implemented with bulk email functionality and campaign scheduling system
-   - ❌ Pipeline visualization - Not yet implemented
 
 2. **Technical Debt**:
    - ✅ Replace `react-draft-wysiwyg` with React 19 compatible editor - Implemented TipTap editor in document editing components
