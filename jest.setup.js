@@ -20,6 +20,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@heroui/ripple', () => ({
   ripple: jest.fn(),
   useRipple: jest.fn(() => ({ rippleEffect: jest.fn() })),
+  Ripple: () => ({ children }) => children, // Add Ripple component mock
   // Add any other functions or components from the package that you're using
 }), { virtual: true });
 
@@ -56,6 +57,7 @@ jest.mock('@heroui/react', () => ({
   Table: ({ children, ...props }) => <table {...props}>{children}</table>,
   Tbody: ({ children, ...props }) => <tbody {...props}>{children}</tbody>,
   Tr: ({ children, ...props }) => <tr {...props}>{children}</tr>,
+
   Td: ({ children, ...props }) => <td {...props}>{children}</td>,
   Th: ({ children, ...props }) => <th {...props}>{children}</th>,
   Thead: ({ children, ...props }) => <thead {...props}>{children}</thead>,
