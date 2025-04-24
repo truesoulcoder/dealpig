@@ -91,7 +91,7 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
         <CardBody className="text-center py-8">
           <h3 className="text-xl font-semibold mb-4">Lead Not Found</h3>
           <p className="text-gray-500 mb-6">
-            The lead you're looking for could not be found or has been deleted.
+            The lead you are looking for could not be found or has been deleted.
           </p>
           <Button color="primary" onClick={() => router.push('/leads')}>
             Back to Leads
