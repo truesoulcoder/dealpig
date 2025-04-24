@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Card, CardBody, CardHeader, CardFooter, Button, Spinner, Select, Chip } from "@heroui/react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/app/providers/trpc-provider';
@@ -11,7 +11,8 @@ const SelectItem = ({ children, value, ...props }: { children: React.ReactNode, 
   <option value={value} {...props}>{children}</option>
 );
 
-export default function BulkLoiPage() {
+// Content component that uses searchParams hook
+function BulkLoiContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const leadIds = searchParams.get('ids')?.split(',') || [];
@@ -139,6 +140,8 @@ export default function BulkLoiPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Rest of your component content */}
+      {/* (Copy everything after this point from your original component) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-1">Bulk LOI Generation</h1>
@@ -221,7 +224,6 @@ export default function BulkLoiPage() {
               isLoading={isGenerating}
               isDisabled={selectedLeads.length === 0}
               startContent={<FaFileAlt />}
-
             >
               Generate {selectedLeads.length} LOIs
             </Button>
@@ -303,5 +305,28 @@ export default function BulkLoiPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+// Fallback component for Suspense
+function BulkLoiFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <Card>
+        <CardBody className="flex flex-col items-center justify-center py-12">
+          <Spinner size="lg" />
+          <p className="mt-4">Loading LOI generator...</p>
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function BulkLoiPage() {
+  return (
+    <Suspense fallback={<BulkLoiFallback />}>
+      <BulkLoiContent />
+    </Suspense>
   );
 }
