@@ -310,9 +310,9 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
   }
 
   return (
-    <Card>
+    <Card data-testid="document-preview-card">
       <CardHeader className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold">Document Preview</h2>
+        <h2 className="text-xl font-semibold" data-testid="document-preview-title">Document Preview</h2>
         <div className="flex flex-col sm:flex-row gap-4 w-full">
           <div className="w-full sm:w-2/3">
             <Select
@@ -321,6 +321,8 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
               value={selectedTemplate}
               onChange={(value) => handleTemplateChange(value)}
               className="w-full"
+              aria-label="Template selector"
+              data-testid="template-selector"
             >
               <SelectItem key="default" value="default">Default Template</SelectItem>
               {templates.map((template) => (
@@ -335,9 +337,10 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
               value={viewMode} 
               onValueChange={(value) => setViewMode(value as "edit" | "preview")}
               className="w-full"
+              data-testid="view-mode-tabs"
             >
-              <Tab value="edit" title="Edit" />
-              <Tab value="preview" title="Preview" />
+              <Tab value="edit" title="Edit" data-testid="edit-tab" />
+              <Tab value="preview" title="Preview" data-testid="preview-tab" />
             </Tabs>
           </div>
         </div>
@@ -345,14 +348,18 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
       
       <CardBody>
         {viewMode === "edit" ? (
-          <div className="border border-gray-300 rounded-md min-h-[500px] mb-4">
+          <div className="border border-gray-300 rounded-md min-h-[500px] mb-4" data-testid="editor-container">
             <EditorToolbar editor={editor} />
             <div className="p-4">
               <EditorContent editor={editor} />
             </div>
           </div>
         ) : (
-          <div className="border border-gray-300 rounded-md min-h-[500px] mb-4 p-6">
+          <div 
+            className="border border-gray-300 rounded-md min-h-[500px] mb-4 p-6" 
+            data-testid="preview-container"
+            role="article"
+          >
             <div 
               className="prose max-w-none" 
               dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }}
@@ -365,6 +372,8 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
             variant="primary"
             onClick={handleApprove}
             isLoading={isLoading}
+            data-testid="approve-button"
+            aria-label="Approve and Generate Document"
           >
             {isLoading ? 'Generating...' : 'Approve & Generate Document'}
           </Button>

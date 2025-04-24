@@ -9,6 +9,47 @@ jest.mock('../../lib/database', () => ({
   getEmailsByLeadId: jest.fn()
 }));
 
+// Mock HeroUI components and icons
+jest.mock('@heroui/react', () => ({
+  Button: ({ children, onClick }) => <button onClick={onClick}>{children}</button>,
+  Table: ({ children }) => <table>{children}</table>,
+  TableHeader: ({ children }) => <thead>{children}</thead>,
+  TableBody: ({ children }) => <tbody>{children}</tbody>,
+  TableColumn: ({ children }) => <th>{children}</th>,
+  TableRow: ({ children }) => <tr>{children}</tr>,
+  TableCell: ({ children }) => <td>{children}</td>,
+  Tooltip: ({ children, content }) => <div title={content}>{children}</div>,
+  Pagination: () => <div>Pagination</div>,
+  Input: ({ placeholder, onChange }) => <input placeholder={placeholder} onChange={onChange} />,
+  Dropdown: ({ children }) => <div>{children}</div>,
+  DropdownTrigger: ({ children }) => <div>{children}</div>,
+  DropdownMenu: ({ children }) => <div>{children}</div>,
+  DropdownItem: ({ children, key, onClick }) => <div key={key} onClick={onClick}>{children}</div>,
+  Card: ({ children }) => <div>{children}</div>,
+  CardBody: ({ children }) => <div>{children}</div>,
+  useDisclosure: () => ({ isOpen: false, onOpen: jest.fn(), onClose: jest.fn() }),
+  Modal: ({ children }) => <div>{children}</div>,
+  ModalContent: ({ children }) => <div>{children}</div>,
+  ModalHeader: ({ children }) => <div>{children}</div>,
+  ModalBody: ({ children }) => <div>{children}</div>,
+  ModalFooter: ({ children }) => <div>{children}</div>,
+  Progress: () => <div>Progress Bar</div>,
+}));
+
+// Mock @heroui/react/outline icons
+jest.mock('@heroui/react/outline', () => ({
+  SearchIcon: () => <svg data-testid="search-icon" />,
+  FilterIcon: () => <svg data-testid="filter-icon" />,
+  DotsVerticalIcon: () => <svg data-testid="dots-icon" />,
+  TrashIcon: () => <svg data-testid="trash-icon" />,
+  PencilIcon: () => <svg data-testid="pencil-icon" />,
+  MailIcon: () => <svg data-testid="mail-icon" />,
+  DocumentIcon: () => <svg data-testid="document-icon" />,
+  PhoneIcon: () => <svg data-testid="phone-icon" />,
+  ChevronLeftIcon: () => <svg data-testid="chevron-left-icon" />,
+  ChevronRightIcon: () => <svg data-testid="chevron-right-icon" />,
+}));
+
 // Mock window.location
 const mockLocationAssign = jest.fn();
 Object.defineProperty(window, 'location', {
