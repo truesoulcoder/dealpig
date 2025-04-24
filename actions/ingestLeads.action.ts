@@ -31,7 +31,14 @@ interface IngestResult {
   sourceId?: string;
 }
 
-export async function ingestLeadsFromCsv(fileContent: string, fileName: string): Promise<IngestResult> {
+// Core logic extracted to be testable
+export async function ingestLeadsFromCsvCore(
+  fileContent: string, 
+  fileName: string,
+  dbCreateLeadSource = createLeadSource,
+  dbCreateLead = createLead,
+  dbCreateContact = createContact
+): Promise<IngestResult> {
   try {
     // Parse CSV content
     const rows = parse(fileContent, {
@@ -60,7 +67,7 @@ export async function ingestLeadsFromCsv(fileContent: string, fileName: string):
       record_count: rows.length,
     };
 
-    const source = await createLeadSource(leadSource);
+    const source = await dbCreateLeadSource(leadSource);
     const sourceId = source?.id;
 
     let insertedLeads = 0;
@@ -93,7 +100,7 @@ export async function ingestLeadsFromCsv(fileContent: string, fileName: string):
         };
 
         // Insert the lead
-        const newLead = await createLead(lead);
+        const newLead = await dbCreateLead(lead);
         
         if (newLead) {
           insertedLeads++;
@@ -107,7 +114,7 @@ export async function ingestLeadsFromCsv(fileContent: string, fileName: string):
               is_primary: true
             };
 
-            const newContact = await createContact(contact);
+            const newContact = await dbCreateContact(contact);
             if (newContact) {
               insertedContacts++;
             } else {
@@ -142,6 +149,11 @@ export async function ingestLeadsFromCsv(fileContent: string, fileName: string):
       errors: [String(error)]
     };
   }
+}
+
+// Server action that uses the core logic
+export async function ingestLeadsFromCsv(fileContent: string, fileName: string): Promise<IngestResult> {
+  return ingestLeadsFromCsvCore(fileContent, fileName);
 }
 
 export async function uploadCsv(formData: FormData): Promise<IngestResult> {
