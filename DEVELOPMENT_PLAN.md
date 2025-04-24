@@ -1,130 +1,163 @@
-# Development Plan
+# DealPig Development Plan
 
-## Core Features to Implement
+This document outlines the planned development roadmap, testing strategy, and maintenance practices for the DealPig platform.
 
-1. **Generate a Document (LOI)**
-   - Generate a Letter of Intent (LOI) document with the provided data.
-   - Attach the company logo to the document.
+## Current Issues
 
-2. **Send an Email with the Generated Document**
-   - Use OAuth tokens and Google API to send the email with the LOI attached.
+1. **Testing Framework Issues**:
+   - Missing dependency `@testing-library/dom` has been installed, but tests still need fixes
+   - Database test mocks don't match actual function signatures
+   - Email sending tests are failing due to incorrect mocking of Gmail API
+   - Document generation tests failing due to docx.Header constructor issues
 
-3. **Ingest Leads from a CSV File**
-   - Parse the CSV file and insert the data into the Supabase database.
+2. **React Version Compatibility**:
+   - The `react-draft-wysiwyg` package is not compatible with React 19
+   - Currently bypassing with `--legacy-peer-deps` but needs a permanent solution
 
-4. **Save Authorization Tokens**
-   - Save OAuth tokens for email accounts to a secure location (e.g., Supabase or local JSON files).
+3. **Security Issues**:
+   - npm audit shows vulnerabilities that need to be addressed
 
-5. **Display Leads and Email Status**
-   - Show a table of leads and their email statuses (e.g., sent, opened, bounced).
+## Short-term Improvements (1-3 months)
 
-6. **Document Preview and Rich Text Editor**
-   - Add a feature to preview the generated document (LOI) before sending.
-   - Include a rich text editor to allow on-the-fly editing of templates.
+1. **Fix Testing Framework**:
+   - Update test mocks to match actual function signatures
+   - Implement proper mocking for Gmail API and docx library
+   - Aim for >80% test coverage
 
----
+2. **Security Hardening**:
+   - Address npm vulnerabilities
+   - Implement proper CSRF protection
+   - Add rate limiting to API endpoints
+   - Complete security audit
 
-## Development Steps
+3. **UI/UX Improvements**:
+   - Mobile responsiveness improvements
+   - Accessibility compliance (WCAG 2.1 AA)
+   - Error message standardization
 
-### Step 1: Review and Organize Salvaged Code
-- **Files to Review:**
-  - `generateLoi.ts` (Document generation logic)
-  - `sendEmails.ts` (Email sending logic)
-  - `ingestLeads.ts` (CSV ingestion logic)
-  - `generateTokens.ts` (OAuth token generation)
-  - `tokenLoader.ts` (Token management)
-  - `emailTemplates.ts` (Email content templates)
-- **Action:** Extract reusable functions and ensure they are modular and compatible with the new template.
+4. **Performance Optimization**:
+   - Optimize database queries
+   - Implement caching for frequently accessed data
+   - Use React Query for data fetching
+   - Optimize bundle size
 
----
+## Mid-term Improvements (3-6 months)
 
-### Step 2: Backend API Endpoints
-We will create API endpoints in the `pages/api/` folder to handle server-side actions:
-1. **`/api/generate-loi`**  
-   - Input: Lead data (from the database or form).
-   - Output: Generate and return the LOI document path.
+1. **Feature Enhancements**:
+   - Advanced search and filtering
+   - Bulk actions for leads
+   - Custom document templates
+   - Email scheduling
+   - Pipeline visualization
 
-2. **`/api/send-email`**  
-   - Input: Email address, subject, body, and attachment path.
-   - Output: Send the email and return the status.
+2. **Technical Debt**:
+   - Replace `react-draft-wysiwyg` with React 19 compatible editor
+   - Migrate to typed API endpoints with tRPC
+   - Component library standardization
+   - Extract shared logic to custom hooks
 
-3. **`/api/ingest-leads`**  
-   - Input: CSV file (uploaded via the UI).
-   - Output: Parse and insert leads into the database.
+3. **Integration**:
+   - Add Google Calendar integration
+   - Enable CRM integrations (Salesforce, HubSpot)
+   - Property data API integration
 
-4. **`/api/save-tokens`**  
-   - Input: OAuth tokens and email account details.
-   - Output: Save tokens securely.
+## Long-term Vision (6-12 months)
 
-5. **`/api/preview-document`**
-   - Input: Template and lead data.
-   - Output: Render a preview of the document (LOI).
+1. **Platform Expansion**:
+   - Mobile application
+   - Chrome extension
+   - Offline capabilities
+   - Multi-language support
 
----
+2. **Advanced Features**:
+   - AI-powered deal analysis
+   - Automated comps pulling
+   - Document OCR and parsing
+   - Advanced analytics and reporting
+   - Team collaboration features
 
-### Step 3: Frontend UI Components
-We will create a single-page dashboard with the following sections:
-1. **Generate Document (LOI)**  
-   - A form to input lead details and generate the LOI.
+3. **Infrastructure**:
+   - Microservices architecture
+   - Serverless functions
+   - Multi-region deployment
+   - Self-hosted option
 
-2. **Send Email**  
-   - A form to input recipient email and send the LOI.
+## Testing Strategy
 
-3. **Ingest Leads**  
-   - A file upload input to ingest leads from a CSV file.
+### Unit Tests
+- **Component Tests**: Test individual React components in isolation
+- **Function Tests**: Test utility functions and helpers
+- **Hook Tests**: Test custom React hooks
 
-4. **Save Tokens**  
-   - A form to save OAuth tokens for email accounts.
+### Integration Tests
+- **API Tests**: Ensure API endpoints work correctly
+- **Form Tests**: Test form submissions and validation
+- **State Management Tests**: Ensure state changes correctly
 
-5. **Leads Table**  
-   - Display leads and their email statuses in a table.
+### End-to-End Tests
+- Implement Cypress for key user journeys
+- Test authentication flow
+- Test lead management flow
+- Test document generation and email sending
 
-6. **Document Preview and Editor**
-   - A section to preview the generated document (LOI).
-   - A rich text editor to allow on-the-fly editing of templates.
+### Performance Tests
+- Load testing with k6
+- Lighthouse scores monitoring
+- Bundle size monitoring
 
----
+## Deployment Pipeline
 
-### Step 4: Database Integration
-- **Supabase Setup:**
-  - Use the provided database models (`Lead`, `Contact`, `Sender`, etc.) to create tables in Supabase.
-  - Ensure the API endpoints interact with Supabase for data storage and retrieval.
+1. **Development Environment**
+   - Local development
+   - Feature branches
 
----
+2. **Testing Environment**
+   - Automated tests run
+   - Integration testing
+   - Staging environment
 
-### Step 5: Testing
-- **Unit Testing:** Test individual functions (e.g., document generation, email sending).
-- **Integration Testing:** Test API endpoints and their interaction with the database.
-- **UI Testing:** Ensure the frontend components work as expected.
+3. **Production Environment**
+   - Vercel production deployment
+   - Feature flags for controlled rollout
+   - Monitoring and alerting
 
----
+## Maintenance Practices
 
-### Step 6: Deployment
-- **Vercel Deployment:**
-  - Ensure the app builds and runs without errors.
-  - Push the project to a GitHub repository and deploy it to Vercel.
+1. **Dependency Updates**
+   - Weekly automated dependency updates
+   - Security patches applied immediately
+   - Major version upgrades planned quarterly
 
----
+2. **Code Quality**
+   - ESLint and Prettier for code style
+   - Pre-commit hooks
+   - PR templates and reviews
 
-## Deliverables
-1. A single-page web application with the following sections:
-   - Generate Document
-   - Send Email
-   - Ingest Leads
-   - Save Tokens
-   - Leads Table
-   - Document Preview and Editor
+3. **Documentation**
+   - Keep README and API documentation up-to-date
+   - Internal documentation for development processes
+   - Code comments for complex logic
 
-2. Fully functional API endpoints for backend actions.
+4. **Monitoring**
+   - Error tracking with Sentry
+   - Performance monitoring
+   - User analytics
 
-3. Supabase database integration for storing leads, tokens, and email statuses.
+## Team Organization
 
-4. A production-ready app deployed on Vercel.
+1. **Roles**
+   - Frontend Developer(s)
+   - Backend Developer(s)
+   - DevOps Engineer
+   - Product Manager
+   - QA Engineer
 
----
+2. **Communication**
+   - Weekly sprint planning
+   - Daily standups
+   - Sprint retrospectives
+   - Documentation in GitHub wiki
 
-## Timeline
-- **Day 1:** Review salvaged code, set up API endpoints, and integrate Supabase.
-- **Day 2:** Build the frontend UI components and connect them to the API.
-- **Day 3:** Test the application (unit, integration, and UI testing).
-- **Day 4:** Finalize and deploy to Vercel.
+## Conclusion
+
+This development plan is a living document and should be updated as the project evolves. The focus should be on maintaining a high-quality, secure, and maintainable codebase while continuously delivering value to users.
