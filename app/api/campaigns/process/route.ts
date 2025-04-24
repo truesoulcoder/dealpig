@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processCampaigns } from '@/lib/campaignScheduler';
-import { rateLimit } from '@/lib/rateLimit';
+import { apiLimiter } from '@/lib/rateLimit';
 import { getServerSession } from 'next-auth';
-
-// Define a rate limiter specifically for campaign processing
-const limiter = rateLimit({
-  uniqueTokenPerInterval: 1, // Only 1 unique token per interval
-  interval: 60 * 1000, // 1 minute
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,14 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Apply rate limiting - only allow 1 request per minute
-    try {
-      await limiter.check(1, 'campaign-processor'); // 1 request per minute
-    } catch (error) {
-      return NextResponse.json(
-        { success: false, message: 'Rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      );
+    // Apply rate limiting
+    const rateLimitResult = await apiLimiter(request);
+    if (rateLimitResult) {
+      return rateLimitResult; // Rate limit exceeded
     }
 
     // Process campaigns

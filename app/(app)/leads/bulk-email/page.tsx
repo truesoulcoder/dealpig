@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Card, CardBody, CardHeader, Button, Input, Textarea, Select, Spinner } from "@heroui/react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/app/providers/trpc-provider';
@@ -17,7 +17,8 @@ const SelectItem = ({ children, value, ...props }: { children: React.ReactNode, 
   <option value={value} {...props}>{children}</option>
 );
 
-export default function BulkEmailPage() {
+// Component that uses searchParams wrapped in Suspense
+function BulkEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const leadIds = searchParams.get('ids')?.split(',') || [];
@@ -216,5 +217,28 @@ export default function BulkEmailPage() {
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+// Fallback component for Suspense
+function BulkEmailFallback() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <Card>
+        <CardBody className="flex flex-col items-center justify-center py-12">
+          <Spinner size="lg" />
+          <p className="mt-4">Loading email composer...</p>
+        </CardBody>
+      </Card>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function BulkEmailPage() {
+  return (
+    <Suspense fallback={<BulkEmailFallback />}>
+      <BulkEmailContent />
+    </Suspense>
   );
 }

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { monitorEmailResponses } from '@/lib/gmailMonitor';
-import { rateLimit } from '@/lib/rateLimit';
+import { apiLimiter } from '@/lib/rateLimit';
 import { getServerSession } from 'next-auth';
-
-// Rate limiter for email monitoring
-const limiter = rateLimit({
-  uniqueTokenPerInterval: 2,
-  interval: 60 * 1000 * 15, // 15 minutes
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,14 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Apply rate limiting - only allow 1 request every 15 minutes
-    try {
-      await limiter.check(1, 'email-monitor');
-    } catch (error) {
-      return NextResponse.json(
-        { success: false, message: 'Rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      );
+    // Apply rate limiting
+    const rateLimitResult = await apiLimiter(request);
+    if (rateLimitResult) {
+      return rateLimitResult; // Rate limit exceeded
     }
 
     // Process emails
