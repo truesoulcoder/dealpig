@@ -397,7 +397,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   };
 
   if (loading) {
-    return <div className="flex justify-center p-4"><Spinner /></div>;
+    return <div className="flex justify-center p-4"><Spinner color="primary" /></div>;
   }
 
   return (
@@ -540,7 +540,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
           <TableColumn key="actions" isVisible={visibleColumns.has("actions")}>Actions</TableColumn>
         </TableHeader>
         <TableBody
-          loadingContent={<Spinner />}
+          loadingContent={<Spinner color="primary" />}
           emptyContent={
             searchQuery || statusFilter.has("all") === false || emailStatusFilter.has("all") === false 
               ? "No leads match your filters. Try adjusting your search or filters." 

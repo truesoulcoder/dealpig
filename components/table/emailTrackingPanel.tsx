@@ -61,7 +61,7 @@ export default function EmailTrackingPanel({ leadId, onSendNewEmail }: EmailTrac
     return (
       <Card>
         <CardBody className="flex items-center justify-center py-8">
-          <Spinner label="Loading email history..." />
+          <Spinner color="primary" label="Loading email history..." />
         </CardBody>
       </Card>
     );
