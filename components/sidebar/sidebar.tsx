@@ -42,40 +42,65 @@ export const SidebarWrapper = () => {
             <SidebarItem
               title="Home"
               icon={<HomeIcon />}
-              isActive={pathname === "/"}
+              isActive={pathname === "/" || pathname === "/home"}
               href="/"
             />
             <SidebarMenu title="Main Menu">
               <SidebarItem
-                isActive={pathname === "/accounts"}
+                isActive={pathname.includes("/accounts")}
                 title="Gmail Accounts"
                 icon={<AccountsIcon />}
-                href="accounts"
+                href="/accounts"
               />
               <SidebarItem
-                isActive={pathname === "/reports"}
-                title="Campaign Reports"
-                icon={<ReportsIcon />}
+                isActive={pathname.includes("/leads")}
+                title="Leads"
+                icon={<CustomersIcon />}
+                href="/leads"
+              />
+              <SidebarItem
+                isActive={pathname.includes("/campaigns")}
+                title="Campaigns"
+                icon={<ProductsIcon />}
+                href="/campaigns"
+              />
+              <SidebarItem
+                isActive={pathname.includes("/advanced-table")}
+                title="Advanced Table"
+                icon={<BalanceIcon />}
+                href="/advanced-table"
               />
             </SidebarMenu>
 
+            {/* Reserved section for future features - these items will be commented out until the pages are implemented */}
+            {/* 
             <SidebarMenu title="Control Panel">
               <SidebarItem
-                isActive={pathname === "/templates"}
+                isActive={pathname.includes("/templates")}
                 title="Edit Templates"
                 icon={<DevIcon />}
+                href="/templates"
               />
               <SidebarItem
-                isActive={pathname === "/importLeads"}
-                title="Import Leads"
+                isActive={pathname.includes("/import-leads")}
+                title="Upload Leads"
                 icon={<ViewIcon />}
+                href="/import-leads"
               />
               <SidebarItem
-                isActive={pathname === "/settings"}
+                isActive={pathname.includes("/settings")}
                 title="Campaign Settings"
                 icon={<SettingsIcon />}
+                href="/settings"
+              />
+              <SidebarItem
+                isActive={pathname.includes("/reports")}
+                title="Campaign Reports"
+                icon={<ReportsIcon />}
+                href="/reports"
               />
             </SidebarMenu>
+            */}
           </div>
           <div className={Sidebar.Footer()}>
             <Tooltip content={"Settings"} color="primary">

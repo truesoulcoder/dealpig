@@ -129,7 +129,7 @@ This document outlines envisioned purpose and the planned development roadmap, t
    - Feature flags for controlled rollout
    - Monitoring and alerting
 
-4. **Best Practoces**
+4. **Best Practices**
    - Internal documentation for development processes
    - Code comments for complex logic
    - Error tracking with Sentry

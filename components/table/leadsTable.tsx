@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableHeader,
@@ -8,16 +8,17 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Chip,
-  Button,
-  Tooltip,
-  Pagination,
   Input,
-  Dropdown,
+  Button,
   DropdownTrigger,
+  Dropdown,
   DropdownMenu,
   DropdownItem,
+  Chip,
+  Tooltip,
+  Pagination,
   Selection,
+  ChipProps,
   SortDescriptor,
   Modal,
   ModalContent,
@@ -25,14 +26,20 @@ import {
   ModalBody,
   ModalFooter,
   useDisclosure,
-  Select,
-  SelectItem
+  Checkbox,
+  Spinner
 } from "@heroui/react";
-import { SearchIcon, CheckIcon } from "@heroui/react/outline";
-import { FaChevronDown, FaCog } from "react-icons/fa";
-import { getLeads, getEmailsByLeadId, updateLead, Lead, Email } from '@/lib/database';
-import { trpc } from '@/app/providers/trpc-provider';
-import { useRouter } from 'next/navigation';
+import { SearchIcon } from "@heroui-react-outline/SearchIcon";
+import { ChevronDownIcon } from "@heroui-react-outline/ChevronDownIcon";
+import { PlusIcon } from "@heroui-react-outline/PlusIcon";
+import { VerticalDotsIcon } from "@heroui-react-outline/VerticalDotsIcon";
+import { columns, statusColorMap, statusOptions, emailStatusOptions } from "./tableData";
+import { getLeads } from "@/actions/ingestLeads.action";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
+import { generateLoi } from "@/actions/generateLoi.action";
+import { sendLoiEmail } from "@/actions/sendLoiEmail.action";
+import { Lead } from "@/helpers/types";
 
 interface LeadWithEmail extends Lead {
   email_status?: string;
@@ -49,6 +56,10 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   const [leads, setLeads] = useState<LeadWithEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set([
+    "property_address", "property_city", "property_state", "property_zip", "status", "email_status", "actions"
+  ]));
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Selection>(new Set(["all"]));
   const [emailStatusFilter, setEmailStatusFilter] = useState<Selection>(new Set(["all"]));
@@ -58,7 +69,6 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   });
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
   const [bulkStatus, setBulkStatus] = useState<string>("");
-  const rowsPerPage = 10;
   const router = useRouter();
   
   // Modal state for bulk email
@@ -68,40 +78,13 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   // Modal state for bulk status update
   const { isOpen: isStatusModalOpen, onOpen: onOpenStatusModal, onClose: onCloseStatusModal } = useDisclosure();
 
-  // tRPC mutation hooks
-  const updateLeadMutation = trpc.leads.updateLead.useMutation({
-    onSuccess: () => {
-      // Refresh leads data after successful update
-      loadLeadsWithEmailStatus();
-      // Clear selection
-      setSelectedKeys(new Set([]));
-      // Close modal if it was open
-      onCloseStatusModal();
-    },
-    onError: (error) => {
-      console.error('Error updating leads:', error);
-      // Handle error (could show an error toast notification here)
-    }
-  });
-  
-  const deleteLeadMutation = trpc.leads.deleteLead.useMutation({
-    onSuccess: () => {
-      loadLeadsWithEmailStatus();
-      setSelectedKeys(new Set([]));
-      onCloseDeleteModal();
-    },
-    onError: (error) => {
-      console.error('Error deleting leads:', error);
-    }
-  });
-
   // Load leads with their email statuses
   useEffect(() => {
-    loadLeadsWithEmailStatus();
+    loadLeads();
   }, []);
   
   // Function to load leads data
-  async function loadLeadsWithEmailStatus() {
+  const loadLeads = useCallback(async () => {
     try {
       setLoading(true);
       const leadsData = await getLeads();
@@ -146,10 +129,23 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchQuery, statusFilter, emailStatusFilter]);
 
-  // Filter and sort data
-  const filteredLeads = useMemo(() => {
+  // Handle column visibility change
+  const handleColumnVisibilityChange = useCallback((column: string) => {
+    setVisibleColumns((prevColumns) => {
+      const newColumns = new Set(prevColumns);
+      if (newColumns.has(column)) {
+        newColumns.delete(column);
+      } else {
+        newColumns.add(column);
+      }
+      return newColumns;
+    });
+  }, []);
+
+  // Compute the filtered and sorted items
+  const items = useMemo(() => {
     let filtered = [...leads];
     
     // Apply search query filter
@@ -195,18 +191,31 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
     return filtered;
   }, [leads, searchQuery, statusFilter, emailStatusFilter, sortDescriptor]);
 
-  // Calculate pagination
-  const pages = Math.ceil(filteredLeads.length / rowsPerPage);
-  const items = filteredLeads.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  // Compute the pagination
+  const pages = Math.ceil(items.length / rowsPerPage);
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    return items.slice(start, end);
+  }, [items, page, rowsPerPage]);
+
+  // Rows per page options
+  const rowsPerPageOptions = [5, 10, 15, 20, 25];
+
+  // Handle rows per page change
+  const handleRowsPerPageChange = useCallback((value: number) => {
+    setRowsPerPage(value);
+    setPage(1);
+  }, []);
 
   // Get selected leads
   const selectedLeads = useMemo(() => {
     if (selectedKeys === "all") {
-      return filteredLeads;
+      return items;
     }
     const selectedKeysArray = Array.from(selectedKeys);
-    return filteredLeads.filter(lead => lead.id && selectedKeysArray.includes(lead.id));
-  }, [selectedKeys, filteredLeads]);
+    return items.filter(lead => lead.id && selectedKeysArray.includes(lead.id));
+  }, [selectedKeys, items]);
 
   // Get email status chip color
   const getStatusChipColor = (status: string) => {
@@ -365,189 +374,271 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   return (
     <div className="w-full space-y-4">
       {/* Filters and search */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-4">
         <div className="flex w-full sm:w-auto flex-1 max-w-md">
           <Input
+            isClearable
             placeholder="Search by address, city, or contact..."
-            startContent={<SearchIcon className="w-5 h-5 text-gray-400" />}
+            startContent={<SearchIcon className="text-default-400" />}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onValueChange={setSearchQuery}
             className="w-full"
           />
         </div>
-        <div className="flex flex-row gap-2">
-          {/* Show bulk actions when items are selected */}
-          {selectedKeys !== "all" && selectedKeys.size > 0 && (
-            <Dropdown>
-              <DropdownTrigger>
-                <Button 
-                  color="primary"
-                  endContent={<FaChevronDown />}
-                >
-                  Bulk Actions ({selectedKeys.size})
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu aria-label="Bulk Actions">
-                <DropdownItem key="status" onClick={handleBulkStatusUpdate}>
-                  Update Status
-                </DropdownItem>
-                <DropdownItem key="email" onClick={handleBulkSendEmail}>
-                  Send Email
-                </DropdownItem>
-                <DropdownItem key="loi" onClick={handleBulkGenerateLOI}>
-                  Generate LOIs
-                </DropdownItem>
-                <DropdownItem key="delete" className="text-danger" onClick={handleBulkDelete}>
-                  Delete Leads
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          )}
-          
+        <div className="flex flex-col sm:flex-row gap-3 items-end justify-end">
+          {/* Column visibility dropdown */}
           <Dropdown>
             <DropdownTrigger>
-              <Button variant="flat">
+              <Button 
+                variant="flat" 
+                endContent={<ChevronDownIcon className="text-small" />}
+              >
+                Columns
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Column visibility"
+              closeOnSelect={false}
+              selectedKeys={visibleColumns}
+              selectionMode="multiple"
+            >
+              <DropdownItem key="property_address">Address</DropdownItem>
+              <DropdownItem key="property_city">City</DropdownItem>
+              <DropdownItem key="property_state">State</DropdownItem>
+              <DropdownItem key="property_zip">Zip</DropdownItem>
+              <DropdownItem key="status">Lead Status</DropdownItem>
+              <DropdownItem key="email_status">Email Status</DropdownItem>
+              <DropdownItem key="actions">Actions</DropdownItem>
+            </DropdownMenu>
+          </Dropdown>
+
+          {/* Lead status filter */}
+          <Dropdown>
+            <DropdownTrigger>
+              <Button 
+                variant="flat" 
+                endContent={<ChevronDownIcon className="text-small" />}
+              >
                 Lead Status
               </Button>
             </DropdownTrigger>
             <DropdownMenu
               disallowEmptySelection
-              selectionMode="multiple"
+              aria-label="Lead Status Filter"
+              closeOnSelect={false}
               selectedKeys={statusFilter}
-              onSelectionChange={setStatusFilter}
+              selectionMode="multiple"
+              onSelectionChange={setStatusFilter as any}
             >
-              <DropdownItem key="all">All Statuses</DropdownItem>
-              <DropdownItem key="new">New</DropdownItem>
-              <DropdownItem key="contacted">Contacted</DropdownItem>
-              <DropdownItem key="negotiating">Negotiating</DropdownItem>
-              <DropdownItem key="closed">Closed</DropdownItem>
-              <DropdownItem key="dead">Dead</DropdownItem>
+              {["all", "new", "contacted", "qualified", "negotiating", "closed", "dead"].map((status) => (
+                <DropdownItem key={status} className="capitalize">
+                  {status === "all" ? "All" : status}
+                </DropdownItem>
+              ))}
             </DropdownMenu>
           </Dropdown>
-          
+
+          {/* Email status filter */}
           <Dropdown>
             <DropdownTrigger>
-              <Button variant="flat">
+              <Button 
+                variant="flat" 
+                endContent={<ChevronDownIcon className="text-small" />}
+              >
                 Email Status
               </Button>
             </DropdownTrigger>
             <DropdownMenu
               disallowEmptySelection
-              selectionMode="multiple"
+              aria-label="Email Status Filter"
+              closeOnSelect={false}
               selectedKeys={emailStatusFilter}
-              onSelectionChange={setEmailStatusFilter}
+              selectionMode="multiple"
+              onSelectionChange={setEmailStatusFilter as any}
             >
-              <DropdownItem key="all">All Statuses</DropdownItem>
-              <DropdownItem key="pending">Pending</DropdownItem>
-              <DropdownItem key="sent">Sent</DropdownItem>
-              <DropdownItem key="opened">Opened</DropdownItem>
-              <DropdownItem key="replied">Replied</DropdownItem>
-              <DropdownItem key="bounced">Bounced</DropdownItem>
+              {["all", "pending", "sent", "opened", "clicked", "replied", "bounced", "failed"].map((status) => (
+                <DropdownItem key={status} className="capitalize">
+                  {status === "all" ? "All" : status}
+                </DropdownItem>
+              ))}
             </DropdownMenu>
           </Dropdown>
+
+          {/* Bulk actions button - only shown when items are selected */}
+          {selectedKeys !== "all" && selectedKeys.size > 0 && (
+            <Dropdown>
+              <DropdownTrigger>
+                <Button 
+                  color="primary"
+                >
+                  Actions ({selectedKeys.size})
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="Bulk Actions">
+                <DropdownItem key="bulk-loi" onClick={handleBulkLOI}>Generate LOIs</DropdownItem>
+                <DropdownItem key="bulk-email" onClick={handleBulkEmail}>Send Emails</DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          )}
         </div>
       </div>
 
-      {/* Leads table */}
-      <Table 
+      {/* The actual table */}
+      <Table
         aria-label="Leads table"
+        isHeaderSticky
+        classNames={{
+          wrapper: "max-h-[calc(100vh-250px)]",
+          table: "min-h-[400px]",
+        }}
         sortDescriptor={sortDescriptor}
         onSortChange={handleSortChange}
-        selectionMode="multiple"
         selectedKeys={selectedKeys}
         onSelectionChange={handleSelectionChange}
+        selectionMode="multiple"
       >
         <TableHeader>
-          <TableColumn key="property_address" allowsSorting>Address</TableColumn>
-          <TableColumn key="property_city" allowsSorting>City</TableColumn>
-          <TableColumn key="property_state" allowsSorting>State</TableColumn>
-          <TableColumn key="property_zip">Zip</TableColumn>
-          <TableColumn key="status" allowsSorting>Lead Status</TableColumn>
-          <TableColumn key="email_status" allowsSorting>Email Status</TableColumn>
-          <TableColumn key="actions">Actions</TableColumn>
+          <TableColumn key="property_address" allowsSorting isVisible={visibleColumns.has("property_address")}>Address</TableColumn>
+          <TableColumn key="property_city" allowsSorting isVisible={visibleColumns.has("property_city")}>City</TableColumn>
+          <TableColumn key="property_state" allowsSorting isVisible={visibleColumns.has("property_state")}>State</TableColumn>
+          <TableColumn key="property_zip" isVisible={visibleColumns.has("property_zip")}>Zip</TableColumn>
+          <TableColumn key="status" allowsSorting isVisible={visibleColumns.has("status")}>Lead Status</TableColumn>
+          <TableColumn key="email_status" allowsSorting isVisible={visibleColumns.has("email_status")}>Email Status</TableColumn>
+          <TableColumn key="actions" isVisible={visibleColumns.has("actions")}>Actions</TableColumn>
         </TableHeader>
-        <TableBody>
-          {items.length > 0 ? (
-            items.map((lead) => (
+        <TableBody
+          loadingContent={<Spinner />}
+          emptyContent={
+            searchQuery || statusFilter.has("all") === false || emailStatusFilter.has("all") === false 
+              ? "No leads match your filters. Try adjusting your search or filters." 
+              : "No leads found. Upload some leads using the CSV upload tool."
+          }
+          isLoading={loading}
+        >
+          {paginatedItems.length > 0 ? (
+            paginatedItems.map((lead) => (
               <TableRow 
                 key={lead.id} 
-                className="hover:bg-gray-50"
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={onRowClick && lead.id ? () => handleRowClick(lead.id!) : undefined}
               >
-                <TableCell>{lead.property_address}</TableCell>
-                <TableCell>{lead.property_city}</TableCell>
-                <TableCell>{lead.property_state}</TableCell>
-                <TableCell>{lead.property_zip}</TableCell>
-                <TableCell>
-                  <Chip size="sm" variant="flat" color={getLeadStatusChipColor(lead.status || 'new')}>
-                    {lead.status || 'New'}
-                  </Chip>
-                </TableCell>
-                <TableCell>
-                  <Chip 
-                    size="sm" 
-                    variant="flat" 
-                    color={getStatusChipColor(lead.email_status || 'pending')}>
-                    {lead.email_status || 'Pending'}
-                  </Chip>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Tooltip content="Generate LOI">
-                      <Button 
-                        size="sm" 
-                        variant="light" 
-                        onClick={lead.id ? (e) => handleGenerateLOI(lead.id!, e) : undefined}
-                      >
-                        Generate LOI
-                      </Button>
-                    </Tooltip>
-                    <Tooltip content="Send Email">
-                      <Button 
-                        size="sm" 
-                        variant="light" 
-                        onClick={lead.id ? (e) => handleSendEmail(lead.id!, e) : undefined}
-                      >
-                        Send Email
-                      </Button>
-                    </Tooltip>
-                    {onRowClick && lead.id && (
-                      <Tooltip content="View Details">
-                        <Button 
-                          size="sm" 
-                          variant="light" 
-                          onClick={() => handleRowClick(lead.id!)}
-                        >
-                          View
-                        </Button>
-                      </Tooltip>
-                    )}
-                  </div>
-                </TableCell>
+                {visibleColumns.has("property_address") && <TableCell>{lead.property_address}</TableCell>}
+                {visibleColumns.has("property_city") && <TableCell>{lead.property_city}</TableCell>}
+                {visibleColumns.has("property_state") && <TableCell>{lead.property_state}</TableCell>}
+                {visibleColumns.has("property_zip") && <TableCell>{lead.property_zip}</TableCell>}
+                {visibleColumns.has("status") && (
+                  <TableCell>
+                    <Chip size="sm" variant="flat" color={getLeadStatusChipColor(lead.status || 'new')}>
+                      {lead.status || 'New'}
+                    </Chip>
+                  </TableCell>
+                )}
+                {visibleColumns.has("email_status") && (
+                  <TableCell>
+                    <Chip 
+                      size="sm" 
+                      variant="flat" 
+                      color={getStatusChipColor(lead.email_status || 'pending')}>
+                      {lead.email_status || 'Pending'}
+                    </Chip>
+                  </TableCell>
+                )}
+                {visibleColumns.has("actions") && (
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex gap-2 items-center">
+                      <Dropdown>
+                        <DropdownTrigger>
+                          <Button isIconOnly size="sm" variant="light">
+                            <VerticalDotsIcon className="text-default-300" />
+                          </Button>
+                        </DropdownTrigger>
+                        <DropdownMenu>
+                          <DropdownItem 
+                            key="generate-loi" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              lead.id && handleGenerateLOI(lead.id, e);
+                            }}
+                          >
+                            Generate LOI
+                          </DropdownItem>
+                          <DropdownItem 
+                            key="send-email"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              lead.id && handleSendEmail(lead.id, e);
+                            }}
+                          >
+                            Send Email
+                          </DropdownItem>
+                          {onRowClick && lead.id && (
+                            <DropdownItem 
+                              key="view"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(lead.id!);
+                              }}
+                            >
+                              View Details
+                            </DropdownItem>
+                          )}
+                        </DropdownMenu>
+                      </Dropdown>
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                {searchQuery || statusFilter.has("all") === false || emailStatusFilter.has("all") === false ? 
-                  "No leads match your filters. Try adjusting your search or filters." : 
-                  "No leads found. Upload some leads using the CSV upload tool."}
-              </TableCell>
-            </TableRow>
-          )}
+          ) : null}
         </TableBody>
       </Table>
-      
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="flex justify-center mt-4">
-          <Pagination
-            total={pages}
-            page={page}
-            onChange={setPage}
-          />
+
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">
+            Showing {paginatedItems.length} of {items.length} leads
+          </span>
+          <Dropdown>
+            <DropdownTrigger>
+              <Button 
+                variant="flat" 
+                size="sm"
+                endContent={<ChevronDownIcon className="text-small" />}
+              >
+                {rowsPerPage} per page
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              disallowEmptySelection
+              aria-label="Rows per page"
+              selectionMode="single"
+              selectedKeys={new Set([rowsPerPage.toString()])}
+              onSelectionChange={(keys) => {
+                if (keys && typeof keys === 'object' && 'size' in keys && keys.size > 0) {
+                  handleRowsPerPageChange(Number(Array.from(keys)[0]));
+                }
+              }}
+            >
+              {rowsPerPageOptions.map((option) => (
+                <DropdownItem key={option.toString()}>
+                  {option}
+                </DropdownItem>
+              ))}
+            </DropdownMenu>
+          </Dropdown>
         </div>
-      )}
-      
+        <Pagination
+          isCompact
+          showControls
+          showShadow
+          color="primary"
+          page={page}
+          total={pages}
+          onChange={setPage}
+        />
+      </div>
+
       {/* Bulk Email Modal */}
       <Modal isOpen={isEmailModalOpen} onClose={onCloseEmailModal}>
         <ModalContent>
