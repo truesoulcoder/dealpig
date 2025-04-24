@@ -90,12 +90,12 @@ jest.mock('@heroui/tabs', () => ({
       )}
     </div>
   ),
-  Tab: ({ children, value, onClick, 'data-testid': dataTestId }) => (
+  Tab: ({ title, value, onClick, 'data-testid': dataTestId }) => (
     <button 
       onClick={() => onClick && onClick(value)} 
       data-testid={dataTestId}
     >
-      {children}
+      {title}
     </button>
   ),
 }));
@@ -213,8 +213,8 @@ describe('DocumentPreview component', () => {
     
     // Find edit and preview tabs
     const viewModeTabs = await screen.findByTestId('view-mode-tabs');
-    const previewTab = screen.getByText('Preview');
-    const editTab = screen.getByText('Edit');
+    const previewTab = screen.getByTestId('preview-tab');
+    const editTab = screen.getByTestId('edit-tab');
     
     // By default it should show editor content in edit mode
     const editorContainer = await screen.findByTestId('editor-container');

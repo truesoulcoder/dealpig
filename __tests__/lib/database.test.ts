@@ -8,26 +8,25 @@ import {
   createEmail,
   updateEmailStatus,
   getTemplates,
-  createTemplate,
-  updateTemplate
 } from '../../lib/database';
 import { supabase } from '../../lib/supabaseClient';
 
 // Mock the Supabase client
 jest.mock('../../lib/supabaseClient', () => {
   const mockSupabase = {
-    from: jest.fn(() => mockSupabase),
-    select: jest.fn(() => mockSupabase),
-    eq: jest.fn(() => mockSupabase),
-    order: jest.fn(() => mockSupabase),
-    insert: jest.fn(() => mockSupabase),
-    update: jest.fn(() => mockSupabase),
-    match: jest.fn(() => mockSupabase),
-    single: jest.fn(() => mockSupabase),
-    maybeSingle: jest.fn(() => mockSupabase),
-    range: jest.fn(() => mockSupabase),
-    limit: jest.fn(() => mockSupabase),
-    delete: jest.fn(() => mockSupabase)
+    from: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    match: jest.fn().mockReturnThis(),
+    single: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
+    limit: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    or: jest.fn().mockReturnThis()
   };
   
   return {
@@ -42,36 +41,22 @@ describe('Database Functions', () => {
     jest.clearAllMocks();
     mockResponse = { data: null, error: null };
     
-    // Configure the mock to return our mockResponse
-    (supabase as any).from.mockImplementation(() => {
-      return {
-        ...supabase,
-        select: jest.fn().mockImplementation(() => supabase),
-        eq: jest.fn().mockImplementation(() => supabase),
-        order: jest.fn().mockImplementation(() => supabase),
-        insert: jest.fn().mockImplementation(() => supabase),
-        update: jest.fn().mockImplementation(() => supabase),
-        match: jest.fn().mockImplementation(() => supabase),
-        single: jest.fn().mockImplementation(() => mockResponse),
-        range: jest.fn().mockImplementation(() => supabase),
-        limit: jest.fn().mockImplementation(() => supabase),
-        delete: jest.fn().mockImplementation(() => mockResponse),
-      };
-    });
-    
     // Make non-terminal methods return the mock itself for chaining
-    (supabase as any).select.mockReturnThis();
-    (supabase as any).eq.mockReturnThis();
-    (supabase as any).order.mockReturnThis();
-    (supabase as any).insert.mockReturnThis();
-    (supabase as any).update.mockReturnThis();
-    (supabase as any).match.mockReturnThis();
-    (supabase as any).range.mockReturnThis();
-    (supabase as any).limit.mockReturnThis();
+    (supabase.from as jest.Mock).mockReturnThis();
+    (supabase.select as jest.Mock).mockReturnThis();
+    (supabase.eq as jest.Mock).mockReturnThis();
+    (supabase.order as jest.Mock).mockReturnThis();
+    (supabase.insert as jest.Mock).mockReturnThis();
+    (supabase.update as jest.Mock).mockReturnThis();
+    (supabase.match as jest.Mock).mockReturnThis();
+    (supabase.range as jest.Mock).mockReturnThis();
+    (supabase.limit as jest.Mock).mockReturnThis();
+    (supabase.or as jest.Mock).mockReturnThis();
     
     // Make terminal methods return the mockResponse
-    (supabase as any).single.mockImplementation(() => mockResponse);
-    (supabase as any).maybeSingle.mockImplementation(() => mockResponse);
+    (supabase.single as jest.Mock).mockResolvedValue(mockResponse);
+    (supabase.maybeSingle as jest.Mock).mockResolvedValue(mockResponse);
+    (supabase.delete as jest.Mock).mockResolvedValue(mockResponse);
   });
 
   describe('Leads Functions', () => {

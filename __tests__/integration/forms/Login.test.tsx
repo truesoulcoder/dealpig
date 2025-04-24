@@ -30,45 +30,67 @@ jest.mock('@heroui/react', () => ({
         onChange={(e) => onChange(e.target.value)}
         placeholder={label}
       />
-      {isInvalid && <div className="error-message">{errorMessage}</div>}
+      {isInvalid && <div data-testid={`error-${type}`} className="error-message">{errorMessage}</div>}
     </div>
   ),
 }));
 
-// Mock formik
+// Mock formik with improved validation
 jest.mock('formik', () => ({
   Formik: ({ initialValues, validationSchema, onSubmit, children }) => {
     const [values, setValues] = React.useState(initialValues);
     const [errors, setErrors] = React.useState({});
     const [touched, setTouched] = React.useState({});
+    const [formError, setFormError] = React.useState('');
     
     const handleChange = (field) => (value) => {
       setValues({ ...values, [field]: value });
       setTouched({ ...touched, [field]: true });
       
       // Basic validation
-      if (field === 'email' && !value) {
-        setErrors({ ...errors, email: 'Email is required' });
-      } else if (field === 'email' && !value.includes('@')) {
-        setErrors({ ...errors, email: 'Please enter a valid email' });
-      } else if (field === 'password' && !value) {
-        setErrors({ ...errors, password: 'Password is required' });
-      } else {
-        setErrors({ ...errors, [field]: undefined });
+      const newErrors = { ...errors };
+      
+      if (field === 'email') {
+        if (!value) {
+          newErrors.email = 'Email is required';
+        } else if (!value.includes('@')) {
+          newErrors.email = 'Please enter a valid email';
+        } else {
+          delete newErrors.email;
+        }
       }
+      
+      if (field === 'password') {
+        if (!value) {
+          newErrors.password = 'Password is required';
+        } else {
+          delete newErrors.password;
+        }
+      }
+      
+      setErrors(newErrors);
     };
     
-    const handleSubmit = () => {
+    const handleSubmit = async (e) => {
+      e?.preventDefault();
+      
       // Simple validation for empty fields
       const newErrors = {};
       if (!values.email) newErrors.email = 'Email is required';
       if (!values.password) newErrors.password = 'Password is required';
       
+      setTouched({ email: true, password: true });
+      setErrors(newErrors);
+      
       if (Object.keys(newErrors).length === 0) {
-        onSubmit(values);
-      } else {
-        setErrors(newErrors);
-        setTouched({ email: true, password: true });
+        try {
+          const result = await onSubmit(values);
+          if (result && !result.success) {
+            setFormError(result.message || 'Login failed');
+          }
+        } catch (error) {
+          setFormError(error.message || 'Unexpected server error');
+        }
       }
     };
     
@@ -77,8 +99,30 @@ jest.mock('formik', () => ({
       errors, 
       touched, 
       handleChange, 
-      handleSubmit 
+      handleSubmit,
+      status: { error: formError },
+      isSubmitting: false
     });
+  },
+  useFormik: (props) => {
+    const [values, setValues] = React.useState(props.initialValues);
+    const [errors, setErrors] = React.useState({});
+    const [touched, setTouched] = React.useState({});
+    
+    return {
+      values,
+      errors,
+      touched,
+      handleChange: (e) => {
+        const { name, value } = e.target;
+        setValues({ ...values, [name]: value });
+      },
+      handleBlur: () => {},
+      handleSubmit: (e) => {
+        e.preventDefault();
+        props.onSubmit(values);
+      },
+    };
   }
 }));
 
