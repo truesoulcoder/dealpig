@@ -39,15 +39,21 @@
   "env": {
     "next_public_supabase_url": "@next_public_supabase_url",
     "next_public_supabase_anon_key": "@next_public_supabase_anon_key",
-    "OAUTH_CLIENT_ID": "@oauth_client_id",
-    "OAUTH_CLIENT_SECRET": "@oauth_client_secret",
-    "OAUTH_REDIRECT_URL": "@oauth_redirect_url",
-    "GMAIL_USER": "@gmail_user",
-    "DEFAULT_SENDER_EMAIL": "@default_sender_email",
-    "NEXTAUTH_URL": "@nextauth_url",
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "APP_URL": "@app_url",
-    "DOCUMENT_STORAGE_PATH": "@document_storage_path",
-    "COMPANY_LOGO_PATH": "@company_logo_path"
+    "supabase_url": "@supabase_url",
+    "supabase_service_role_key": "@supabase_service_role_key",
+    "oauth_client_id": "@oauth_client_id",
+    "oauth_client_secret": "@oauth_client_secret",
+    "oauth_redirect_url": "@oauth_redirect_url",
+    "gmail_user": "@gmail_user",
+    "default_sender_email": "@default_sender_email",
+    "nextauth_url": "@nextauth_url",
+    "nextauth_secret": "@nextauth_secret",
+    "app_url": "@app_url",
+    "document_storage_path": "@document_storage_path",
+    "company_logo_path": "@company_logo_path",
+    "email_aliases": "@email_aliases",
+    "from_name_map": "@from_name_map",
+    "token_dir": "@token_dir",
+    "client_secret_path": "@client_secret_path"
   }
 }
