@@ -31,14 +31,14 @@ export const AuthLayoutWrapper = ({ children }: Props) => {
           />
         </div>
 
-        <div className='z-10'>
-          <h1 className='font-bold text-[45px]'>NextUI Dashboard Template</h1>
-          <div className='font-light text-slate-400 mt-4'>
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Quasi
-            possimus voluptate, sapiente assumenda deserunt repellendus,
-            perferendis odit voluptas hic dolores laborum fugit ut? Architecto
-            quo ex quidem vitae quae rem.
-          </div>
+        <div className='z-10 flex items-center justify-center w-full'>
+          <Image
+            src='/logo.png'
+            alt='DealPig Logo'
+            width={316}
+            height={90}
+            className='mx-auto'
+          />
         </div>
       </div>
     </div>

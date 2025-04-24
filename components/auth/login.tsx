@@ -49,11 +49,12 @@ export const Login = () => {
     <div className="flex flex-col items-center max-w-md w-full mx-auto">
       <div className="mb-8 text-center">
         <Image 
-          src="/logo.png" 
+          src="/dealpig.svg" 
           alt="DealPig Logo" 
-          width={64}
-          height={64}
-          className="h-16 mx-auto mb-4" 
+          width={316}
+          height={90}
+          className="mx-auto mb-4" 
+          priority
         />
         <h1 className="text-2xl font-bold">Welcome to DealPig</h1>
         <p className="text-gray-500 mt-2">Log in to access your campaigns</p>

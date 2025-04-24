@@ -48,7 +48,7 @@ export const SidebarWrapper = () => {
             <SidebarMenu title="Main Menu">
               <SidebarItem
                 isActive={pathname.includes("/accounts")}
-                title="Gmail Accounts"
+                title="Senders"
                 icon={<AccountsIcon />}
                 href="/accounts"
               />
@@ -65,22 +65,16 @@ export const SidebarWrapper = () => {
                 href="/campaigns"
               />
               <SidebarItem
-                isActive={pathname.includes("/advanced-table")}
-                title="Advanced Table"
-                icon={<BalanceIcon />}
-                href="/advanced-table"
+                isActive={pathname.includes("/templates")}
+                title="Templates"
+                icon={<DevIcon />}
+                href="/templates"
               />
             </SidebarMenu>
 
             {/* Reserved section for future features - these items will be commented out until the pages are implemented */}
             {/* 
             <SidebarMenu title="Control Panel">
-              <SidebarItem
-                isActive={pathname.includes("/templates")}
-                title="Edit Templates"
-                icon={<DevIcon />}
-                href="/templates"
-              />
               <SidebarItem
                 isActive={pathname.includes("/import-leads")}
                 title="Upload Leads"
