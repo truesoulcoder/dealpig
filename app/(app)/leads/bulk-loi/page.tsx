@@ -11,11 +11,16 @@ const SelectItem = ({ children, value, ...props }: { children: React.ReactNode, 
   <option value={value} {...props}>{children}</option>
 );
 
-// Content component that uses searchParams hook
-function BulkLoiContent() {
+// SearchParams wrapper component that directly uses the useSearchParams hook
+function SearchParamsWrapper({ children }: { children: (ids: string[]) => React.ReactNode }) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const leadIds = searchParams.get('ids')?.split(',') || [];
+  return <>{children(leadIds)}</>;
+}
+
+// Content component that receives IDs as props
+function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
+  const router = useRouter();
   
   const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -140,8 +145,6 @@ function BulkLoiContent() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      {/* Rest of your component content */}
-      {/* (Copy everything after this point from your original component) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-1">Bulk LOI Generation</h1>
@@ -326,7 +329,9 @@ function BulkLoiFallback() {
 export default function BulkLoiPage() {
   return (
     <Suspense fallback={<BulkLoiFallback />}>
-      <BulkLoiContent />
+      <SearchParamsWrapper>
+        {(leadIds) => <BulkLoiContent leadIds={leadIds} />}
+      </SearchParamsWrapper>
     </Suspense>
   );
 }
