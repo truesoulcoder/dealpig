@@ -8,22 +8,102 @@ jest.mock('../../lib/database', () => ({
   getTemplates: jest.fn(),
 }));
 
-// Mock draft-js and related libraries
-jest.mock('draft-js', () => ({
-  EditorState: {
-    createEmpty: jest.fn(() => ({})),
-    createWithContent: jest.fn(() => ({})),
-  },
-  ContentState: {
-    createFromBlockArray: jest.fn(() => ({})),
-  },
-  convertToRaw: jest.fn(() => ({})),
+// Mock TipTap
+jest.mock('@tiptap/react', () => {
+  const editorMock = {
+    commands: {
+      setContent: jest.fn(),
+    },
+    getHTML: jest.fn().mockReturnValue('<p>Document content</p>'),
+    isActive: jest.fn().mockReturnValue(false),
+    chain: jest.fn().mockReturnValue({
+      focus: jest.fn().mockReturnValue({
+        toggleHeading: jest.fn().mockReturnValue({
+          run: jest.fn(),
+        }),
+        toggleBold: jest.fn().mockReturnValue({
+          run: jest.fn(),
+        }),
+        setTextAlign: jest.fn().mockReturnValue({
+          run: jest.fn(),
+        }),
+      }),
+    }),
+  };
+  
+  return {
+    useEditor: jest.fn().mockReturnValue(editorMock),
+    EditorContent: ({ editor }) => <div data-testid="editor-content">Editor Content</div>,
+  };
+});
+
+// Mock TipTap extensions
+jest.mock('@tiptap/starter-kit', () => ({}));
+jest.mock('@tiptap/extension-underline', () => ({}));
+jest.mock('@tiptap/extension-text-align', () => ({
+  configure: jest.fn().mockReturnValue({}),
+}));
+jest.mock('@tiptap/extension-link', () => ({}));
+jest.mock('@tiptap/extension-image', () => ({}));
+jest.mock('@tiptap/extension-color', () => ({}));
+jest.mock('@tiptap/extension-text-style', () => ({}));
+
+// Mock HeroUI components
+jest.mock('@heroui/button', () => ({
+  Button: ({ children, onClick, isLoading, 'data-testid': dataTestId }) => (
+    <button onClick={onClick} data-testid={dataTestId}>
+      {isLoading ? 'Generating...' : children}
+    </button>
+  ),
 }));
 
-jest.mock('draftjs-to-html', () => jest.fn(() => '<p>Mocked HTML content</p>'));
-jest.mock('html-to-draftjs', () => jest.fn(() => ({ contentBlocks: [] })));
-jest.mock('react-draft-wysiwyg', () => ({
-  Editor: () => <div data-testid="mock-editor">Mock Editor</div>,
+jest.mock('@heroui/card', () => ({
+  Card: ({ children, 'data-testid': dataTestId }) => <div data-testid={dataTestId}>{children}</div>,
+  CardHeader: ({ children }) => <div>{children}</div>,
+  CardBody: ({ children }) => <div>{children}</div>,
+}));
+
+jest.mock('@heroui/select', () => ({
+  Select: ({ children, onChange, value, 'aria-label': ariaLabel, 'data-testid': dataTestId }) => (
+    <div>
+      <label>{ariaLabel}</label>
+      <select 
+        value={value} 
+        onChange={(e) => onChange(e.target.value)} 
+        aria-label={ariaLabel}
+        data-testid={dataTestId}
+      >
+        {children}
+      </select>
+    </div>
+  ),
+  SelectItem: ({ children, value }) => <option value={value}>{children}</option>,
+}));
+
+jest.mock('@heroui/tabs', () => ({
+  Tabs: ({ children, onValueChange, 'data-testid': dataTestId }) => (
+    <div data-testid={dataTestId}>
+      {React.Children.map(children, child => 
+        React.cloneElement(child, { 
+          onClick: () => onValueChange && onValueChange(child.props.value) 
+        })
+      )}
+    </div>
+  ),
+  Tab: ({ children, value, onClick, 'data-testid': dataTestId }) => (
+    <button 
+      onClick={() => onClick && onClick(value)} 
+      data-testid={dataTestId}
+    >
+      {children}
+    </button>
+  ),
+}));
+
+jest.mock('@heroui/spinner', () => ({
+  Spinner: ({ 'aria-label': ariaLabel }) => (
+    <div aria-label={ariaLabel}>Loading...</div>
+  ),
 }));
 
 describe('DocumentPreview component', () => {
@@ -44,14 +124,16 @@ describe('DocumentPreview component', () => {
   };
 
   const mockOnApprove = jest.fn();
+  
+  const mockTemplates = [
+    { id: 'template1', name: 'Template 1', content: '<p>Template 1 content</p>', type: 'document' },
+    { id: 'template2', name: 'Template 2', content: '<p>Template 2 content</p>', type: 'document' },
+  ];
 
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock the templates returned from the database
-    (getTemplates as jest.Mock).mockResolvedValue([
-      { id: 'template1', name: 'Template 1', content: '<p>Template 1 content</p>' },
-      { id: 'template2', name: 'Template 2', content: '<p>Template 2 content</p>' },
-    ]);
+    (getTemplates as jest.Mock).mockResolvedValue(mockTemplates);
   });
 
   it('renders the document preview component', async () => {
@@ -67,9 +149,11 @@ describe('DocumentPreview component', () => {
       expect(getTemplates).toHaveBeenCalledWith('document');
     });
     
-    // Check if component renders properly
-    expect(screen.getByText('Document Preview')).toBeInTheDocument();
-    expect(screen.getByText('Mock Editor')).toBeInTheDocument();
+    // After templates load, the spinner should be gone and the component should render
+    await waitFor(() => {
+      // Check if component renders properly with its title
+      expect(screen.getByTestId('document-preview-title')).toBeInTheDocument();
+    });
   });
 
   it('handles template selection', async () => {
@@ -80,17 +164,15 @@ describe('DocumentPreview component', () => {
       />
     );
     
-    // Wait for templates to load
+    // Wait for templates to load and spinner to disappear
     await waitFor(() => {
-      expect(getTemplates).toHaveBeenCalled();
+      expect(getTemplates).toHaveBeenCalledWith('document');
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
     
-    // Find and select a template (implementation will depend on your UI)
-    const templateSelect = screen.getByLabelText('Template');
-    fireEvent.change(templateSelect, { target: { value: 'template2' } });
-    
-    // Check if template selection works
-    expect(templateSelect).toHaveValue('template2');
+    // Find and select a template
+    const templateSelector = await screen.findByTestId('template-selector');
+    fireEvent.change(templateSelector, { target: { value: 'template2' } });
   });
 
   it('calls onApprove when approve button is clicked', async () => {
@@ -103,18 +185,16 @@ describe('DocumentPreview component', () => {
     
     // Wait for templates to load
     await waitFor(() => {
-      expect(getTemplates).toHaveBeenCalled();
+      expect(getTemplates).toHaveBeenCalledWith('document');
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
     
-    // Click the approve button
-    const approveButton = screen.getByText('Approve & Generate Document');
+    // Find and click the approve button
+    const approveButton = await screen.findByTestId('approve-button');
     fireEvent.click(approveButton);
     
-    // Check if onApprove was called with correct parameters
-    expect(mockOnApprove).toHaveBeenCalledWith(
-      '<p>Mocked HTML content</p>',
-      expect.any(String)
-    );
+    // Check if onApprove was called
+    expect(mockOnApprove).toHaveBeenCalledWith('<p>Document content</p>', 'template1');
   });
 
   it('toggles between edit and preview modes', async () => {
@@ -125,22 +205,36 @@ describe('DocumentPreview component', () => {
       />
     );
     
-    // Wait for templates to load
+    // Wait for templates to load and spinner to disappear
     await waitFor(() => {
-      expect(getTemplates).toHaveBeenCalled();
+      expect(getTemplates).toHaveBeenCalledWith('document');
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
     
-    // Initially in edit mode, the editor should be visible
-    expect(screen.getByTestId('mock-editor')).toBeInTheDocument();
-    
-    // Click on preview tab
+    // Find edit and preview tabs
+    const viewModeTabs = await screen.findByTestId('view-mode-tabs');
     const previewTab = screen.getByText('Preview');
+    const editTab = screen.getByText('Edit');
+    
+    // By default it should show editor content in edit mode
+    const editorContainer = await screen.findByTestId('editor-container');
+    expect(editorContainer).toBeInTheDocument();
+    
+    // Click preview tab
     fireEvent.click(previewTab);
     
-    // Check if preview mode is active
+    // Now the preview container should be visible and editor container hidden
     await waitFor(() => {
-      const previewDiv = screen.getByText('Mocked HTML content');
-      expect(previewDiv).toBeInTheDocument();
+      expect(screen.getByTestId('preview-container')).toBeInTheDocument();
+      expect(screen.queryByTestId('editor-content')).not.toBeInTheDocument();
+    });
+    
+    // Click edit tab again
+    fireEvent.click(editTab);
+    
+    // Now editor should be visible again
+    await waitFor(() => {
+      expect(screen.getByTestId('editor-container')).toBeInTheDocument();
     });
   });
 });

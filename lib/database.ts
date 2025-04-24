@@ -99,7 +99,7 @@ export async function createLead(lead: Lead): Promise<Lead | null> {
     .insert([newLead])
     .select();
 
-  if (error) {
+  if (error || !data || data.length === 0) {
     console.error('Error creating lead:', error);
     return null;
   }
@@ -125,25 +125,28 @@ export async function getLeadById(id: string): Promise<Lead | null> {
   return data as Lead;
 }
 
-export async function getLeads(options?: { status?: string; limit?: number; offset?: number }): Promise<Lead[]> {
+export async function getLeads(status?: string, search?: string, limit = 100, offset = 0): Promise<Lead[]> {
   let query = supabase.from('leads').select(`
     *,
     contacts (*)
   `);
 
-  if (options?.status) {
-    query = query.eq('status', options.status);
+  if (status) {
+    query = query.eq('status', status);
   }
 
-  if (options?.limit) {
-    query = query.limit(options.limit);
+  if (search) {
+    query = query.or(`
+      property_address.ilike.%${search}%,
+      property_city.ilike.%${search}%,
+      property_state.ilike.%${search}%,
+      property_zip.ilike.%${search}%
+    `);
   }
 
-  if (options?.offset) {
-    query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error('Error fetching leads:', error);
@@ -196,7 +199,7 @@ export async function createContact(contact: Contact): Promise<Contact | null> {
     .insert([newContact])
     .select();
 
-  if (error) {
+  if (error || !data || data.length === 0) {
     console.error('Error creating contact:', error);
     return null;
   }
@@ -237,7 +240,7 @@ export async function createEmail(email: Email): Promise<Email | null> {
     .insert([newEmail])
     .select();
 
-  if (error) {
+  if (error || !data || data.length === 0) {
     console.error('Error creating email record:', error);
     return null;
   }
@@ -269,7 +272,7 @@ export async function updateEmailStatus(id: string, status: string, additionalDa
     .eq('id', id)
     .select();
 
-  if (error) {
+  if (error || !data || data.length === 0) {
     console.error('Error updating email status:', error);
     return null;
   }
