@@ -52,35 +52,19 @@ This document outlines the planned development roadmap, testing strategy, and ma
 
 2. **Technical Debt**:
    - ❌ Replace `react-draft-wysiwyg` with React 19 compatible editor - Still using legacy peer deps
-   - ❌ Migrate to typed API endpoints with tRPC - Not yet implemented
+   - ✅ Migrate to typed API endpoints with tRPC - Implemented across all API endpoints
    - ✅ Component library standardization - Consistently using NextUI/HeroUI components
    - ✅ Extract shared logic to custom hooks - Implemented hooks for common functionality
 
-3. **Integration**:
-   - Add Google Calendar integration
-   - Enable CRM integrations (Salesforce, HubSpot)
-   - Property data API integration
-
 ## Long-term Vision (6-12 months)
 
-1. **Platform Expansion**:
-   - Mobile application
-   - Chrome extension
-   - Offline capabilities
-   - Multi-language support
-
 2. **Advanced Features**:
-   - AI-powered deal analysis
-   - Automated comps pulling
    - Document OCR and parsing
-   - Advanced analytics and reporting
-   - Team collaboration features
+
 
 3. **Infrastructure**:
    - Microservices architecture
    - Serverless functions
-   - Multi-region deployment
-   - Self-hosted option
 
 ## Testing Strategy
 
