@@ -7,8 +7,8 @@ import { createClient } from '@supabase/supabase-js';
 // It provides admin access to Supabase using the service role key
 
 // Validate environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.supabase_url;
+const supabaseServiceRoleKey = process.env.supabase_service_role_key;
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
   throw new Error('Missing required Supabase admin environment variables');
