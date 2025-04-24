@@ -14,7 +14,6 @@ const documentDataSchema = z.object({
   closingDate: z.string(),
   companyName: z.string().optional(),
   senderName: z.string().optional(),
-  senderTitle: z.string().optional(),
   senderContact: z.string().optional(),
 });
 
