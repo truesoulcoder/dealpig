@@ -187,7 +187,7 @@ export default function AdvancedTable({
     if (visibleColumns === "all") return columns;
 
     return columns.filter((column) => Array.from(visibleColumns).includes(column.uid));
-  }, [visibleColumns, columns, hasSearchFilter]);
+  }, [visibleColumns, columns]);
 
   const filteredItems = React.useMemo(() => {
     let filteredData = [...data];
@@ -205,7 +205,7 @@ export default function AdvancedTable({
     }
 
     return filteredData;
-  }, [data, filterValue, statusFilter, statusOptions.length]);
+  }, [data, filterValue, statusFilter, statusOptions.length, hasSearchFilter]);
 
   const pages = Math.ceil(filteredItems.length / rowsPerPage);
 

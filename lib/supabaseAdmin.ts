@@ -1,4 +1,5 @@
-"use server";
+// This file should only be used on the server
+// DO NOT IMPORT THIS IN CLIENT COMPONENTS
 
 import { createClient } from '@supabase/supabase-js';
 

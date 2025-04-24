@@ -1,8 +1,6 @@
-"use server";
-
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { rateLimit } from '@/lib/rateLimit';
+import { apiLimiter } from '@/lib/rateLimit';
 
 interface BounceNotification {
   email: string;
@@ -22,13 +20,9 @@ interface BounceNotification {
 export async function POST(req: NextRequest) {
   try {
     // Apply rate limiting to prevent abuse
-    const limiter = await rateLimit.check(req, 100, 'BOUNCE_WEBHOOK');
-    
-    if (!limiter.success) {
-      return NextResponse.json(
-        { error: 'Too many requests' },
-        { status: 429 }
-      );
+    const rateLimitResult = await apiLimiter(req);
+    if (rateLimitResult) {
+      return rateLimitResult; // Rate limit exceeded
     }
 
     // Validate the request signature (implementation depends on your email provider)

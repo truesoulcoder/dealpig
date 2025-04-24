@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assignLeadsToCampaignSenders } from '@/lib/leadAssignmentService';
-import { rateLimit } from '@/lib/rateLimit';
+import { apiLimiter } from '@/lib/rateLimit';
 import { getServerSession } from 'next-auth';
-
-// Rate limiter for lead assignment
-const limiter = rateLimit({
-  uniqueTokenPerInterval: 5,
-  interval: 60 * 1000, // 1 minute
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,13 +15,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Apply rate limiting
-    try {
-      await limiter.check(2, 'lead-assignment'); // 2 requests per minute
-    } catch (error) {
-      return NextResponse.json(
-        { success: false, message: 'Rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      );
+    const rateLimitResult = await apiLimiter(request);
+    if (rateLimitResult) {
+      return rateLimitResult; // Rate limit exceeded
     }
 
     // Parse request body
