@@ -72,6 +72,7 @@
       "react-apexcharts": "^1.7.0",
       "react-dom": "19.1.0",
       "react-hot-toast": "^2.5.2",
+      "recharts": "^2.15.3",
       "supabase": "^2.22.4",
       "uuid": "^11.1.0",
       "vercel": "^41.6.2",
