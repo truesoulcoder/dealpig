@@ -8,3 +8,11 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Export as named export too for components that import it as supabaseClient
+export const supabaseClient = supabase;
+
+// Add the missing getSupabase function
+export function getSupabase() {
+  return supabase;
+}

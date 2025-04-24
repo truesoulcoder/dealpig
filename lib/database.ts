@@ -378,6 +378,53 @@ export async function getTemplateById(id: string): Promise<Template | null> {
   return data as Template;
 }
 
+// Template save operation
+export async function saveTemplate(template: Template): Promise<Template | null> {
+  const now = new Date().toISOString();
+  
+  try {
+    // If ID exists, update existing template
+    if (template.id) {
+      const { data, error } = await supabase
+        .from('templates')
+        .update({
+          ...template,
+          updated_at: now
+        })
+        .eq('id', template.id)
+        .select();
+      
+      if (error) {
+        console.error('Error updating template:', error);
+        return null;
+      }
+      
+      return data[0] as Template;
+    } 
+    // Otherwise create new template
+    else {
+      const { data, error } = await supabase
+        .from('templates')
+        .insert([{
+          ...template,
+          created_at: now,
+          updated_at: now
+        }])
+        .select();
+      
+      if (error) {
+        console.error('Error creating template:', error);
+        return null;
+      }
+      
+      return data[0] as Template;
+    }
+  } catch (error) {
+    console.error('Error in saveTemplate:', error);
+    return null;
+  }
+}
+
 // Sender operations
 export async function getSenders(): Promise<Sender[]> {
   const { data, error } = await supabase
@@ -408,7 +455,48 @@ export async function getSenderByEmail(email: string): Promise<Sender | null> {
   return data as Sender;
 }
 
-// Lead Source operations
+// Additional functions needed by campaignScheduler.ts
+export async function updateLeadStatus(leadId: string, status: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('leads')
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', leadId);
+    
+    if (error) {
+      console.error('Error updating lead status:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateLeadStatus:', error);
+    return false;
+  }
+}
+
+export async function getSenderById(id: string): Promise<Sender | null> {
+  try {
+    const { data, error } = await supabase
+      .from('senders')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching sender:', error);
+      return null;
+    }
+    
+    return data as Sender;
+  } catch (error) {
+    console.error('Error in getSenderById:', error);
+    return null;
+  }
+}
 export async function createLeadSource(source: LeadSource): Promise<LeadSource | null> {
   const now = new Date().toISOString();
   const newSource = {

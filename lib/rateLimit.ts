@@ -101,3 +101,6 @@ export async function apiLimiter(req: NextRequest) {
     limit: 100 // 100 requests per minute
   });
 }
+
+// Export the generic rateLimit function for direct use
+export { rateLimit };
