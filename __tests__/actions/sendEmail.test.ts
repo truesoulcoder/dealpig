@@ -155,7 +155,10 @@ describe('sendEmail action', () => {
     const result = await sendEmail(emailParams);
 
     // Assert
-    expect(result.success).toBe(true); // Should still succeed with fallback to env vars
+    // Since the implementation falls back to environment variables, this should succeed
+    // as long as the environment variables are properly set in the test
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('Email sent successfully');
   });
 
   it('should handle errors during email sending', async () => {
