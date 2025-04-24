@@ -19,7 +19,7 @@ interface OAuthCredentials {
 /**
  * Get OAuth credentials from environment variables or client_secret.json
  */
-export function getOAuthCredentials(): OAuthCredentials {
+export async function getOAuthCredentials(): Promise<OAuthCredentials> {
   // First try to get credentials from environment variables
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     return {
@@ -68,7 +68,7 @@ export function getOAuthCredentials(): OAuthCredentials {
 /**
  * Get sender-specific OAuth tokens
  */
-export function getSenderTokens(senderEmail: string): OAuthCredentials | null {
+export async function getSenderTokens(senderEmail: string): Promise<OAuthCredentials | null> {
   try {
     // Normalize the email for filename
     const normalizedEmail = senderEmail.replace(/[@.]/g, '_');

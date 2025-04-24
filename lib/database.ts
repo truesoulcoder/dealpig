@@ -816,3 +816,16 @@ export async function getCampaignStatsByDate(
     return [];
   }
 }
+
+// Campaign status update functions
+export async function startCampaign(campaignId: string): Promise<boolean> {
+  return updateCampaignStatus(campaignId, 'ACTIVE');
+}
+
+export async function pauseCampaign(campaignId: string): Promise<boolean> {
+  return updateCampaignStatus(campaignId, 'PAUSED');
+}
+
+export async function completeCampaign(campaignId: string): Promise<boolean> {
+  return updateCampaignStatus(campaignId, 'COMPLETED');
+}

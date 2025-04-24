@@ -198,3 +198,14 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     };
   }
 }
+
+// Export getLeads function that uses the database implementation
+export async function getLeads() {
+  try {
+    const { getLeads: databaseGetLeads } = await import('@/lib/database');
+    return databaseGetLeads();
+  } catch (error) {
+    console.error('Error in getLeads action:', error);
+    return [];
+  }
+}
