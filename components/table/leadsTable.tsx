@@ -29,7 +29,11 @@ interface LeadWithEmail extends Lead {
   recipient_email?: string; 
 }
 
-export default function LeadsTable() {
+interface LeadsTableProps {
+  onRowClick?: (leadId: string) => void;
+}
+
+export default function LeadsTable({ onRowClick }: LeadsTableProps) {
   // State management
   const [leads, setLeads] = useState<LeadWithEmail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,20 +187,33 @@ export default function LeadsTable() {
   };
 
   // Handle LOI generation for a lead
-  const handleGenerateLOI = (leadId: string) => {
-    // TODO: Implement LOI generation
+  const handleGenerateLOI = (leadId: string, event: React.MouseEvent) => {
+    // Prevent the row click event from firing
+    event.stopPropagation();
     console.log(`Generate LOI for lead ${leadId}`);
+    // Navigate to the generate LOI page
+    window.location.href = `/leads/${leadId}/generate-loi`;
   };
 
   // Handle email sending for a lead
-  const handleSendEmail = (leadId: string) => {
-    // TODO: Implement email sending
+  const handleSendEmail = (leadId: string, event: React.MouseEvent) => {
+    // Prevent the row click event from firing
+    event.stopPropagation();
     console.log(`Send email for lead ${leadId}`);
+    // Navigate to the send email page
+    window.location.href = `/leads/${leadId}/send-email`;
   };
 
   // Handle sort change
   const handleSortChange = (descriptor: SortDescriptor) => {
     setSortDescriptor(descriptor);
+  };
+
+  // Handle row click to view lead details
+  const handleRowClick = (leadId: string) => {
+    if (onRowClick) {
+      onRowClick(leadId);
+    }
   };
 
   if (loading) {
@@ -279,7 +296,11 @@ export default function LeadsTable() {
         <TableBody>
           {items.length > 0 ? (
             items.map((lead) => (
-              <TableRow key={lead.id}>
+              <TableRow 
+                key={lead.id} 
+                className={onRowClick ? "cursor-pointer hover:bg-gray-50" : ""}
+                onClick={onRowClick && lead.id ? () => handleRowClick(lead.id!) : undefined}
+              >
                 <TableCell>{lead.property_address}</TableCell>
                 <TableCell>{lead.property_city}</TableCell>
                 <TableCell>{lead.property_state}</TableCell>
@@ -300,12 +321,20 @@ export default function LeadsTable() {
                 <TableCell>
                   <div className="flex gap-2">
                     <Tooltip content="Generate LOI">
-                      <Button size="sm" variant="light" onClick={() => handleGenerateLOI(lead.id!)}>
+                      <Button 
+                        size="sm" 
+                        variant="light" 
+                        onClick={lead.id ? (e) => handleGenerateLOI(lead.id!, e) : undefined}
+                      >
                         Generate LOI
                       </Button>
                     </Tooltip>
                     <Tooltip content="Send Email">
-                      <Button size="sm" variant="light" onClick={() => handleSendEmail(lead.id!)}>
+                      <Button 
+                        size="sm" 
+                        variant="light" 
+                        onClick={lead.id ? (e) => handleSendEmail(lead.id!, e) : undefined}
+                      >
                         Send Email
                       </Button>
                     </Tooltip>
