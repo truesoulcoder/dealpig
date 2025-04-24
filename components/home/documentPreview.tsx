@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { EditorState, ContentState, convertToRaw } from 'draft-js';
-import { Editor } from 'react-draft-wysiwyg';
-import draftToHtml from 'draftjs-to-html';
-import htmlToDraft from 'html-to-draftjs';
+import { useEditor, EditorContent, Editor as TiptapEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import Link from '@tiptap/extension-link';
+import Image from '@tiptap/extension-image';
+import Color from '@tiptap/extension-color';
+import TextStyle from '@tiptap/extension-text-style';
 import { Button } from '@nextui-org/button';
 import { Card, CardBody, CardHeader } from '@nextui-org/card';
 import { Select, SelectItem } from '@nextui-org/select';
@@ -12,8 +16,7 @@ import { Tabs, Tab } from '@nextui-org/tabs';
 import { Spinner } from '@nextui-org/spinner';
 import { getTemplates, Template } from '@/lib/database';
 
-// Import the editor styles
-import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
+// No need for editor styles import as TipTap handles this differently
 
 interface DocumentPreviewProps {
   documentData: {
@@ -34,12 +37,24 @@ interface DocumentPreviewProps {
 }
 
 export default function DocumentPreview({ documentData, onApprove }: DocumentPreviewProps) {
-  const [editorState, setEditorState] = useState(EditorState.createEmpty());
   const [isLoading, setIsLoading] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [loadingTemplates, setLoadingTemplates] = useState(true);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      TextAlign.configure({ types: [ 'heading', 'paragraph' ] }),
+      Link,
+      Image,
+      Color,
+      TextStyle,
+    ],
+    content: '<p>Hello World!</p>',
+  });
 
   // Fetch available templates
   useEffect(() => {
@@ -54,31 +69,19 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
           
           // Load the first template
           const initialHtml = processTemplate(templateData[0].content, documentData);
-          const contentBlock = htmlToDraft(initialHtml);
-          if (contentBlock) {
-            const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
-            setEditorState(EditorState.createWithContent(contentState));
-          }
+          editor?.commands.setContent(initialHtml);
         } else {
           // No templates found, load the default template
           setSelectedTemplate('default');
           const defaultTemplate = generateDefaultLoiTemplate(documentData);
-          const contentBlock = htmlToDraft(defaultTemplate);
-          if (contentBlock) {
-            const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
-            setEditorState(EditorState.createWithContent(contentState));
-          }
+          editor?.commands.setContent(defaultTemplate);
         }
       } catch (error) {
         console.error('Error loading templates:', error);
         // Load default template on error
         setSelectedTemplate('default');
         const defaultTemplate = generateDefaultLoiTemplate(documentData);
-        const contentBlock = htmlToDraft(defaultTemplate);
-        if (contentBlock) {
-          const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
-          setEditorState(EditorState.createWithContent(contentState));
-        }
+        editor?.commands.setContent(defaultTemplate);
       } finally {
         setLoadingTemplates(false);
       }
@@ -104,11 +107,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
       }
     }
     
-    const contentBlock = htmlToDraft(templateContent);
-    if (contentBlock) {
-      const contentState = ContentState.createFromBlockArray(contentBlock.contentBlocks);
-      setEditorState(EditorState.createWithContent(contentState));
-    }
+    editor?.commands.setContent(templateContent);
   };
 
   // Process template with variable replacement
@@ -165,17 +164,12 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
   const handleApprove = () => {
     setIsLoading(true);
     try {
-      // Convert editor content to HTML
-      const htmlContent = draftToHtml(convertToRaw(editorState.getCurrentContent()));
+      // Get editor content as HTML
+      const htmlContent = editor?.getHTML() || '';
       onApprove(htmlContent, selectedTemplate);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Get HTML preview content
-  const getPreviewContent = () => {
-    return draftToHtml(convertToRaw(editorState.getCurrentContent()));
   };
 
   if (loadingTemplates) {
@@ -225,36 +219,13 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
       <CardBody>
         {viewMode === "edit" ? (
           <div className="border border-gray-300 rounded-md min-h-[500px] mb-4">
-            <Editor
-              editorState={editorState}
-              onEditorStateChange={setEditorState}
-              wrapperClassName="w-full"
-              editorClassName="px-4 py-2 min-h-[450px]"
-              toolbar={{
-                options: [
-                  'inline', 'blockType', 'fontSize', 'list', 'textAlign', 'colorPicker',
-                  'link', 'emoji', 'image', 'remove', 'history'
-                ],
-                inline: { 
-                  options: ['bold', 'italic', 'underline', 'strikethrough', 'monospace'],
-                },
-                blockType: {
-                  inDropdown: true,
-                  options: ['Normal', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'Blockquote'],
-                },
-                fontSize: {
-                  options: [8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48],
-                },
-                list: { inDropdown: true },
-                textAlign: { inDropdown: true },
-              }}
-            />
+            <EditorContent editor={editor} />
           </div>
         ) : (
           <div className="border border-gray-300 rounded-md min-h-[500px] mb-4 p-6">
             <div 
               className="prose max-w-none" 
-              dangerouslySetInnerHTML={{ __html: getPreviewContent() }}
+              dangerouslySetInnerHTML={{ __html: editor?.getHTML() || '' }}
             />
           </div>
         )}
