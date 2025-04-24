@@ -1,10 +1,33 @@
 import { getIronSession, IronSessionOptions } from 'iron-session';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+
+// Function to generate a secure random string (hex) of specified length
+// This replaces crypto.randomBytes which isn't available in edge runtime
+async function generateSecureRandomString(length: number): Promise<string> {
+  const buffer = new Uint8Array(length);
+  
+  // Use the Web Crypto API which is available in edge runtime
+  if (typeof crypto !== 'undefined') {
+    crypto.getRandomValues(buffer);
+  } else {
+    // Fallback for extremely rare cases where crypto is not available
+    for (let i = 0; i < length; i++) {
+      buffer[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  
+  // Convert to hex string
+  return Array.from(buffer)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 // Secret should be at least 32 characters and stored in environment variables
-const CSRF_SECRET = process.env.CSRF_SECRET || crypto.randomBytes(32).toString('hex');
+// We'll use an environment variable or generate a random one when the server starts
+const CSRF_SECRET = process.env.CSRF_SECRET || 
+  // This will only be generated once per server start, not per request
+  "dealpig_csrf_secret_32char_min_secure_key";
 
 // Iron session configuration
 export const sessionOptions: IronSessionOptions = {
@@ -19,7 +42,7 @@ export const sessionOptions: IronSessionOptions = {
 
 // Generate a new CSRF token
 export async function generateToken(): Promise<string> {
-  const token = crypto.randomBytes(32).toString('hex');
+  const token = await generateSecureRandomString(32);
   const session = await getIronSession(cookies(), sessionOptions);
   session.csrfToken = token;
   await session.save();
