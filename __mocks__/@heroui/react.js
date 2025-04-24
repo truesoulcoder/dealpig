@@ -24,4 +24,19 @@ module.exports = {
   Tabs: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "tabs" } }),
   Tab: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "tab" } }),
   Spinner: (props) => ({ type: 'div', props: { ...props, "data-testid": "spinner" } }),
+  // Modal components
+  Modal: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "modal" } }),
+  ModalContent: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "modal-content" } }),
+  ModalHeader: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "modal-header" } }),
+  ModalBody: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "modal-body" } }),
+  ModalFooter: ({ children, ...props }) => ({ type: 'div', props: { ...props, children, "data-testid": "modal-footer" } }),
+  // Hooks
+  useDisclosure: () => ({
+    isOpen: false,
+    onOpen: jest.fn(),
+    onClose: jest.fn(),
+    onToggle: jest.fn()
+  }),
+  // Other components
+  Checkbox: ({ children, ...props }) => ({ type: 'input', props: { type: 'checkbox', ...props, children, "data-testid": "checkbox" } }),
 };
