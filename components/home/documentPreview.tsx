@@ -9,12 +9,139 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Color from '@tiptap/extension-color';
 import TextStyle from '@tiptap/extension-text-style';
-import { Button } from '@nextui-org/button';
-import { Card, CardBody, CardHeader } from '@nextui-org/card';
-import { Select, SelectItem } from '@nextui-org/select';
-import { Tabs, Tab } from '@nextui-org/tabs';
-import { Spinner } from '@nextui-org/spinner';
+import { Button } from '@heroui/button';
+import { Card, CardBody, CardHeader } from '@heroui/card';
+import { Select, SelectItem } from '@heroui/select';
+import { Tabs, Tab } from '@heroui/tabs';
+import { Spinner } from '@heroui/spinner';
 import { getTemplates, Template } from '@/lib/database';
+
+// EditorToolbar component for text formatting options
+const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-gray-300 p-2 flex flex-wrap gap-1 items-center">
+      <div className="flex gap-1 mr-2">
+        <Button
+          size="sm"
+          variant={editor.isActive('heading', { level: 1 }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          H1
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive('heading', { level: 2 }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          H2
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive('heading', { level: 3 }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          H3
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive('paragraph') ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().setParagraph().run()}
+        >
+          P
+        </Button>
+      </div>
+
+      <div className="border-r border-gray-300 h-6 mx-2" />
+
+      <div className="flex gap-1 mr-2">
+        <Button
+          size="sm"
+          variant={editor.isActive('bold') ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
+          <span className="font-bold">B</span>
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive('italic') ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <span className="italic">I</span>
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive('underline') ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+        >
+          <span className="underline">U</span>
+        </Button>
+      </div>
+
+      <div className="border-r border-gray-300 h-6 mx-2" />
+
+      <div className="flex gap-1 mr-2">
+        <Button
+          size="sm"
+          variant={editor.isActive({ textAlign: 'left' }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+        >
+          Left
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive({ textAlign: 'center' }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+        >
+          Center
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive({ textAlign: 'right' }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+        >
+          Right
+        </Button>
+        <Button
+          size="sm"
+          variant={editor.isActive({ textAlign: 'justify' }) ? "secondary" : "ghost"}
+          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+        >
+          Justify
+        </Button>
+      </div>
+
+      <div className="border-r border-gray-300 h-6 mx-2" />
+
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={editor.isActive('link') ? "secondary" : "ghost"}
+          onClick={() => {
+            const url = window.prompt('URL');
+            if (url) {
+              editor.chain().focus().setLink({ href: url }).run();
+            }
+          }}
+        >
+          Link
+        </Button>
+        {editor.isActive('link') && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => editor.chain().focus().unsetLink().run()}
+          >
+            Unlink
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // No need for editor styles import as TipTap handles this differently
 
@@ -176,7 +303,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     return (
       <Card>
         <CardBody className="flex items-center justify-center min-h-[400px]">
-          <Spinner size="lg" label="Loading templates..." />
+          <Spinner size="lg" aria-label="Loading templates" />
         </CardBody>
       </Card>
     );
@@ -192,7 +319,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
               label="Template"
               placeholder="Select a template"
               value={selectedTemplate}
-              onChange={(e) => handleTemplateChange(e.target.value)}
+              onChange={(value) => handleTemplateChange(value)}
               className="w-full"
             >
               <SelectItem key="default" value="default">Default Template</SelectItem>
@@ -205,12 +332,12 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
           </div>
           <div className="w-full sm:w-1/3">
             <Tabs 
-              selectedKey={viewMode} 
-              onSelectionChange={(key) => setViewMode(key as "edit" | "preview")}
+              value={viewMode} 
+              onValueChange={(value) => setViewMode(value as "edit" | "preview")}
               className="w-full"
             >
-              <Tab key="edit" title="Edit" />
-              <Tab key="preview" title="Preview" />
+              <Tab value="edit" title="Edit" />
+              <Tab value="preview" title="Preview" />
             </Tabs>
           </div>
         </div>
@@ -219,7 +346,10 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
       <CardBody>
         {viewMode === "edit" ? (
           <div className="border border-gray-300 rounded-md min-h-[500px] mb-4">
-            <EditorContent editor={editor} />
+            <EditorToolbar editor={editor} />
+            <div className="p-4">
+              <EditorContent editor={editor} />
+            </div>
           </div>
         ) : (
           <div className="border border-gray-300 rounded-md min-h-[500px] mb-4 p-6">
@@ -232,7 +362,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
         
         <div className="flex justify-end space-x-2">
           <Button
-            color="primary"
+            variant="primary"
             onClick={handleApprove}
             isLoading={isLoading}
           >
