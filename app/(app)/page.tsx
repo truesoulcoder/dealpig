@@ -1,4 +1,4 @@
-import { Tabs, Tab } from "@heroui/react";
+import { Tabs, Tab, Card, CardBody } from "@heroui/react";
 import CampaignDashboard from "@/components/home/campaign-dashboard";
 import LeadsTable from '@/components/table/leadsTable';
 import SaveTokenForm from '@/components/auth/saveTokenForm';
@@ -15,28 +15,32 @@ export default function DashboardPage() {
       {/* Legacy tools available through tabs */}
       <section className="mt-10">
         <h2 className="text-xl font-semibold mb-4">Manual Tools</h2>
-        <Tabs aria-label="Manual Tools">
-          <Tab key="leads-table" title="Leads Management">
-            <div className="p-2">
-              <LeadsTable />
-            </div>
-          </Tab>
-          <Tab key="generate-document" title="Generate LOI">
-            <div className="p-2">
-              <GenerateDocumentForm />
-            </div>
-          </Tab>
-          <Tab key="send-email" title="Send Email">
-            <div className="p-2">
-              <SendEmailForm />
-            </div>
-          </Tab>
-          <Tab key="upload-csv" title="Import Leads">
-            <div className="p-2">
-              <UploadCsvForm />
-            </div>
-          </Tab>
-        </Tabs>
+        <Card>
+          <CardBody>
+            <Tabs aria-label="Manual Tools">
+              <Tab key="leads-table" title="Leads Management">
+                <div className="p-2 mt-4">
+                  <LeadsTable />
+                </div>
+              </Tab>
+              <Tab key="generate-document" title="Generate LOI">
+                <div className="p-2 mt-4">
+                  <GenerateDocumentForm />
+                </div>
+              </Tab>
+              <Tab key="send-email" title="Send Email">
+                <div className="p-2 mt-4">
+                  <SendEmailForm />
+                </div>
+              </Tab>
+              <Tab key="upload-csv" title="Import Leads">
+                <div className="p-2 mt-4">
+                  <UploadCsvForm />
+                </div>
+              </Tab>
+            </Tabs>
+          </CardBody>
+        </Card>
       </section>
     </div>
   );

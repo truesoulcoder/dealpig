@@ -210,26 +210,26 @@ export default function CampaignDashboard() {
               </CardHeader>
               <CardBody>
                 <Tabs aria-label="Campaign Tools" className="w-full">
-                  <Tab key="senders" title={<div className="flex items-center gap-1"><FaUser size={14} /> Sender Accounts</div>}>
+                  <Tab key="senders" title="Sender Accounts">
                     <div className="p-2">
                       <SaveTokenForm />
                     </div>
                   </Tab>
-                  <Tab key="import" title={<div className="flex items-center gap-1"><FaUpload size={14} /> Import Leads</div>}>
+                  <Tab key="import" title="Import Leads">
                     <div className="p-2">
                       <Button color="primary" onClick={() => router.push('/leads/upload')}>
                         Upload New Leads
                       </Button>
                     </div>
                   </Tab>
-                  <Tab key="templates-email" title={<div className="flex items-center gap-1"><FaEnvelope size={14} /> Email Templates</div>}>
+                  <Tab key="templates-email" title="Email Templates">
                     <div className="p-2">
                       <Button color="primary" onClick={() => router.push('/templates/email')}>
                         Manage Email Templates
                       </Button>
                     </div>
                   </Tab>
-                  <Tab key="templates-loi" title={<div className="flex items-center gap-1"><FaFileAlt size={14} /> LOI Templates</div>}>
+                  <Tab key="templates-loi" title="LOI Templates">
                     <div className="p-2">
                       <Button color="primary" onClick={() => router.push('/templates/loi')}>
                         Manage LOI Templates
