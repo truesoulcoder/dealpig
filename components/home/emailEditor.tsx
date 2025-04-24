@@ -9,15 +9,17 @@ import Image from '@tiptap/extension-image';
 import Color from '@tiptap/extension-color';
 import TextStyle from '@tiptap/extension-text-style';
 import { Button } from '@heroui/react';
+import { useEffect } from 'react';
 
 // Interface for the editor props
 interface EmailEditorProps {
   initialContent?: string;
   onChange?: (html: string) => void;
   placeholder?: string;
+  onEditorReady?: (editor: any) => void;
 }
 
-const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your email here...' }: EmailEditorProps) => {
+const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your email here...', onEditorReady }: EmailEditorProps) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -39,6 +41,13 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
       },
     },
   });
+
+  // Pass the editor instance to parent component when it's ready
+  useEffect(() => {
+    if (editor && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
 
   if (!editor) {
     return <div className="min-h-[300px] flex items-center justify-center">Loading editor...</div>;

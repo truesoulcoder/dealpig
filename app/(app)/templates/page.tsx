@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardBody, Button, Input, Tabs, Tab, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Select, SelectItem } from "@heroui/react";
-import { FaPlus, FaEdit, FaTrash, FaDownload } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { getTemplates, saveTemplate } from '@/lib/database';
-import { Template } from '@/helpers/types';
 import EmailEditor from '@/components/home/emailEditor';
 import dynamic from 'next/dynamic';
+
+// Import the Template type from database.ts, not helpers/types
+import { Template } from '@/lib/database';
 
 // Dynamically import the document preview to avoid SSR issues
 const DynamicDocumentPreview = dynamic(() => import('@/components/home/documentPreview'), { 
@@ -30,6 +32,9 @@ export default function TemplatesPage() {
     content: "",
   });
 
+  // Editor reference for inserting variables
+  const [emailEditorRef, setEmailEditorRef] = useState<any>(null);
+
   // Document preview props for LOI templates
   const sampleDocumentData = {
     propertyAddress: "123 Main St",
@@ -45,6 +50,39 @@ export default function TemplatesPage() {
     senderTitle: "Acquisitions Manager",
     senderContact: "jane@example.com"
   };
+  
+  // Variable sets for templates
+  const emailVariables = [
+    { name: "recipientName", display: "Recipient Name", value: "{{recipient_name}}" },
+    { name: "propertyAddress", display: "Property Address", value: "{{property_address}}" },
+    { name: "propertyCity", display: "Property City", value: "{{property_city}}" },
+    { name: "propertyState", display: "Property State", value: "{{property_state}}" },
+    { name: "propertyZip", display: "Property ZIP", value: "{{property_zip}}" },
+    { name: "offerPrice", display: "Offer Price", value: "{{offer_price}}" },
+    { name: "earnestMoney", display: "Earnest Money", value: "{{earnest_money}}" },
+    { name: "closingDate", display: "Closing Date", value: "{{closing_date}}" },
+    { name: "companyName", display: "Company Name", value: "{{company_name}}" },
+    { name: "senderName", display: "Sender Name", value: "{{sender_name}}" },
+    { name: "senderTitle", display: "Sender Title", value: "{{sender_title}}" },
+    { name: "senderContact", display: "Sender Contact", value: "{{sender_contact}}" },
+    { name: "date", display: "Current Date", value: "{{date}}" },
+  ];
+
+  const documentVariables = [
+    { name: "propertyAddress", display: "Property Address", value: "{{property_address}}" },
+    { name: "propertyCity", display: "Property City", value: "{{property_city}}" },
+    { name: "propertyState", display: "Property State", value: "{{property_state}}" },
+    { name: "propertyZip", display: "Property ZIP", value: "{{property_zip}}" },
+    { name: "recipientName", display: "Recipient Name", value: "{{recipient_name}}" },
+    { name: "offerPrice", display: "Offer Price", value: "{{offer_price}}" },
+    { name: "earnestMoney", display: "Earnest Money", value: "{{earnest_money}}" },
+    { name: "closingDate", display: "Closing Date", value: "{{closing_date}}" },
+    { name: "date", display: "Current Date", value: "{{date}}" },
+    { name: "companyName", display: "Company Name", value: "{{company_name}}" },
+    { name: "senderName", display: "Sender Name", value: "{{sender_name}}" },
+    { name: "senderTitle", display: "Sender Title", value: "{{sender_title}}" },
+    { name: "senderContact", display: "Sender Contact", value: "{{sender_contact}}" },
+  ];
   
   // Fetch templates on component mount
   useEffect(() => {
@@ -82,10 +120,19 @@ export default function TemplatesPage() {
     try {
       const data = await getTemplates();
       setTemplates(data);
+      setFilteredTemplates(data);
     } catch (error) {
       console.error('Error fetching templates:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Insert variable at cursor position in the editor
+  const insertVariable = (variable: string) => {
+    if (currentTemplate.type === 'email' && emailEditorRef) {
+      emailEditorRef.commands.insertContent(variable);
+      emailEditorRef.commands.focus();
     }
   };
   
@@ -149,10 +196,15 @@ export default function TemplatesPage() {
   
   // Handle content change in the editor
   const handleContentChange = (html: string) => {
-    setCurrentTemplate(prev => ({
+    setCurrentTemplate((prev: any) => ({
       ...prev,
       content: html
     }));
+  };
+
+  // Store email editor reference
+  const handleEditorReady = (editor: any) => {
+    setEmailEditorRef(editor);
   };
 
   // Handle modal close (clear the current template)
@@ -248,7 +300,7 @@ export default function TemplatesPage() {
                       )}
                     </div>
                     <div className="mt-2 text-xs text-default-400">
-                      Last updated: {new Date(template.updated_at).toLocaleDateString()}
+                      Last updated: {template.updated_at ? new Date(template.updated_at).toLocaleDateString() : 'Never'}
                     </div>
                   </CardBody>
                 </Card>
@@ -274,19 +326,19 @@ export default function TemplatesPage() {
               <Input
                 label="Template Name"
                 placeholder="Enter template name"
-                value={currentTemplate.name}
-                onChange={(e) => setCurrentTemplate(prev => ({ ...prev, name: e.target.value }))}
+                value={currentTemplate.name || ''}
+                onChange={(e) => setCurrentTemplate((prev: any) => ({ ...prev, name: e.target.value }))}
                 isRequired
               />
               
               <Select
                 label="Template Type"
-                value={currentTemplate.type}
-                onChange={(e) => setCurrentTemplate(prev => ({ ...prev, type: e.target.value }))}
+                value={currentTemplate.type || 'email'}
+                onChange={(e) => setCurrentTemplate((prev: any) => ({ ...prev, type: e.target.value }))}
                 isRequired
               >
-                <SelectItem key="email" value="email">Email Template</SelectItem>
-                <SelectItem key="document" value="document">LOI Template</SelectItem>
+                <SelectItem key="email">Email Template</SelectItem>
+                <SelectItem key="document">LOI Template</SelectItem>
               </Select>
               
               {currentTemplate.type === 'email' ? (
@@ -296,7 +348,26 @@ export default function TemplatesPage() {
                     initialContent={currentTemplate.content || ''} 
                     onChange={handleContentChange}
                     placeholder="Write your email template here..."
+                    onEditorReady={handleEditorReady}
                   />
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-medium text-default-600">Available Variables:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {emailVariables.map((variable) => (
+                        <Button
+                          key={variable.name}
+                          size="sm"
+                          variant="flat"
+                          onClick={() => insertVariable(variable.value)}
+                        >
+                          {variable.display}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-default-400">
+                      Click a variable button to insert it at the cursor position
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="mt-4">
@@ -307,23 +378,26 @@ export default function TemplatesPage() {
                       handleContentChange(htmlContent);
                     }}
                   />
-                  <div className="mt-2 text-xs text-default-400">
-                    <p>Available variables:</p>
-                    <ul className="list-disc pl-5 mt-1">
-                      <li>{{property_address}} - Property Address</li>
-                      <li>{{property_city}} - City</li>
-                      <li>{{property_state}} - State</li>
-                      <li>{{property_zip}} - ZIP Code</li>
-                      <li>{{recipient_name}} - Recipient Name</li>
-                      <li>{{offer_price}} - Offer Price</li>
-                      <li>{{earnest_money}} - Earnest Money</li>
-                      <li>{{closing_date}} - Closing Date</li>
-                      <li>{{date}} - Current Date</li>
-                      <li>{{company_name}} - Company Name</li>
-                      <li>{{sender_name}} - Sender Name</li>
-                      <li>{{sender_title}} - Sender Title</li>
-                      <li>{{sender_contact}} - Sender Contact</li>
-                    </ul>
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-medium text-default-600">Available Variables:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {documentVariables.map((variable) => (
+                        <Button
+                          key={variable.name}
+                          size="sm"
+                          variant="flat"
+                          onClick={() => {
+                            // For document templates, we'll show which variable to use
+                            alert(`Use ${variable.value} in your document template to insert the ${variable.display}`);
+                          }}
+                        >
+                          {variable.display}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-default-400">
+                      Use these variables in your template by typing them exactly as shown
+                    </p>
                   </div>
                 </div>
               )}
