@@ -1,28 +1,39 @@
 "use client";
 
-import { createAuthCookie } from "@/actions/auth.action";
+import { createAuthCookie, loginUser } from "@/actions/auth.action";
 import { LoginSchema } from "@/helpers/schemas";
 import { LoginFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
 import { Formik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 export const Login = () => {
   const router = useRouter();
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const initialValues: LoginFormType = {
-    email: "admin@acme.com",
-    password: "admin",
+    email: "",
+    password: "",
   };
 
   const handleLogin = useCallback(
     async (values: LoginFormType) => {
-      // `values` contains email & password. You can use provider to connect user
-
-      await createAuthCookie();
-      router.replace("/");
+      try {
+        // Call loginUser action to authenticate
+        const result = await loginUser(values);
+        
+        if (result?.success) {
+          await createAuthCookie();
+          router.replace("/");
+        } else {
+          setAuthError("Invalid credentials");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        setAuthError("Unexpected server error");
+      }
     },
     [router]
   );
@@ -35,7 +46,7 @@ export const Login = () => {
         initialValues={initialValues}
         validationSchema={LoginSchema}
         onSubmit={handleLogin}>
-        {({ values, errors, touched, handleChange, handleSubmit }) => (
+        {({ values, errors, touched, handleChange, handleSubmit, status }) => (
           <>
             <div className='flex flex-col w-1/2 gap-4 mb-4'>
               <Input
@@ -57,6 +68,12 @@ export const Login = () => {
                 onChange={handleChange("password")}
               />
             </div>
+
+            {authError && (
+              <div className="text-red-500 mb-4" role="alert">
+                {authError}
+              </div>
+            )}
 
             <Button
               onPress={() => handleSubmit()}

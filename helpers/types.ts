@@ -502,3 +502,15 @@ export interface Contact {
   created_at: Date;
   updated_at: Date;
 }
+
+export interface LoginFormType {
+  email: string;
+  password: string;
+}
+
+export interface RegisterFormType {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
