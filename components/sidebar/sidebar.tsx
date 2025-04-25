@@ -19,6 +19,7 @@ import { FilterIcon } from "../icons/sidebar/filter-icon";
 import { useSidebarContext } from "../layout/layout-context";
 import { ChangeLogIcon } from "../icons/sidebar/changelog-icon";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 export const SidebarWrapper = () => {
   const pathname = usePathname();
@@ -35,12 +36,12 @@ export const SidebarWrapper = () => {
         })}
       >
         <div className={Sidebar.Header()}>
-          <CompaniesDropdown />
+          <Image src="/dealpig.svg" alt="DealPig Logo" width={150} height={50} />
         </div>
         <div className="flex flex-col justify-between h-full">
           <div className={Sidebar.Body()}>
             <SidebarItem
-              title="Home"
+              title="Dashboard"
               icon={<HomeIcon />}
               isActive={pathname === "/" || pathname === "/home"}
               href="/"
@@ -95,24 +96,6 @@ export const SidebarWrapper = () => {
               />
             </SidebarMenu>
             */}
-          </div>
-          <div className={Sidebar.Footer()}>
-            <Tooltip content={"Settings"} color="primary">
-              <div className="max-w-fit">
-                <SettingsIcon />
-              </div>
-            </Tooltip>
-            <Tooltip content={"Adjustments"} color="primary">
-              <div className="max-w-fit">
-                <FilterIcon />
-              </div>
-            </Tooltip>
-            <Tooltip content={"Profile"} color="primary">
-              <Avatar
-                src="https://i.pravatar.cc/150?u=a042581f4e29026704d"
-                size="sm"
-              />
-            </Tooltip>
           </div>
         </div>
       </div>

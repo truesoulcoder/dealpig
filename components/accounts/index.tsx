@@ -1,5 +1,5 @@
 "use client";
-import { Button, Input, Card, CardHeader, CardBody, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
+import { Button, Input, Card, CardHeader, CardBody, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Avatar } from "@heroui/react";
 import Link from "next/link";
 import React, { useState, useEffect, useCallback } from "react";
 import { DotsIcon } from "@/components/icons/accounts/dots-icon";
