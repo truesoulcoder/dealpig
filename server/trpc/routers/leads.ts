@@ -52,6 +52,28 @@ export const leadsRouter = router({
       return leads[0] || null;
     }),
 
+  // Get multiple leads by ID array
+  getLeadsByIds: protectedProcedure
+    .input(z.object({
+      ids: z.array(z.string())
+    }))
+    .query(async ({ ctx, input }) => {
+      if (input.ids.length === 0) {
+        return [];
+      }
+
+      // Fetch leads with the specified IDs
+      const results = await Promise.all(
+        input.ids.map(async (id) => {
+          const leads = await getLeads(undefined, undefined, 1, 0, id);
+          return leads[0] || null;
+        })
+      );
+
+      // Filter out any null results
+      return results.filter(Boolean);
+    }),
+
   // Create a new lead
   createLead: protectedProcedure
     .input(leadSchema.omit({ id: true }))
