@@ -211,6 +211,21 @@ export default function TemplatesPage() {
     setEmailEditorRef(editor);
   };
 
+  // Handle template type change
+  const handleTemplateTypeChange = (type: string) => {
+    // Only update if the type is actually different
+    if (type !== currentTemplate.type) {
+      // Keep existing content if switching between types
+      setCurrentTemplate(prev => ({
+        ...prev,
+        type
+      }));
+      
+      // Reset preview mode when switching types
+      setIsPreviewMode(false);
+    }
+  };
+  
   return (
     <div className="p-4 max-w-[1200px] mx-auto">
       <Card className="mb-6">
@@ -338,7 +353,7 @@ export default function TemplatesPage() {
               <Select
                 label="Template Type"
                 value={currentTemplate.type || 'email'}
-                onChange={(e) => setCurrentTemplate((prev: any) => ({ ...prev, type: e.target.value }))}
+                onChange={(e) => handleTemplateTypeChange(e.target.value)}
                 isRequired
               >
                 <SelectItem key="email">Email Template</SelectItem>
@@ -346,11 +361,11 @@ export default function TemplatesPage() {
               </Select>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
               {/* Left Column - Editor */}
-              <div className="border rounded-lg">
+              <div className="border rounded-lg w-full">
                 {currentTemplate.type === 'email' && (
-                  <div>
+                  <div className="w-full h-full">
                     <div className="border-b border-gray-200 p-2 flex justify-between items-center">
                       <h3 className="font-medium">Email Editor</h3>
                       <div className="flex gap-1">
@@ -391,7 +406,7 @@ export default function TemplatesPage() {
                 )}
                 
                 {currentTemplate.type === 'document' && (
-                  <div>
+                  <div className="w-full h-full">
                     <div className="border-b border-gray-200 p-2">
                       <h3 className="font-medium">Document Editor</h3>
                     </div>
@@ -406,7 +421,7 @@ export default function TemplatesPage() {
               </div>
               
               {/* Right Column - Preview */}
-              <div className="border rounded-lg">
+              <div className="border rounded-lg w-full">
                 <div className="border-b border-gray-200 p-2 flex justify-between items-center">
                   <h3 className="font-medium">Preview</h3>
                   {currentTemplate.type === 'email' && (
@@ -433,7 +448,7 @@ export default function TemplatesPage() {
                 <div className="p-4 bg-white min-h-[500px] overflow-y-auto">
                   {currentTemplate.type === 'email' && (
                     <div 
-                      className="prose max-w-none"
+                      className="prose max-w-none text-black"
                       dangerouslySetInnerHTML={{ 
                         __html: isPreviewMode ? 
                           currentTemplate.content
@@ -450,16 +465,16 @@ export default function TemplatesPage() {
                             .replace(/{{sender_title}}/g, "Acquisitions Manager")
                             .replace(/{{sender_contact}}/g, "jane@example.com")
                             .replace(/{{date}}/g, new Date().toLocaleDateString()) || 
-                            '<p>Your preview will appear here as you type...</p>' :
-                          currentTemplate.content || '<p>Your raw template will appear here as you type...</p>'
+                            '<p class="text-black">Your preview will appear here as you type...</p>' :
+                          currentTemplate.content || '<p class="text-black">Your raw template will appear here as you type...</p>'
                       }}
                     />
                   )}
                   
                   {currentTemplate.type === 'document' && (
                     <div 
-                      className="prose max-w-none"
-                      dangerouslySetInnerHTML={{ __html: currentTemplate.content || '<p>Your document preview will appear here...</p>' }}
+                      className="prose max-w-none text-black"
+                      dangerouslySetInnerHTML={{ __html: currentTemplate.content || '<p class="text-black">Your document preview will appear here...</p>' }}
                     />
                   )}
                 </div>
