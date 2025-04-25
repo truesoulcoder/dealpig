@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Try to get the environment variables from all possible sources
-const supabaseUrl = process.env.next_public_supabase_url || process.env.supabase_url;
-const supabaseKey = process.env.next_public_supabase_anon_key || process.env.supabase_anon_key || process.env.supabase_service_role_key;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables');
