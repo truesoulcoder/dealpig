@@ -12,6 +12,13 @@ const nextConfig = {
     // but this does NOT affect type checking during development
     ignoreBuildErrors: true,
   },
+  
+  // Increase the body size limit for Server Actions to handle large CSV imports (up to 5000 records)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '20mb'
+    }
+  },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

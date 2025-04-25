@@ -408,7 +408,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
           <Input
             isClearable
             placeholder="Search by address, city, or contact..."
-            startContent={<SearchIcon className="text-default-400" />}
+            startContent={<SearchIcon className="text-default-400 h-4 w-4" />}
             value={searchQuery}
             onValueChange={setSearchQuery}
             className="w-full"

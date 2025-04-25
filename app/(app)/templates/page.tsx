@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardBody, Button, Input, Tabs, Tab, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Select, SelectItem } from "@heroui/react";
+import { Card, CardHeader, CardBody, Button, Input, Tabs, Tab, Select, SelectItem } from "@heroui/react";
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { getTemplates, saveTemplate } from '@/lib/database';
 import EmailEditor from '@/components/home/emailEditor';
@@ -23,8 +23,9 @@ export default function TemplatesPage() {
   const [selectedTab, setSelectedTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Modal states
-  const [showModal, setShowModal] = useState(false);
+  // Template editor states
+  const [isEditing, setIsEditing] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [currentTemplate, setCurrentTemplate] = useState<Partial<Template>>({
     name: "",
@@ -144,14 +145,14 @@ export default function TemplatesPage() {
       content: "",
     });
     setModalMode("create");
-    setShowModal(true);
+    setIsEditing(true);
   };
   
   // Open modal to edit an existing template
   const handleEdit = (template: Template) => {
     setCurrentTemplate({...template});
     setModalMode("edit");
-    setShowModal(true);
+    setIsEditing(true);
   };
   
   // Handle template delete
@@ -183,10 +184,10 @@ export default function TemplatesPage() {
     try {
       const savedTemplate = await saveTemplate(currentTemplate as Template);
       if (savedTemplate) {
-        setShowModal(false);
+        setIsEditing(false);
         fetchTemplates();
       } else {
-        alert('Failed to save template');
+        alert('
       }
     } catch (error) {
       console.error('Error saving template:', error);
@@ -205,11 +206,6 @@ export default function TemplatesPage() {
   // Store email editor reference
   const handleEditorReady = (editor: any) => {
     setEmailEditorRef(editor);
-  };
-
-  // Handle modal close (clear the current template)
-  const handleCloseModal = () => {
-    setShowModal(false);
   };
 
   return (
@@ -309,20 +305,25 @@ export default function TemplatesPage() {
           )}
         </CardBody>
       </Card>
-      
-      {/* Template Editor Modal */}
-      <Modal
-        isOpen={showModal}
-        onClose={handleCloseModal}
-        size="3xl"
-        scrollBehavior="outside"
-      >
-        <ModalContent>
-          <ModalHeader>
-            {modalMode === "create" ? "Create New Template" : "Edit Template"}
-          </ModalHeader>
-          <ModalBody>
-            <div className="space-y-4">
+
+      {/* Template Editor */}
+      {isEditing && (
+        <Card className="mb-6">
+          <CardHeader className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">
+              {modalMode === "create" ? "Create New Template" : "Edit Template"}
+            </h2>
+            <div className="flex gap-2">
+              <Button variant="flat" onClick={() => setIsEditing(false)}>
+                Cancel
+              </Button>
+              <Button color="primary" onClick={handleSubmit}>
+                {modalMode === "create" ? "Create Template" : "Save Changes"}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardBody>
+            <div className="mb-4 grid grid-cols-2 gap-4">
               <Input
                 label="Template Name"
                 placeholder="Enter template name"
@@ -340,79 +341,130 @@ export default function TemplatesPage() {
                 <SelectItem key="email">Email Template</SelectItem>
                 <SelectItem key="document">LOI Template</SelectItem>
               </Select>
-              
-              {currentTemplate.type === 'email' ? (
-                <div className="mt-4">
-                  <p className="mb-2 text-sm text-default-600">Email Content</p>
-                  <EmailEditor 
-                    initialContent={currentTemplate.content || ''} 
-                    onChange={handleContentChange}
-                    placeholder="Write your email template here..."
-                    onEditorReady={handleEditorReady}
-                  />
-                  <div className="mt-4">
-                    <p className="mb-2 text-sm font-medium text-default-600">Available Variables:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {emailVariables.map((variable) => (
-                        <Button
-                          key={variable.name}
-                          size="sm"
-                          variant="flat"
-                          onClick={() => insertVariable(variable.value)}
-                        >
-                          {variable.display}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs text-default-400">
-                      Click a variable button to insert it at the cursor position
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4">
-                  <p className="mb-2 text-sm text-default-600">Document Content</p>
-                  <DynamicDocumentPreview 
-                    documentData={sampleDocumentData}
-                    onApprove={(htmlContent) => {
-                      handleContentChange(htmlContent);
-                    }}
-                  />
-                  <div className="mt-4">
-                    <p className="mb-2 text-sm font-medium text-default-600">Available Variables:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {documentVariables.map((variable) => (
-                        <Button
-                          key={variable.name}
-                          size="sm"
-                          variant="flat"
-                          onClick={() => {
-                            // For document templates, we'll show which variable to use
-                            alert(`Use ${variable.value} in your document template to insert the ${variable.display}`);
-                          }}
-                        >
-                          {variable.display}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-xs text-default-400">
-                      Use these variables in your template by typing them exactly as shown
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onClick={handleCloseModal}>
-              Cancel
-            </Button>
-            <Button color="primary" onClick={handleSubmit}>
-              {modalMode === "create" ? "Create Template" : "Save Changes"}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Editor */}
+              <div className="border rounded-lg">
+                {currentTemplate.type === 'email' && (
+                  <div>
+                    <div className="border-b border-gray-200 p-2 flex justify-between items-center">
+                      <h3 className="font-medium">Email Editor</h3>
+                      <div className="flex gap-1">
+                        {emailVariables.map((variable, index) => index < 3 && (
+                          <Button
+                            key={variable.name}
+                            size="sm"
+                            variant="flat"
+                            onClick={() => insertVariable(variable.value)}
+                          >
+                            {variable.display}
+                          </Button>
+                        ))}
+                        <Dropdown>
+                          <DropdownTrigger>
+                            <Button size="sm" variant="flat">More Variables</Button>
+                          </DropdownTrigger>
+                          <DropdownMenu>
+                            {emailVariables.map((variable, index) => index >= 3 && (
+                              <DropdownItem 
+                                key={variable.name}
+                                onClick={() => insertVariable(variable.value)}
+                              >
+                                {variable.display}
+                              </DropdownItem>
+                            ))}
+                          </DropdownMenu>
+                        </Dropdown>
+                      </div>
+                    </div>
+                    <EmailEditor 
+                      initialContent={currentTemplate.content || ''} 
+                      onChange={handleContentChange}
+                      placeholder="Write your email template here..."
+                      onEditorReady={handleEditorReady}
+                    />
+                  </div>
+                )}
+                
+                {currentTemplate.type === 'document' && (
+                  <div>
+                    <div className="border-b border-gray-200 p-2">
+                      <h3 className="font-medium">Document Editor</h3>
+                    </div>
+                    <DynamicDocumentPreview 
+                      documentData={sampleDocumentData}
+                      onApprove={(htmlContent) => {
+                        handleContentChange(htmlContent);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Right Column - Preview */}
+              <div className="border rounded-lg">
+                <div className="border-b border-gray-200 p-2 flex justify-between items-center">
+                  <h3 className="font-medium">Preview</h3>
+                  {currentTemplate.type === 'email' && (
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant={isPreviewMode ? "ghost" : "solid"}
+                        color={isPreviewMode ? "default" : "primary"}
+                        onClick={() => setIsPreviewMode(false)}
+                      >
+                        Raw
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={isPreviewMode ? "solid" : "ghost"}
+                        color={isPreviewMode ? "primary" : "default"}
+                        onClick={() => setIsPreviewMode(true)}
+                      >
+                        Rendered
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 bg-white min-h-[500px] overflow-y-auto">
+                  {currentTemplate.type === 'email' && (
+                    <div 
+                      className="prose max-w-none"
+                      dangerouslySetInnerHTML={{ 
+                        __html: isPreviewMode ? 
+                          currentTemplate.content
+                            ?.replace(/{{recipient_name}}/g, "John Doe")
+                            .replace(/{{property_address}}/g, "123 Main St")
+                            .replace(/{{property_city}}/g, "Austin")
+                            .replace(/{{property_state}}/g, "TX")
+                            .replace(/{{property_zip}}/g, "78701")
+                            .replace(/{{offer_price}}/g, "$250,000")
+                            .replace(/{{earnest_money}}/g, "$2,500")
+                            .replace(/{{closing_date}}/g, "05/30/2025")
+                            .replace(/{{company_name}}/g, "Real Estate Investments LLC")
+                            .replace(/{{sender_name}}/g, "Jane Smith")
+                            .replace(/{{sender_title}}/g, "Acquisitions Manager")
+                            .replace(/{{sender_contact}}/g, "jane@example.com")
+                            .replace(/{{date}}/g, new Date().toLocaleDateString()) || 
+                            '<p>Your preview will appear here as you type...</p>' :
+                          currentTemplate.content || '<p>Your raw template will appear here as you type...</p>'
+                      }}
+                    />
+                  )}
+                  
+                  {currentTemplate.type === 'document' && (
+                    <div 
+                      className="prose max-w-none"
+                      dangerouslySetInnerHTML={{ __html: currentTemplate.content || '<p>Your document preview will appear here...</p>' }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }
