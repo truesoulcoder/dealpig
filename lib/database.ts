@@ -51,6 +51,7 @@ export interface LeadSource {
   id?: string;
   name: string;
   file_name: string;
+  file_url?: string; // Added file_url to support storage URLs
   last_imported: string;
   record_count: number;
   is_active?: boolean;
@@ -94,6 +95,8 @@ export interface Template {
   subject?: string;
   content: string;
   type?: string;
+  path?: string;      // Added path to support storage file path
+  file_url?: string;  // Added file_url to support public URLs
   created_at?: string;
   updated_at?: string;
 }
@@ -971,4 +974,215 @@ export async function pauseCampaign(campaignId: string): Promise<boolean> {
 
 export async function completeCampaign(campaignId: string): Promise<boolean> {
   return updateCampaignStatus(campaignId, 'COMPLETED');
+}
+
+// OAuth Token storage interfaces
+export interface OAuthCredentials {
+  id?: string;
+  user_id?: string;
+  sender_id?: string;
+  email: string;
+  client_id?: string;
+  client_secret?: string;
+  refresh_token: string;
+  access_token: string;
+  token_type?: string;
+  expiry_date?: number;
+  created_at?: string;
+  updated_at?: string;
+  scopes?: string;
+}
+
+// OAuth token operations
+export async function saveOAuthToken(credentials: OAuthCredentials): Promise<OAuthCredentials | null> {
+  try {
+    const now = new Date().toISOString();
+    
+    // Check if a record already exists for this email
+    const { data: existingData, error: fetchError } = await supabase
+      .from('oauth_tokens')
+      .select('id')
+      .eq('email', credentials.email)
+      .maybeSingle();
+      
+    if (fetchError) {
+      console.error('Error checking for existing token:', fetchError);
+      return null;
+    }
+    
+    // If token exists, update it
+    if (existingData?.id) {
+      const { data: updatedData, error: updateError } = await supabase
+        .from('oauth_tokens')
+        .update({
+          ...credentials,
+          updated_at: now
+        })
+        .eq('id', existingData.id)
+        .select();
+        
+      if (updateError) {
+        console.error('Error updating OAuth token:', updateError);
+        return null;
+      }
+      
+      return updatedData[0] as OAuthCredentials;
+    }
+    
+    // Otherwise insert a new record
+    const { data: insertedData, error: insertError } = await supabase
+      .from('oauth_tokens')
+      .insert([{
+        ...credentials,
+        created_at: now,
+        updated_at: now
+      }])
+      .select();
+      
+    if (insertError) {
+      console.error('Error saving OAuth token:', insertError);
+      return null;
+    }
+    
+    return insertedData[0] as OAuthCredentials;
+  } catch (error) {
+    console.error('Error in saveOAuthToken:', error);
+    return null;
+  }
+}
+
+export async function getOAuthTokenByEmail(email: string): Promise<OAuthCredentials | null> {
+  try {
+    const { data, error } = await supabase
+      .from('oauth_tokens')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+      
+    if (error || !data) {
+      console.error('Error fetching OAuth token:', error);
+      return null;
+    }
+    
+    return data as OAuthCredentials;
+  } catch (error) {
+    console.error('Error in getOAuthTokenByEmail:', error);
+    return null;
+  }
+}
+
+export async function saveClientSecret(clientId: string, clientSecret: string): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+    
+    // Check if client secret already exists
+    const { data: existingData, error: fetchError } = await supabase
+      .from('oauth_client_secrets')
+      .select('id')
+      .eq('client_id', clientId)
+      .maybeSingle();
+      
+    if (fetchError) {
+      console.error('Error checking for existing client secret:', fetchError);
+      return false;
+    }
+    
+    // If client secret exists, update it
+    if (existingData?.id) {
+      const { error: updateError } = await supabase
+        .from('oauth_client_secrets')
+        .update({
+          client_secret: clientSecret,
+          updated_at: now
+        })
+        .eq('id', existingData.id);
+        
+      if (updateError) {
+        console.error('Error updating client secret:', updateError);
+        return false;
+      }
+      
+      return true;
+    }
+    
+    // Otherwise insert a new record
+    const { error: insertError } = await supabase
+      .from('oauth_client_secrets')
+      .insert([{
+        client_id: clientId,
+        client_secret: clientSecret,
+        created_at: now,
+        updated_at: now
+      }]);
+      
+    if (insertError) {
+      console.error('Error saving client secret:', insertError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in saveClientSecret:', error);
+    return false;
+  }
+}
+
+export async function getClientSecret(clientId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('oauth_client_secrets')
+      .select('client_secret')
+      .eq('client_id', clientId)
+      .maybeSingle();
+      
+    if (error || !data) {
+      console.error('Error fetching client secret:', error);
+      return null;
+    }
+    
+    return data.client_secret;
+  } catch (error) {
+    console.error('Error in getClientSecret:', error);
+    return null;
+  }
+}
+
+// Get all OAuth tokens for a user
+export async function getOAuthTokensForUser(userId: string): Promise<OAuthCredentials[]> {
+  try {
+    const { data, error } = await supabase
+      .from('oauth_tokens')
+      .select('*')
+      .eq('user_id', userId);
+      
+    if (error) {
+      console.error('Error fetching OAuth tokens for user:', error);
+      return [];
+    }
+    
+    return data as OAuthCredentials[];
+  } catch (error) {
+    console.error('Error in getOAuthTokensForUser:', error);
+    return [];
+  }
+}
+
+// Delete an OAuth token
+export async function deleteOAuthToken(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('oauth_tokens')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting OAuth token:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in deleteOAuthToken:', error);
+    return false;
+  }
 }

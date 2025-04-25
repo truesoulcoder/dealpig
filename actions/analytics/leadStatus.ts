@@ -16,8 +16,7 @@ export async function getLeadStatusDistribution(): Promise<LeadStatusData[]> {
     // Fetch leads from database with their status
     const { data: leads, error } = await supabase
       .from('leads')
-      .select('status, count')
-      .groupBy('status');
+      .select('status, count:status', { count: 'exact' });
     
     if (error) {
       console.error('Error fetching lead status data:', error);

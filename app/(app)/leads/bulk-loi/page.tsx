@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
-import { Card, CardBody, CardHeader, CardFooter, Button, Spinner, Select, Chip } from "@heroui/react";
+import { Card, CardBody, CardHeader, CardFooter, Button, Spinner, Select, SelectItem, Chip } from "@heroui/react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '@/app/providers/trpc-provider';
 import { FaFileAlt, FaDownload, FaEnvelope } from 'react-icons/fa';
+import { Lead } from '@/helpers/types';
 
-// Temporary solution for missing SelectItem
-const SelectItem = ({ children, value, ...props }: { children: React.ReactNode, value: string, [key: string]: any }) => (
-  <option value={value} {...props}>{children}</option>
-);
+// Define types for LOI data
+interface GeneratedLoi {
+  id: string;
+  url: string;
+}
 
 // SearchParams wrapper component that directly uses the useSearchParams hook
 function SearchParamsWrapper({ children }: { children: (ids: string[]) => React.ReactNode }) {
@@ -24,37 +26,43 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
   
   const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedLois, setGeneratedLois] = useState<Array<{id: string, url: string}>>([]);
+  const [generatedLois, setGeneratedLois] = useState<GeneratedLoi[]>([]);
   const [selectedLeads, setSelectedLeads] = useState<Array<string>>(leadIds);
   
   // Get templates query
-  const templatesQuery = trpc.documents.getTemplates.useQuery({ type: 'loi' });
+  const templatesQuery = trpc.documents.getTemplates.useQuery(
+    'document' // Pass the type directly as input
+  );
   
   // Get leads details
-  const leadsQuery = trpc.leads.getBulkLeads.useQuery({ ids: leadIds }, {
-    enabled: leadIds.length > 0
-  });
+  // Assuming a procedure 'getLeadsByIds' exists for fetching leads by specific IDs
+  const leadsQuery = trpc.leads.getLeadsByIds.useQuery(
+    { ids: leadIds },
+    {
+      enabled: leadIds.length > 0
+    }
+  );
 
   // LOI generation mutation
-  const generateLoiMutation = trpc.documents.generateBulkLoi.useMutation({
-    onSuccess: (data) => {
+  const generateLoiMutation = trpc.documents.generateLoi.useMutation({
+    onSuccess: (data: GeneratedLoi[]) => {
       setGeneratedLois(data);
       setIsGenerating(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       alert(`Error generating LOIs: ${error.message}`);
       setIsGenerating(false);
     }
   });
   
   // LOI email sending mutation
-  const sendLoiEmailMutation = trpc.emails.sendBulkLoiEmail.useMutation({
+  const sendLoiEmailMutation = trpc.emails.sendLoiEmail.useMutation({
     onSuccess: () => {
       alert('LOI emails sent successfully!');
       router.push('/leads');
     },
     onError: (error) => {
-      alert(`Error sending LOI emails: ${error.message}`);
+      return alert(`Error sending LOI emails: ${error.message}`);
     }
   });
 
@@ -75,7 +83,8 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
     try {
       await generateLoiMutation.mutateAsync({
         leadIds: selectedLeads,
-        templateId: selectedTemplate === 'default' ? undefined : selectedTemplate
+        templateId: selectedTemplate === 'default' ? undefined : selectedTemplate,
+        bulk: true // Add a flag to indicate bulk generation
       });
     } catch (error) {
       // Error is handled by the mutation
@@ -94,7 +103,15 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
       loiUrl: loi.url
     }));
     
-    sendLoiEmailMutation.mutate({ lois: loiDetails });
+    loiDetails.forEach(({ leadId, loiUrl }) => {
+      sendLoiEmailMutation.mutate({
+        leadId,
+        documentPath: loiUrl,
+        to: '', // Add required email address
+        subject: 'Letter of Intent',
+        html: 'Please find attached your Letter of Intent.'
+      });
+    });
   };
   
   // Handle download all LOIs
@@ -156,64 +173,65 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
 
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start w-full gap-4">
-            <div className="w-full">
-              <h2 className="text-lg font-semibold mb-2">LOI Settings</h2>
-              <p className="text-sm text-gray-500">
-                Customize your Letter of Intent generation settings
-              </p>
-            </div>
-            {templatesQuery.data && templatesQuery.data.length > 0 && (
-              <div className="w-full sm:w-1/3">
-                <Select
-                  label="LOI Template"
-                  placeholder="Select a template"
-                  value={selectedTemplate}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                >
-                  <SelectItem key="default" value="default">Default Template</SelectItem>
-                  {templatesQuery.data.map((template) => (
-                    <SelectItem key={template.id} value={template.id || ''}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </Select>
+            <div className="flex flex-col sm:flex-row justify-between items-start w-full gap-4">
+              <div className="w-full">
+                <h2 className="text-lg font-semibold mb-2">LOI Settings</h2>
+                <p className="text-sm text-gray-500">
+                  Customize your Letter of Intent generation settings
+                </p>
               </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardBody>
-          <div className="border rounded-lg p-4">
-            <h3 className="text-md font-medium mb-4">Selected Properties</h3>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {leadsQuery.data?.map(lead => (
-                <div key={lead.id} className="flex items-center justify-between p-2 border rounded-md">
-                  <div>
-                    <p className="font-medium">{lead.property_address}</p>
-                    <p className="text-sm text-gray-500">
-                      {lead.property_city}, {lead.property_state} {lead.property_zip}
-                    </p>
-                  </div>
-                  <Chip 
-                    size="sm" 
-                    variant="flat" 
-                    color={selectedLeads.includes(lead.id || '') ? 'primary' : 'default'}
-                    onPress={() => {
-                      if (selectedLeads.includes(lead.id || '')) {
-                        setSelectedLeads(selectedLeads.filter(id => id !== lead.id));
-                      } else {
-                        setSelectedLeads([...selectedLeads, lead.id || '']);
-                      }
-                    }}
+              {templatesQuery.data && templatesQuery.data.length > 0 && (
+                <div className="w-full sm:w-1/3">
+                  <Select
+                    label="LOI Template"
+                    placeholder="Select a template"
+                    selectedKeys={selectedTemplate}
+                    onSelectionChange={(key) => handleTemplateChange(key as string)}
+                    items={[{ id: 'default', name: 'Default Template' }, ...(templatesQuery.data || [])]}
                   >
-                    {selectedLeads.includes(lead.id || '') ? 'Selected' : 'Deselected'}
-                  </Chip>
+                    {(template) => (
+                      <SelectItem key={template.id || 'default'}>
+                        {template.name}
+                      </SelectItem>
+                    )}
+                  </Select>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {leadsQuery.data?.map((lead: Lead) => {
+                const leadId = lead.id || ''; // Ensure id is always a string
+                return (
+                  <div key={leadId} className="flex items-center justify-between p-2 border rounded-md">
+                    <div>
+                      <p className="font-medium">{lead.property_address}</p>
+                      <p className="text-sm text-gray-500">
+                        {lead.property_city}, {lead.property_state} {lead.property_zip}
+                      </p>
+                    </div>
+                    <Chip 
+                      size="sm" 
+                      variant="flat" 
+                      color={selectedLeads.includes(leadId) ? 'primary' : 'default'}
+                      onClick={() => {
+                        if (selectedLeads.includes(leadId)) {
+                          setSelectedLeads(selectedLeads.filter(id => id !== leadId));
+                        } else {
+                          setSelectedLeads([...selectedLeads, leadId]);
+                        }
+                      }}
+                    >
+                      {selectedLeads.includes(leadId) ? 'Selected' : 'Deselected'}
+                    </Chip>
+                  </div>
+                );
+              })}
+            </div>
+          </CardBody>
 
-          <div className="flex justify-end space-x-2 mt-6">
+          <CardFooter className="flex justify-end space-x-2 mt-6">
             <Button 
               variant="flat" 
               onPress={handleCancel}
@@ -230,8 +248,7 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
             >
               Generate {selectedLeads.length} LOIs
             </Button>
-          </div>
-        </CardBody>
+        </CardFooter>
       </Card>
 
       {/* Generated LOIs Section */}
@@ -249,7 +266,7 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
             <div className="space-y-3 max-h-[300px] overflow-y-auto">
               {generatedLois.map((loi) => {
                 // Find the lead details for this LOI
-                const lead = leadsQuery.data?.find(l => l.id === loi.id);
+                const lead = leadsQuery.data?.find((l: Lead) => l.id === loi.id);
                 
                 return (
                   <div key={loi.id} className="flex items-center justify-between p-3 border rounded-md">
@@ -298,7 +315,7 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
               <Button 
                 color="primary"
                 onPress={handleSendWithEmail}
-                isLoading={sendLoiEmailMutation.isLoading}
+                isLoading={sendLoiEmailMutation.isPending}
                 startContent={<FaEnvelope />}
               >
                 Send with Email

@@ -21,7 +21,9 @@ interface EmailResult {
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
-  const { to, subject, body, attachmentPath, senderEmail, trackingId } = params;
+  const { to, subject, body, senderEmail, trackingId } = params;
+  // Create a modifiable copy of attachmentPath
+  let attachmentFilePath = params.attachmentPath;
   
   try {
     // Load OAuth tokens using our secure credentials manager
@@ -29,13 +31,16 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     
     // If senderEmail is provided, try to find a specific token for it
     if (senderEmail) {
-      credentials = getSenderTokens(senderEmail);
+      credentials = await getSenderTokens(senderEmail);
     }
     
     // If no specific credentials found, use the default credentials
     if (!credentials) {
       try {
-        credentials = getOAuthCredentials();
+        credentials = await getOAuthCredentials();
+        if (!credentials) {
+          throw new Error("Failed to retrieve OAuth credentials");
+        }
       } catch (error) {
         console.error('Failed to load OAuth credentials:', error);
         return {
@@ -98,24 +103,24 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     ];
 
     // Add attachment if specified
-    if (attachmentPath) {
+    if (attachmentFilePath) {
       // Check if the attachment exists
-      if (!fs.existsSync(attachmentPath)) {
+      if (!fs.existsSync(attachmentFilePath)) {
         // If path starts with /, it might be relative to the public directory
-        const fullPath = path.join(process.cwd(), 'public', attachmentPath.replace(/^\//, ''));
+        const fullPath = path.join(process.cwd(), 'public', attachmentFilePath.replace(/^\//, ''));
         if (!fs.existsSync(fullPath)) {
-          throw new Error(`Attachment file not found at: ${attachmentPath}`);
+          throw new Error(`Attachment file not found at: ${attachmentFilePath}`);
         }
         
         // Update the attachment path to the full path
-        attachmentPath = fullPath;
+        attachmentFilePath = fullPath;
       }
       
-      const attachment = fs.readFileSync(attachmentPath);
-      const filename = path.basename(attachmentPath);
-      const mimeType = attachmentPath.endsWith('.docx')
+      const attachment = fs.readFileSync(attachmentFilePath);
+      const filename = path.basename(attachmentFilePath);
+      const mimeType = attachmentFilePath.endsWith('.docx')
         ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        : attachmentPath.endsWith('.pdf')
+        : attachmentFilePath.endsWith('.pdf')
         ? 'application/pdf'
         : 'application/octet-stream';
       
@@ -154,7 +159,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResult> {
     return {
       success: true,
       message: `Email sent successfully to ${to}`,
-      emailId: response.data.id,
+      emailId: response.data.id ?? undefined,
     };
     
   } catch (error) {

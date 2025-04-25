@@ -15,6 +15,8 @@ import {
 import { getTemplates, saveTemplate } from '@/lib/database';
 import EmailEditor from '@/components/home/emailEditor';
 import dynamic from 'next/dynamic';
+import { uploadDocxTemplateToStorage } from '@/utils/supabase/storage';
+import { toast } from 'react-hot-toast';
 
 // Import the Template type from database.ts, not helpers/types
 import { Template } from '@/lib/database';
@@ -237,24 +239,32 @@ export default function TemplatesPage() {
     }
   };
   
-  // Handle form submission
+  // Handle form submission - Updated to include file path and URL
   const handleSubmit = async () => {
     if (!currentTemplate.name) {
-      alert('Please enter a template name');
+      toast.error('Please enter a template name');
       return;
     }
     
     try {
-      const savedTemplate = await saveTemplate(currentTemplate as Template);
+      // Create a complete template object including storage path if available
+      const templateToSave = {
+        ...currentTemplate,
+        // Add a timestamp to the updated_at field
+        updated_at: new Date().toISOString()
+      } as Template;
+      
+      const savedTemplate = await saveTemplate(templateToSave);
       if (savedTemplate) {
+        toast.success('Template saved successfully');
         setIsEditing(false);
         fetchTemplates();
       } else {
-        alert('Failed to save template');
+        toast.error('Failed to save template');
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Failed to save template');
+      toast.error('Failed to save template');
     }
   };
   
@@ -304,6 +314,39 @@ export default function TemplatesPage() {
       }));
     }
   }, [isEditing, currentTemplate.type]);
+  
+  // Handle template upload (DOCX)
+  const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    if (!file.name.endsWith('.docx')) {
+      toast.error('Please upload a DOCX file');
+      return;
+    }
+    
+    try {
+      // Upload the file to storage
+      const filePath = `templates/${Date.now()}_${file.name}`;
+      const fileUrl = await uploadDocxTemplateToStorage(file, filePath);
+      
+      if (fileUrl) {
+        // Update the current template with the file path and URL
+        setCurrentTemplate((prev: any) => ({
+          ...prev,
+          path: filePath,
+          file_url: fileUrl
+        }));
+        
+        toast.success('Template uploaded successfully');
+      } else {
+        toast.error('Failed to upload template');
+      }
+    } catch (error) {
+      console.error('Error uploading template:', error);
+      toast.error('Failed to upload template file');
+    }
+  };
   
   return (
     <div className="p-4 w-full max-w-none">
@@ -666,10 +709,7 @@ export default function TemplatesPage() {
                             ref={fileInputRef}
                             className="hidden"
                             accept=".docx"
-                            onChange={(e) => {
-                              // File upload handling will be added
-                              alert('DOCX import functionality will be implemented soon');
-                            }}
+                            onChange={handleTemplateUpload}
                           />
                         </div>
                       </div>
@@ -720,7 +760,7 @@ export default function TemplatesPage() {
                         className={`prose dark:prose-invert max-w-none transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
                         dangerouslySetInnerHTML={{ 
                           __html: isPreviewMode ? 
-                            renderTemplateWithSampleData(currentTemplate.content) :
+                            renderTemplateWithSampleData(currentTemplate.content || '') :
                             '<pre class="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto">' + 
                             (currentTemplate.content || '<p>Your template appears here as you type...</p>')
                               .replace(/</g, '&lt;')
@@ -735,7 +775,7 @@ export default function TemplatesPage() {
                         className={`prose dark:prose-invert max-w-none transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
                         dangerouslySetInnerHTML={{ 
                           __html: isPreviewMode ? 
-                            renderTemplateWithSampleData(currentTemplate.content) :
+                            renderTemplateWithSampleData(currentTemplate.content || '') :
                             '<pre class="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto">' + 
                             (currentTemplate.content || '<p>Your document appears here as you type...</p>')
                               .replace(/</g, '&lt;')

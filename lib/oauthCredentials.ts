@@ -1,12 +1,17 @@
 "use server";
 
-import fs from 'fs';
-import path from 'path';
+import { 
+  getClientSecret, 
+  saveClientSecret, 
+  getOAuthTokenByEmail, 
+  saveOAuthToken,
+  OAuthCredentials as DBOAuthCredentials
+} from './database';
 
 /**
  * OAuth Credentials Manager
  * This file provides a secure way to manage OAuth credentials
- * without exposing sensitive information in the repository
+ * in the database without exposing sensitive information
  */
 
 interface OAuthCredentials {
@@ -17,65 +22,54 @@ interface OAuthCredentials {
 }
 
 /**
- * Get OAuth credentials from environment variables or client_secret.json
+ * Get OAuth credentials from environment variables or database
  */
 export async function getOAuthCredentials(): Promise<OAuthCredentials> {
   // First try to get credentials from environment variables
-  if (process.env.google_client_id && process.env.google_client_secret) {
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     return {
-      client_id: process.env.google_client_id,
-      client_secret: process.env.google_client_secret,
-      redirect_uri: process.env.google_redirect_uri || 'http://localhost:3000/api/auth/callback',
-      refresh_token: process.env.google_refresh_token
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/callback',
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN
     };
   }
   
-  // If environment variables aren't set, try to load from file
-  const clientSecretPath = process.env.client_secret_path || path.join(process.cwd(), 'auth_tokens', 'client_secret.json');
-  
-  if (fs.existsSync(clientSecretPath)) {
-    try {
-      const credentials = JSON.parse(fs.readFileSync(clientSecretPath, 'utf8'));
-      
-      // Handle potential different formats of client_secret.json
-      if (credentials.web) {
-        // Google Cloud format
-        return {
-          client_id: credentials.web.client_id,
-          client_secret: credentials.web.client_secret,
-          redirect_uri: credentials.web.redirect_uris?.[0] || 'http://localhost:3000/api/auth/callback'
-        };
-      } else if (credentials.installed) {
-        // Desktop application format
-        return {
-          client_id: credentials.installed.client_id,
-          client_secret: credentials.installed.client_secret,
-          redirect_uri: credentials.installed.redirect_uris?.[0] || 'http://localhost:3000/api/auth/callback'
-        };
-      } else {
-        // Direct format (our custom format)
-        return credentials;
-      }
-    } catch (error) {
-      console.error('Error loading OAuth credentials from file:', error);
-      throw new Error('Failed to load OAuth credentials');
+  // If environment variables aren't set, try to load from database
+  try {
+    // Use a standard client ID for lookups
+    const defaultClientId = 'google_mail_api';
+    const clientSecret = await getClientSecret(defaultClientId);
+    
+    if (clientSecret) {
+      return {
+        client_id: defaultClientId,
+        client_secret: clientSecret,
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/callback'
+      };
     }
+  } catch (error) {
+    console.error('Error loading OAuth credentials from database:', error);
   }
   
-  throw new Error('OAuth credentials not found in environment or file system');
+  throw new Error('OAuth credentials not found in environment or database');
 }
 
 /**
- * Get sender-specific OAuth tokens
+ * Get sender-specific OAuth tokens from database
  */
 export async function getSenderTokens(senderEmail: string): Promise<OAuthCredentials | null> {
   try {
-    // Normalize the email for filename
-    const normalizedEmail = senderEmail.replace(/[@.]/g, '_');
-    const tokenPath = path.join(process.cwd(), 'auth_tokens', `token_${normalizedEmail}.json`);
+    const tokenRecord = await getOAuthTokenByEmail(senderEmail);
     
-    if (fs.existsSync(tokenPath)) {
-      return JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
+    if (tokenRecord && tokenRecord.access_token && tokenRecord.refresh_token) {
+      // Convert from database format to OAuthCredentials format
+      return {
+        client_id: tokenRecord.client_id || '',
+        client_secret: tokenRecord.client_secret || '',
+        redirect_uri: 'http://localhost:3000/api/auth/callback',
+        refresh_token: tokenRecord.refresh_token
+      };
     }
     
     return null;
@@ -86,32 +80,67 @@ export async function getSenderTokens(senderEmail: string): Promise<OAuthCredent
 }
 
 /**
- * Initialize OAuth credentials
- * Run this when setting up a new environment to create a template file
+ * Save sender tokens to the database
  */
-export async function initializeOAuthCredentials(): Promise<void> {
-  const tokenDir = process.env.token_dir || path.join(process.cwd(), 'auth_tokens');
-  
-  // Create token directory if it doesn't exist
-  if (!fs.existsSync(tokenDir)) {
-    fs.mkdirSync(tokenDir, { recursive: true });
-  }
-  
-  const clientSecretPath = path.join(tokenDir, 'client_secret.json');
-  
-  // Only create template if file doesn't exist
-  if (!fs.existsSync(clientSecretPath)) {
-    const templateCredentials = {
-      client_id: process.env.google_client_id || 'YOUR_CLIENT_ID',
-      client_secret: process.env.google_client_secret || 'YOUR_CLIENT_SECRET',
-      redirect_uri: process.env.google_redirect_uri || 'http://localhost:3000/api/auth/callback'
+export async function saveSenderTokens(
+  senderEmail: string, 
+  tokens: any, 
+  senderId?: string
+): Promise<boolean> {
+  try {
+    // Prepare token data in the format expected by the database
+    const tokenData: DBOAuthCredentials = {
+      email: senderEmail,
+      sender_id: senderId,
+      access_token: tokens.access_token || tokens.token || '',
+      refresh_token: tokens.refresh_token || '',
+      token_type: tokens.token_type || 'Bearer',
+      expiry_date: tokens.expiry_date || (tokens.expiry ? new Date(tokens.expiry).getTime() : undefined),
+      scopes: Array.isArray(tokens.scope) ? tokens.scope.join(' ') : tokens.scope
     };
     
-    fs.writeFileSync(
-      clientSecretPath, 
-      JSON.stringify(templateCredentials, null, 2)
-    );
-    
-    console.log(`Created template OAuth credentials at ${clientSecretPath}`);
+    const result = await saveOAuthToken(tokenData);
+    return !!result;
+  } catch (error) {
+    console.error(`Error saving tokens for ${senderEmail}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Save OAuth client secret to database
+ */
+export async function saveOAuthClientSecret(
+  clientId: string,
+  clientSecret: string
+): Promise<boolean> {
+  try {
+    return await saveClientSecret(clientId, clientSecret);
+  } catch (error) {
+    console.error('Error saving client secret:', error);
+    return false;
+  }
+}
+
+/**
+ * Initialize OAuth credentials in the database
+ * Run this when setting up a new environment
+ */
+export async function initializeOAuthCredentials(): Promise<void> {
+  try {
+    // Check if we have a client secret in env vars
+    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+      // Save to database for future use
+      await saveClientSecret(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+      );
+      console.log('Saved OAuth client credentials to database');
+    } else {
+      console.log('No OAuth credentials found in environment variables');
+      console.log('Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET or use the admin interface to set up OAuth');
+    }
+  } catch (error) {
+    console.error('Error initializing OAuth credentials:', error);
   }
 }

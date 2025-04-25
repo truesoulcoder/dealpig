@@ -2,7 +2,6 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { formatISO, subDays, format, parseISO } from "date-fns";
-import { Sender } from "@/helpers/types";
 
 export type TimeRange = '7d' | '30d' | '90d';
 
@@ -78,8 +77,7 @@ export async function getEmailPerformance(timeRange: TimeRange = '7d'): Promise<
     }, {} as Record<string, EmailPerformanceData>);
     
     // Convert to array and sort by date
-    const sortedData = Object.values(groupedData)
-      .sort((a, b) => {
+    const sortedData = (Object.values(groupedData) as EmailPerformanceData[]).sort((a, b) => {
         const dateA = parseISO(a.name);
         const dateB = parseISO(b.name);
         return dateA.getTime() - dateB.getTime();
@@ -118,4 +116,8 @@ function generateMockData(timeRange: TimeRange): EmailPerformanceData[] {
   }
   
   return data;
+}
+
+function sort(arg0: (a: any, b: any) => number) {
+  throw new Error("Function not implemented.");
 }

@@ -3,7 +3,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { TimeRange } from "./emailPerformance";
 import { formatISO, subDays } from "date-fns";
-import { Campaign } from "@/helpers/types";
 
 export interface CampaignComparisonData {
   name: string;

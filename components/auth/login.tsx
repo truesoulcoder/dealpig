@@ -1,6 +1,6 @@
 "use client";
 
-import { createAuthCookie, loginUser } from "@/actions/auth.action";
+import { loginUser } from "@/actions/auth.action";
 import { LoginSchema } from "@/helpers/schemas";
 import { LoginFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
@@ -30,10 +30,10 @@ export const Login = () => {
         const result = await loginUser(values);
         
         if (result?.success) {
-          await createAuthCookie();
+          // The cookie is now set in the loginUser action
           router.replace("/");
         } else {
-          setAuthError("Invalid credentials. Please check your email and password.");
+          setAuthError(result?.message || "Invalid credentials. Please check your email and password.");
         }
       } catch (error) {
         console.error("Login error:", error);

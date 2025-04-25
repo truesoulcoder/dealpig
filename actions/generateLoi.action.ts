@@ -6,8 +6,13 @@ import { v4 as uuidv4 } from 'uuid';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { getTemplateById } from '@/lib/database';
+import { downloadFromStorage, uploadToStorage, supabaseAdmin } from '@/lib/supabaseAdmin';
 
-// Path to template files
+// Bucket names for storage
+const TEMPLATE_BUCKET = 'templates';
+const GENERATED_BUCKET = 'generated-documents';
+
+// Keep local paths for fallback
 const TEMPLATE_DIR = path.join(process.cwd(), 'public', 'templates');
 const DEFAULT_TEMPLATE_PATH = path.join(TEMPLATE_DIR, 'default_loi_template.docx');
 const OUTPUT_DIR = path.join(process.cwd(), 'public', 'generated');
@@ -28,32 +33,43 @@ interface LoiParams {
 /**
  * Generate a Letter of Intent (LOI) document
  * @param params The parameters for generating the LOI
- * @returns The path to the generated document (relative to public folder)
+ * @returns The path to the generated document (relative to public folder or full URL)
  */
 export async function generateLoi(params: LoiParams): Promise<string | null> {
   try {
-    let templatePath = DEFAULT_TEMPLATE_PATH;
+    let templateContent: Buffer | null = null;
+    let templateFileName = 'default_loi_template.docx';
     
-    // If a template ID is provided, try to get that template
+    // Try to get template from Supabase storage if a template ID is provided
     if (params.templateId) {
+      // First get template details from database
       const template = await getTemplateById(params.templateId);
-      if (template && template.content) {
-        // If this is a raw DOCX content in base64, save it temporarily
-        const tempTemplatePath = path.join(TEMPLATE_DIR, `temp_${uuidv4()}.docx`);
-        fs.writeFileSync(tempTemplatePath, Buffer.from(template.content, 'base64'));
-        templatePath = tempTemplatePath;
+      
+      if (template && template.path) {
+        // If the template has a path in storage, download it
+        templateContent = await downloadFromStorage(TEMPLATE_BUCKET, template.path);
+        templateFileName = template.path.split('/').pop() || templateFileName;
+      } else if (template && template.content) {
+        // If this is a raw DOCX content in base64, convert it to buffer
+        templateContent = Buffer.from(template.content, 'base64');
+        templateFileName = `template_${template.id}.docx`;
       }
     }
     
-    // Ensure the template exists
-    if (!fs.existsSync(templatePath)) {
-      console.error(`Template file not found: ${templatePath}`);
-      return null;
-    }
-    
-    // Ensure the output directory exists
-    if (!fs.existsSync(OUTPUT_DIR)) {
-      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    // If we couldn't get the template from Supabase, use the default local one
+    if (!templateContent) {
+      // Check if default template exists in Supabase storage
+      try {
+        templateContent = await downloadFromStorage(TEMPLATE_BUCKET, 'default_loi_template.docx');
+      } catch (error) {
+        // If not in storage, use local file as fallback
+        if (fs.existsSync(DEFAULT_TEMPLATE_PATH)) {
+          templateContent = fs.readFileSync(DEFAULT_TEMPLATE_PATH);
+        } else {
+          console.error(`Default template file not found: ${DEFAULT_TEMPLATE_PATH}`);
+          return null;
+        }
+      }
     }
     
     // Format the offer price and earnest money
@@ -66,13 +82,15 @@ export async function generateLoi(params: LoiParams): Promise<string | null> {
 
     // Create a unique filename for the output
     const fileName = `LOI_${params.propertyAddress.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.docx`;
-    const outputPath = path.join(OUTPUT_DIR, fileName);
     
-    // Load the template
-    const template = fs.readFileSync(templatePath, 'binary');
+    // Ensure we have valid template content before proceeding
+    if (!templateContent) {
+      console.error('Failed to load template content');
+      return null;
+    }
     
     // Create a PizZip instance
-    const zip = new PizZip(template);
+    const zip = new PizZip(templateContent);
     
     // Create a Docxtemplater instance
     const doc = new Docxtemplater(zip, {
@@ -101,23 +119,34 @@ export async function generateLoi(params: LoiParams): Promise<string | null> {
     // Generate the document as a buffer
     const buffer = doc.getZip().generate({ type: 'nodebuffer' });
     
-    // Write the generated document to the output path
-    fs.writeFileSync(outputPath, buffer);
+    // Upload to Supabase storage
+    const storagePath = `lois/${fileName}`;
+    const url = await uploadToStorage(
+      GENERATED_BUCKET, 
+      storagePath, 
+      buffer, 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
     
-    // Return the path relative to the public directory
-    const relativePath = '/generated/' + fileName;
-    console.log(`Generated LOI at ${relativePath}`);
-    
-    // Clean up temporary template if used
-    if (templatePath.includes('temp_') && templatePath !== DEFAULT_TEMPLATE_PATH) {
-      try {
-        fs.unlinkSync(templatePath);
-      } catch (error) {
-        console.warn('Failed to clean up temporary template:', error);
+    if (!url) {
+      console.error('Failed to upload generated LOI to storage');
+      
+      // Fallback to local file system if storage fails
+      // Ensure the output directory exists
+      if (!fs.existsSync(OUTPUT_DIR)) {
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
       }
+      
+      // Write the generated document to the output path
+      const outputPath = path.join(OUTPUT_DIR, fileName);
+      fs.writeFileSync(outputPath, buffer);
+      
+      return '/generated/' + fileName;
     }
     
-    return relativePath;
+    // Return the URL from Supabase storage
+    console.log(`Generated LOI at ${url}`);
+    return url;
   } catch (error) {
     console.error('Error generating LOI:', error);
     return null;
@@ -133,7 +162,7 @@ function formatDate(dateString: string): string {
 }
 
 /**
- * Generate a PDF version of the LOI (placeholder for future implementation)
+ * Generate a PDF version of the LOI
  */
 export async function generateLoiPdf(params: LoiParams): Promise<string | null> {
   // This would use a PDF generation library like PDFKit

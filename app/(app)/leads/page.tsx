@@ -1,14 +1,13 @@
-"use client";
-
-import { useState } from 'react';
-import { Card, CardBody, CardHeader, Button } from "@heroui/react";
-import { useRouter } from 'next/navigation';
+import { Button, Card, CardBody } from "@heroui/react";
 import { FaPlus } from "react-icons/fa6";
-import LeadsTable from '@/components/table/leadsTable';
+import { cookies } from 'next/headers';
+import dynamic from 'next/dynamic';
 
-export default function LeadsPage() {
-  const router = useRouter();
-  
+// Create client-side-only components to handle navigation and client interaction
+const ImportButton = dynamic(() => import('./importButton'), { ssr: false });
+const LeadsTableClient = dynamic(() => import('@/components/table/leadsTable'), { ssr: false });
+
+export default async function LeadsPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
@@ -19,19 +18,13 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
-          <Button 
-            color="primary" 
-            startContent={<FaPlus />}
-            onPress={() => router.push('/leads/import')}
-          >
-            Import Leads
-          </Button>
+          <ImportButton />
         </div>
       </div>
 
       <Card className="mb-6">
         <CardBody>
-          <LeadsTable onRowClick={(leadId) => router.push(`/leads/${leadId}`)} />
+          <LeadsTableClient />
         </CardBody>
       </Card>
     </div>

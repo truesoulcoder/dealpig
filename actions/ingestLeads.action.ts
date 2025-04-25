@@ -14,6 +14,10 @@ import {
   LeadSource,
   Campaign
 } from '@/lib/database';
+import { uploadToStorage, supabaseAdmin } from '@/lib/supabaseAdmin';
+
+// Bucket name for lead imports
+const LEADS_BUCKET = 'lead-imports';
 
 interface CsvLead {
   property_address: string;
@@ -54,12 +58,14 @@ interface IngestResult {
   errors: string[];
   sourceId?: string;
   campaignId?: string;
+  fileUrl?: string;
 }
 
 // Core logic extracted to be testable
 export async function ingestLeadsFromCsvCore(
   fileContent: string, 
   fileName: string,
+  fileBuffer?: Buffer,
   dbCreateLeadSource = createLeadSource,
   dbCreateLead = createLead,
   dbCreateContact = createContact,
@@ -88,12 +94,21 @@ export async function ingestLeadsFromCsvCore(
     // Extract base filename without extension to use as name
     const baseFileName = path.basename(fileName, '.csv');
     
+    // Upload the original CSV file to Supabase storage for reference
+    let fileUrl: string | null = null;
+    if (fileBuffer) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const storagePath = `${baseFileName}_${timestamp}.csv`;
+      fileUrl = await uploadToStorage(LEADS_BUCKET, storagePath, fileBuffer, 'text/csv');
+    }
+    
     // Create a lead source record using the filename as the name
     const leadSource: LeadSource = {
       name: baseFileName, // Use the CSV filename (without extension) as the lead source name
       file_name: fileName,
       last_imported: new Date().toISOString(),
       record_count: rows.length,
+      file_url: fileUrl || undefined,
     };
 
     const source = await dbCreateLeadSource(leadSource);
@@ -253,7 +268,8 @@ export async function ingestLeadsFromCsvCore(
       insertedContacts,
       errors,
       sourceId,
-      campaignId
+      campaignId,
+      fileUrl: fileUrl || undefined
     };
   } catch (error) {
     console.error('Error parsing CSV:', error);
@@ -270,7 +286,9 @@ export async function ingestLeadsFromCsvCore(
 
 // Server action that uses the core logic
 export async function ingestLeadsFromCsv(fileContent: string, fileName: string): Promise<IngestResult> {
-  return ingestLeadsFromCsvCore(fileContent, fileName);
+  // Convert string to Buffer for storage
+  const fileBuffer = Buffer.from(fileContent);
+  return ingestLeadsFromCsvCore(fileContent, fileName, fileBuffer);
 }
 
 export async function uploadCsv(formData: FormData): Promise<IngestResult> {
@@ -302,7 +320,11 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
 
     // Read file content
     const fileContent = await file.text();
-    return ingestLeadsFromCsv(fileContent, file.name);
+    
+    // Convert file to buffer for storage
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    
+    return ingestLeadsFromCsvCore(fileContent, file.name, fileBuffer);
   } catch (error) {
     console.error('Error uploading CSV:', error);
     return {
