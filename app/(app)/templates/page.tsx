@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardBody, Button, Input, Tabs, Tab, Select, SelectItem } from "@heroui/react";
+import { 
+  Card, CardHeader, CardBody, Button, Input, Tabs, Tab, 
+  Select, SelectItem, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem 
+} from "@heroui/react";
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { getTemplates, saveTemplate } from '@/lib/database';
 import EmailEditor from '@/components/home/emailEditor';
@@ -187,7 +190,7 @@ export default function TemplatesPage() {
         setIsEditing(false);
         fetchTemplates();
       } else {
-        alert('
+        alert('Failed to save template');
       }
     } catch (error) {
       console.error('Error saving template:', error);
