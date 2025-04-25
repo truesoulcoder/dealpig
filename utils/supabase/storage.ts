@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { createClient as createServerClient } from "./server";
 import { createClient as createBrowserClient } from "./client";
 
@@ -37,11 +36,20 @@ export async function uploadToStorage(
   bucketName: string,
   filePath: string,
   fileContent: Buffer | Blob | File,
-  contentType?: string
+  contentType?: string,
+  cookieStore?: any
 ): Promise<string | null> {
   try {
-    const cookieStore = cookies();
-    const supabase = await createServerClient(cookieStore);
+    let supabase;
+    
+    if (typeof window === 'undefined') {
+      // Server-side - dynamic import to avoid bundling issues
+      const { cookies } = await import('next/headers');
+      supabase = await createServerClient(cookieStore || cookies());
+    } else {
+      // Client-side
+      supabase = createBrowserClient();
+    }
     
     const { data, error } = await supabase
       .storage
@@ -116,9 +124,16 @@ export async function uploadOptimizedImage(
   options: ImageTransformOptions = DEFAULT_IMAGE_OPTIONS
 ): Promise<string | null> {
   try {
-    const supabase = typeof window !== 'undefined' 
-      ? createBrowserClient() 
-      : await createServerClient(cookies());
+    let supabase;
+    
+    if (typeof window === 'undefined') {
+      // Server-side - dynamic import to avoid bundling issues
+      const { cookies } = await import('next/headers');
+      supabase = await createServerClient(cookies());
+    } else {
+      // Client-side
+      supabase = createBrowserClient();
+    }
     
     // Upload the original image
     const { data, error } = await supabase
@@ -184,9 +199,16 @@ export async function getOptimizedImageUrl(
   options: ImageTransformOptions = DEFAULT_IMAGE_OPTIONS
 ): Promise<string | null> {
   try {
-    const supabase = typeof window !== 'undefined' 
-      ? createBrowserClient() 
-      : await createServerClient(cookies());
+    let supabase;
+    
+    if (typeof window === 'undefined') {
+      // Server-side - dynamic import to avoid bundling issues
+      const { cookies } = await import('next/headers');
+      supabase = await createServerClient(cookies());
+    } else {
+      // Client-side
+      supabase = createBrowserClient();
+    }
     
     const { data: urlData } = supabase
       .storage
@@ -212,9 +234,16 @@ export async function uploadSvg(
   filePath: string
 ): Promise<string | null> {
   try {
-    const supabase = typeof window !== 'undefined' 
-      ? createBrowserClient() 
-      : await createServerClient(cookies());
+    let supabase;
+    
+    if (typeof window === 'undefined') {
+      // Server-side - dynamic import to avoid bundling issues
+      const { cookies } = await import('next/headers');
+      supabase = await createServerClient(cookies());
+    } else {
+      // Client-side
+      supabase = createBrowserClient();
+    }
     
     const { data, error } = await supabase
       .storage
@@ -249,6 +278,8 @@ export async function downloadFromStorage(
   filePath: string
 ): Promise<Buffer | null> {
   try {
+    // Use dynamic import to avoid issues with next/headers
+    const { cookies } = await import('next/headers');
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
@@ -276,6 +307,8 @@ export async function downloadFromStorage(
  */
 export async function listFiles(bucketName: string, folderPath?: string): Promise<string[] | null> {
   try {
+    // Use dynamic import to avoid issues with next/headers
+    const { cookies } = await import('next/headers');
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
@@ -301,6 +334,8 @@ export async function listFiles(bucketName: string, folderPath?: string): Promis
  */
 export async function deleteFromStorage(bucketName: string, filePath: string): Promise<boolean> {
   try {
+    // Use dynamic import to avoid issues with next/headers
+    const { cookies } = await import('next/headers');
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
@@ -330,6 +365,8 @@ export async function createSignedUrl(
   expiresIn = 60 // seconds
 ): Promise<string | null> {
   try {
+    // Use dynamic import to avoid issues with next/headers
+    const { cookies } = await import('next/headers');
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     

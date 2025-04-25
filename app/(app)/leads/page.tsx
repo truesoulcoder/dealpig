@@ -1,11 +1,6 @@
 import { Button, Card, CardBody } from "@heroui/react";
 import { FaPlus } from "react-icons/fa6";
-import { cookies } from 'next/headers';
-import dynamic from 'next/dynamic';
-
-// Create client-side-only components to handle navigation and client interaction
-const ImportButton = dynamic(() => import('./importButton'), { ssr: false });
-const LeadsTableClient = dynamic(() => import('@/components/table/leadsTable'), { ssr: false });
+import { ImportButton, LeadsTableClient } from './client-components';
 
 export default async function LeadsPage() {
   return (
