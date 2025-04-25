@@ -13,6 +13,10 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
   throw new Error('Missing Supabase server-side environment variables');
 }
 
+if (!supabaseUrl.startsWith('http')) {
+  throw new Error(`Invalid Supabase URL: ${supabaseUrl}`);
+}
+
 // Create a Supabase client with the service role key for server-side operations
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
@@ -79,13 +83,22 @@ export async function uploadToStorage(bucketName: string, filePath: string, file
       console.error('Error uploading file:', error);
       return null;
     }
-    
-    // Return the public URL
+
+    if (!supabaseUrl) {
+      console.error('Supabase URL is not set. Cannot generate public URL.');
+      return null;
+    }
+
     const { data: urlData } = supabaseAdmin
       .storage
       .from(bucketName)
       .getPublicUrl(filePath);
-      
+
+    if (!urlData || !urlData.publicUrl) {
+      console.error('Failed to generate public URL for the uploaded file.');
+      return null;
+    }
+
     return urlData.publicUrl;
   } catch (error) {
     console.error('Error in uploadToStorage:', error);
