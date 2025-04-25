@@ -69,6 +69,9 @@ export interface Sender {
   last_sent_at?: string;
   created_at?: string;
   updated_at?: string;
+  profile_picture?: string;
+  verified_email?: string;
+  oauth_token?: string;
 }
 
 export interface Email {
@@ -513,46 +516,80 @@ export async function getSenderByEmail(email: string): Promise<Sender | null> {
   return data as Sender;
 }
 
-// Additional functions needed by campaignScheduler.ts
-export async function updateLeadStatus(leadId: string, status: string): Promise<boolean> {
+export async function createSender(sender: Sender): Promise<Sender | null> {
   try {
-    const { error } = await supabase
-      .from('leads')
-      .update({ 
-        status, 
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', leadId);
-    
+    const now = new Date().toISOString();
+    const newSender = {
+      ...sender,
+      created_at: now,
+      updated_at: now,
+      emails_sent: 0,
+      daily_quota: sender.daily_quota || 100
+    };
+
+    const { data, error } = await supabase
+      .from('senders')
+      .insert([newSender])
+      .select();
+
     if (error) {
-      console.error('Error updating lead status:', error);
+      console.error('Error creating sender:', error);
+      return null;
+    }
+
+    return data[0] as Sender;
+  } catch (error) {
+    console.error('Error in createSender:', error);
+    return null;
+  }
+}
+
+export async function updateSenderProfile(id: string, updates: Partial<Sender>): Promise<Sender | null> {
+  try {
+    const { data, error } = await supabase
+      .from('senders')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Error updating sender:', error);
+      return null;
+    }
+
+    return data[0] as Sender;
+  } catch (error) {
+    console.error('Error in updateSenderProfile:', error);
+    return null;
+  }
+}
+
+export async function deleteSender(id: string): Promise<boolean> {
+  try {
+    // First delete any OAuth tokens for this sender
+    await supabase
+      .from('oauth_tokens')
+      .delete()
+      .eq('sender_id', id);
+      
+    // Then delete the sender record
+    const { error } = await supabase
+      .from('senders')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting sender:', error);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Error in updateLeadStatus:', error);
+    console.error('Error in deleteSender:', error);
     return false;
-  }
-}
-
-export async function getSenderById(id: string): Promise<Sender | null> {
-  try {
-    const { data, error } = await supabase
-      .from('senders')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching sender:', error);
-      return null;
-    }
-    
-    return data as Sender;
-  } catch (error) {
-    console.error('Error in getSenderById:', error);
-    return null;
   }
 }
 export async function createLeadSource(source: LeadSource): Promise<LeadSource | null> {

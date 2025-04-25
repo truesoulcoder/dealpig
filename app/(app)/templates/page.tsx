@@ -34,9 +34,9 @@ export default function TemplatesPage() {
   const [selectedTab, setSelectedTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Template editor states - changed to true by default
+  // Template editor states - Set preview mode to true by default
   const [isEditing, setIsEditing] = useState(true);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(true);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [currentTemplate, setCurrentTemplate] = useState<Partial<Template>>({
@@ -281,7 +281,7 @@ export default function TemplatesPage() {
     setEmailEditorRef(editor);
   };
 
-  // Handle template type change
+  // Handle template type change - Update to maintain consistent column heights
   const handleTemplateTypeChange = (type: string) => {
     // Only update if the type is actually different
     if (type !== currentTemplate.type) {
@@ -291,8 +291,8 @@ export default function TemplatesPage() {
         type
       }));
       
-      // Reset preview mode when switching types
-      setIsPreviewMode(false);
+      // Keep preview mode when switching types instead of resetting it
+      // This prevents the columns from resizing vertically
     }
   };
   
@@ -507,11 +507,11 @@ export default function TemplatesPage() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-                {/* Left Column - Editor */}
-                <div className="border rounded-lg w-full shadow-sm bg-white dark:bg-gray-800 overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full min-h-[600px]">
+                {/* Left Column - Editor - Set fixed height to prevent resizing issues */}
+                <div className="border rounded-lg w-full shadow-sm bg-white dark:bg-gray-800 overflow-hidden h-[600px] flex flex-col">
                   {currentTemplate.type === 'email' && (
-                    <div className="w-full h-full">
+                    <div className="w-full h-full flex flex-col">
                       <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
@@ -608,17 +608,19 @@ export default function TemplatesPage() {
                           </Tooltip>
                         </div>
                       </div>
-                      <EmailEditor 
-                        initialContent={currentTemplate.content || ''} 
-                        onChange={handleContentChange}
-                        placeholder="Write your email template here..."
-                        onEditorReady={handleEditorReady}
-                      />
+                      <div className="flex-grow overflow-auto">
+                        <EmailEditor 
+                          initialContent={currentTemplate.content || ''} 
+                          onChange={handleContentChange}
+                          placeholder="Write your email template here..."
+                          onEditorReady={handleEditorReady}
+                        />
+                      </div>
                     </div>
                   )}
                   
                   {currentTemplate.type === 'document' && (
-                    <div className="w-full h-full">
+                    <div className="w-full h-full flex flex-col">
                       <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
@@ -723,8 +725,8 @@ export default function TemplatesPage() {
                   )}
                 </div>
                 
-                {/* Right Column - Preview */}
-                <div className="border rounded-lg w-full shadow-sm dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden">
+                {/* Right Column - Preview - Match height with editor column */}
+                <div className="border rounded-lg w-full shadow-sm dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden h-[600px] flex flex-col">
                   <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium">Preview</h3>
@@ -733,57 +735,42 @@ export default function TemplatesPage() {
                         <span className="text-xs text-gray-500 dark:text-gray-400">Live</span>
                       </div>
                     </div>
-                    {currentTemplate.type === 'email' && (
-                      <div className="flex gap-1">
-                        <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
-                          <Button 
-                            size="sm" 
-                            className={`rounded-md min-w-[70px] transition-all duration-200 ${!isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
-                            onPress={() => setIsPreviewMode(false)}
-                          >
-                            Code
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            className={`rounded-md min-w-[70px] transition-all duration-200 ${isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
-                            onPress={() => setIsPreviewMode(true)}
-                          >
-                            Preview
-                          </Button>
-                        </div>
+                    <div className="flex gap-1">
+                      <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
+                        <Button 
+                          size="sm" 
+                          className={`rounded-md min-w-[70px] transition-all duration-200 ${!isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
+                          onPress={() => setIsPreviewMode(false)}
+                        >
+                          HTML
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          className={`rounded-md min-w-[70px] transition-all duration-200 ${isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
+                          onPress={() => setIsPreviewMode(true)}
+                        >
+                          Preview
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <div className="p-6 bg-white dark:bg-gray-800 min-h-[500px] overflow-y-auto shadow-inner">
-                    {currentTemplate.type === 'email' && (
-                      <div 
-                        className={`prose dark:prose-invert max-w-none transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
-                        dangerouslySetInnerHTML={{ 
-                          __html: isPreviewMode ? 
-                            renderTemplateWithSampleData(currentTemplate.content || '') :
-                            '<pre class="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto">' + 
-                            (currentTemplate.content || '<p>Your template appears here as you type...</p>')
-                              .replace(/</g, '&lt;')
-                              .replace(/>/g, '&gt;') + 
-                            '</pre>'
-                        }}
-                      />
-                    )}
+                  <div className="p-6 bg-white dark:bg-gray-800 flex-grow overflow-y-auto">
+                    {/* Show rich text preview by default (isPreviewMode is true) */}
+                    <div 
+                      className={`prose dark:prose-invert max-w-none transition-all duration-300 h-full ${isPreviewMode ? 'block' : 'hidden'}`}
+                      dangerouslySetInnerHTML={{ 
+                        __html: renderTemplateWithSampleData(currentTemplate.content || '')
+                      }}
+                    />
                     
-                    {currentTemplate.type === 'document' && (
-                      <div 
-                        className={`prose dark:prose-invert max-w-none transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
-                        dangerouslySetInnerHTML={{ 
-                          __html: isPreviewMode ? 
-                            renderTemplateWithSampleData(currentTemplate.content || '') :
-                            '<pre class="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto">' + 
-                            (currentTemplate.content || '<p>Your document appears here as you type...</p>')
-                              .replace(/</g, '&lt;')
-                              .replace(/>/g, '&gt;') + 
-                            '</pre>'
-                        }}
-                      />
-                    )}
+                    {/* Full-height HTML preview when code view is active */}
+                    <div className={`h-full w-full transition-all duration-300 ${!isPreviewMode ? 'block' : 'hidden'}`}>
+                      <pre className="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto h-full w-full">
+                        {(currentTemplate.content || '<p>Your template appears here as you type...</p>')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;')}
+                      </pre>
+                    </div>
                   </div>
                 </div>
               </div>

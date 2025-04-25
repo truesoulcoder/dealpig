@@ -182,7 +182,17 @@ export const Accounts = () => {
               <TableBody>
                 {filteredSenders.map((sender) => (
                   <TableRow key={sender.id}>
-                    <TableCell>{sender.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar 
+                          src={sender.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(sender.name)}&background=random`} 
+                          className="w-8 h-8"
+                          showFallback
+                          name={sender.name}
+                        />
+                        {sender.name}
+                      </div>
+                    </TableCell>
                     <TableCell>{sender.email}</TableCell>
                     <TableCell>{sender.title || "-"}</TableCell>
                     <TableCell>{sender.emails_sent || 0}</TableCell>

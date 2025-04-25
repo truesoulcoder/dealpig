@@ -8,8 +8,9 @@ import {
   ModalHeader,
   useDisclosure,
 } from "@heroui/react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaGoogle } from "react-icons/fa";
+import { useSearchParams } from "next/navigation";
 
 export const AddSender = () => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -18,6 +19,43 @@ export const AddSender = () => {
   const [title, setTitle] = useState('');
   const [dailyQuota, setDailyQuota] = useState('100');
   const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+  
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    // Check for success or error messages in the URL
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    
+    if (success) {
+      setNotification({
+        show: true,
+        type: 'success',
+        message: 'Gmail account successfully authorized!'
+      });
+      
+      // Hide notification after 5 seconds
+      const timer = setTimeout(() => {
+        setNotification({ show: false, type: '', message: '' });
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    } else if (error) {
+      setNotification({
+        show: true,
+        type: 'error',
+        message: `Authorization failed: ${error}`
+      });
+      
+      // Hide notification after 5 seconds
+      const timer = setTimeout(() => {
+        setNotification({ show: false, type: '', message: '' });
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   // Handle Gmail OAuth
   const handleGmailAuth = async () => {
@@ -45,6 +83,14 @@ export const AddSender = () => {
 
   return (
     <div>
+      {notification.show && (
+        <div className={`fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white max-w-md transition-all duration-300`}>
+          {notification.message}
+        </div>
+      )}
+      
       <>
         <Button onPress={onOpen} color="primary">
           Add Sender

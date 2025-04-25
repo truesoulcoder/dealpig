@@ -9,142 +9,340 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Color from '@tiptap/extension-color';
 import TextStyle from '@tiptap/extension-text-style';
-import { Button } from '@heroui/button';
-import { Card, CardBody, CardHeader } from '@heroui/card';
-import { Select, SelectItem } from '@heroui/select';
-import { Tabs, Tab } from '@heroui/tabs';
-import { Spinner } from '@heroui/spinner';
+import FontFamily from '@tiptap/extension-font-family';
+import { 
+  Button, Card, CardBody, CardHeader, 
+  Select, SelectItem, Tabs, Tab, Spinner, 
+  Tooltip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem,
+  RadioGroup, Radio, Popover, PopoverTrigger, PopoverContent
+} from '@heroui/react';
+import { 
+  FaBold, FaItalic, FaUnderline, FaAlignLeft, 
+  FaAlignCenter, FaAlignRight, FaAlignJustify, 
+  FaLink, FaImage, FaListUl, FaListOl, 
+  FaFont, FaHeading, FaParagraph
+} from 'react-icons/fa';
+import { MdFormatColorText, MdFormatSize } from 'react-icons/md';
 import { getTemplates, Template } from '@/lib/database';
 import { loadDefaultTemplate } from '@/actions/loadDefaultTemplate.action';
 
-// EditorToolbar component for text formatting options
+// Color palette for text formatting
+const COLORS = [
+  '#000000', '#343a40', '#495057', '#868e96', '#adb5bd', 
+  '#1971c2', '#4dabf7', '#3b5bdb', '#748ffc', '#f03e3e', 
+  '#ff8787', '#d9480f', '#fd7e14', '#e67700', '#fcc419', 
+  '#2b8a3e', '#51cf66', '#087f5b', '#20c997', '#6741d9'
+];
+
+// Font sizes for formatting
+const FONT_SIZES = [
+  { label: 'Small', value: '12px' },
+  { label: 'Normal', value: '16px' },
+  { label: 'Medium', value: '20px' },
+  { label: 'Large', value: '24px' },
+  { label: 'X-Large', value: '32px' },
+];
+
+// Font families
+const FONT_FAMILIES = [
+  { label: 'Sans-serif', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Serif', value: 'Georgia, Times New Roman, serif' },
+  { label: 'Monospace', value: 'Courier New, Courier, monospace' },
+  { label: 'Cursive', value: 'Comic Sans MS, cursive' },
+];
+
+// EditorToolbar component for text formatting options with enhanced features
 const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
   if (!editor) {
     return null;
   }
 
+  // Handles link insertion with improved UI
+  const handleLinkInsert = () => {
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('URL', previousUrl);
+    
+    // cancelled
+    if (url === null) {
+      return;
+    }
+
+    // empty
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    // update link
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  };
+
   return (
-    <div className="border-b border-gray-300 p-2 flex flex-wrap gap-1 items-center">
-      <div className="flex gap-1 mr-2">
-        <Button
-          size="sm"
-          variant={editor.isActive('heading', { level: 1 }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        >
-          H1
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('heading', { level: 2 }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        >
-          H2
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('heading', { level: 3 }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        >
-          H3
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('paragraph') ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().setParagraph().run()}
-        >
-          P
-        </Button>
-      </div>
-
-      <div className="border-r border-gray-300 h-6 mx-2" />
-
-      <div className="flex gap-1 mr-2">
-        <Button
-          size="sm"
-          variant={editor.isActive('bold') ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().toggleBold().run()}
-        >
-          <span className="font-bold">B</span>
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('italic') ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().toggleItalic().run()}
-        >
-          <span className="italic">I</span>
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive('underline') ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().toggleUnderline().run()}
-        >
-          <span className="underline">U</span>
-        </Button>
-      </div>
-
-      <div className="border-r border-gray-300 h-6 mx-2" />
-
-      <div className="flex gap-1 mr-2">
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'left' }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().setTextAlign('left').run()}
-        >
-          Left
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'center' }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().setTextAlign('center').run()}
-        >
-          Center
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'right' }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().setTextAlign('right').run()}
-        >
-          Right
-        </Button>
-        <Button
-          size="sm"
-          variant={editor.isActive({ textAlign: 'justify' }) ? "secondary" : "ghost"}
-          onPress={() => editor.chain().focus().setTextAlign('justify').run()}
-        >
-          Justify
-        </Button>
-      </div>
-
-      <div className="border-r border-gray-300 h-6 mx-2" />
-
-      <div className="flex gap-1">
-        <Button
-          size="sm"
-          variant={editor.isActive('link') ? "secondary" : "ghost"}
-          onPress={() => {
-            const url = window.prompt('URL');
-            if (url) {
-              editor.chain().focus().setLink({ href: url }).run();
-            }
-          }}
-        >
-          Link
-        </Button>
-        {editor.isActive('link') && (
+    <div className="border-b border-gray-300 p-2 flex flex-wrap gap-1 items-center bg-gray-50 dark:bg-gray-800 overflow-x-auto sticky top-0 z-10">
+      {/* Text Style Dropdown */}
+      <Dropdown>
+        <DropdownTrigger>
           <Button
             size="sm"
-            variant="ghost"
-            onPress={() => editor.chain().focus().unsetLink().run()}
+            variant="flat"
+            className="px-3 min-w-[80px] justify-between mr-2"
           >
-            Unlink
+            {editor.isActive('heading', { level: 1 }) ? 'H1' :
+             editor.isActive('heading', { level: 2 }) ? 'H2' :
+             editor.isActive('heading', { level: 3 }) ? 'H3' :
+             'Normal'}
+            <span className="ml-2">▼</span>
           </Button>
-        )}
+        </DropdownTrigger>
+        <DropdownMenu aria-label="Text styles">
+          <DropdownItem onPress={() => editor.chain().focus().setParagraph().run()}>
+            Normal text
+          </DropdownItem>
+          <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+            Heading 1
+          </DropdownItem>
+          <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+            Heading 2
+          </DropdownItem>
+          <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+            Heading 3
+          </DropdownItem>
+        </DropdownMenu>
+      </Dropdown>
+
+      {/* Font Family Dropdown */}
+      <Dropdown>
+        <DropdownTrigger>
+          <Button
+            size="sm"
+            variant="flat"
+            className="px-3 gap-1"
+            startContent={<FaFont size={14} />}
+          >
+            Font
+          </Button>
+        </DropdownTrigger>
+        <DropdownMenu aria-label="Font families">
+          {FONT_FAMILIES.map((font) => (
+            <DropdownItem 
+              key={font.value}
+              onPress={() => editor.chain().focus().setFontFamily(font.value).run()}
+              style={{ fontFamily: font.value }}
+            >
+              {font.label}
+            </DropdownItem>
+          ))}
+        </DropdownMenu>
+      </Dropdown>
+
+      <div className="border-r border-gray-300 h-6 mx-2" />
+
+      {/* Font Size Dropdown */}
+      <Dropdown>
+        <DropdownTrigger>
+          <Button
+            size="sm"
+            variant="flat"
+            className="px-3 gap-1"
+            startContent={<MdFormatSize size={16} />}
+          >
+            Size
+          </Button>
+        </DropdownTrigger>
+        <DropdownMenu aria-label="Font sizes">
+          {FONT_SIZES.map((size) => (
+            <DropdownItem 
+              key={size.value}
+              onPress={() => editor.chain().focus().setStyle({ fontSize: size.value }).run()}
+            >
+              <span style={{ fontSize: size.value }}>{size.label}</span>
+            </DropdownItem>
+          ))}
+        </DropdownMenu>
+      </Dropdown>
+
+      <div className="border-r border-gray-300 h-6 mx-2" />
+
+      {/* Text Color */}
+      <Popover placement="bottom">
+        <PopoverTrigger>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="flat"
+            className="min-w-8 h-8 relative"
+            title="Text Color"
+          >
+            <MdFormatColorText size={16} />
+            <span className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-blue-500"></span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent>
+          <div className="p-2">
+            <div className="grid grid-cols-5 gap-2">
+              {COLORS.map((color) => (
+                <button
+                  key={color}
+                  className="w-6 h-6 rounded transition-transform hover:scale-110"
+                  style={{ backgroundColor: color }}
+                  onClick={() => editor.chain().focus().setColor(color).run()}
+                  aria-label={`Color ${color}`}
+                />
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Format Group */}
+      <div className="flex gap-1 mx-2">
+        <Tooltip content="Bold" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive('bold') ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().toggleBold().run()}
+            className="min-w-8 h-8"
+          >
+            <FaBold size={14} />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Italic" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive('italic') ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().toggleItalic().run()}
+            className="min-w-8 h-8"
+          >
+            <FaItalic size={14} />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Underline" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive('underline') ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().toggleUnderline().run()}
+            className="min-w-8 h-8"
+          >
+            <FaUnderline size={14} />
+          </Button>
+        </Tooltip>
       </div>
+
+      <div className="border-r border-gray-300 h-6 mx-1" />
+
+      {/* Lists */}
+      <div className="flex gap-1 mr-2">
+        <Tooltip content="Bullet List" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive('bulletList') ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().toggleBulletList().run()}
+            className="min-w-8 h-8"
+          >
+            <FaListUl size={14} />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Numbered List" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive('orderedList') ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().toggleOrderedList().run()}
+            className="min-w-8 h-8"
+          >
+            <FaListOl size={14} />
+          </Button>
+        </Tooltip>
+      </div>
+
+      <div className="border-r border-gray-300 h-6 mx-1" />
+
+      {/* Alignment Group */}
+      <div className="flex gap-1 mr-2">
+        <Tooltip content="Align Left" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive({ textAlign: 'left' }) ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().setTextAlign('left').run()}
+            className="min-w-8 h-8"
+          >
+            <FaAlignLeft size={14} />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Align Center" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive({ textAlign: 'center' }) ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().setTextAlign('center').run()}
+            className="min-w-8 h-8"
+          >
+            <FaAlignCenter size={14} />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Align Right" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive({ textAlign: 'right' }) ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().setTextAlign('right').run()}
+            className="min-w-8 h-8"
+          >
+            <FaAlignRight size={14} />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Justify" placement="top">
+          <Button
+            isIconOnly
+            size="sm"
+            variant={editor.isActive({ textAlign: 'justify' }) ? "solid" : "flat"}
+            onPress={() => editor.chain().focus().setTextAlign('justify').run()}
+            className="min-w-8 h-8"
+          >
+            <FaAlignJustify size={14} />
+          </Button>
+        </Tooltip>
+      </div>
+
+      <div className="border-r border-gray-300 h-6 mx-1" />
+
+      {/* Link Button */}
+      <Tooltip content="Insert Link" placement="top">
+        <Button
+          isIconOnly
+          size="sm"
+          variant={editor.isActive('link') ? "solid" : "flat"}
+          onPress={handleLinkInsert}
+          className="min-w-8 h-8"
+        >
+          <FaLink size={14} />
+        </Button>
+      </Tooltip>
+      
+      <Tooltip content="Insert Image" placement="top">
+        <Button
+          isIconOnly
+          size="sm"
+          variant="flat"
+          onPress={() => {
+            const url = window.prompt('Image URL');
+            if (url) {
+              editor.chain().focus().setImage({ src: url }).run();
+            }
+          }}
+          className="min-w-8 h-8 ml-1"
+        >
+          <FaImage size={14} />
+        </Button>
+      </Tooltip>
     </div>
   );
 };
-
-// No need for editor styles import as TipTap handles this differently
 
 interface DocumentPreviewProps {
   documentData: {
@@ -161,7 +359,7 @@ interface DocumentPreviewProps {
     senderTitle?: string;
     senderContact?: string;
   };
-  onApprove: (htmlContent: string, templateName: string) => void;
+  onApprove: (htmlContent: string, templateName?: string, outputFormat?: string) => void;
 }
 
 export default function DocumentPreview({ documentData, onApprove }: DocumentPreviewProps) {
@@ -171,18 +369,27 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [defaultTemplate, setDefaultTemplate] = useState<string>('');
+  const [outputFormat, setOutputFormat] = useState<string>('docx');
 
   const editor = useEditor({
     extensions: [
       StarterKit,
       Underline,
-      TextAlign.configure({ types: [ 'heading', 'paragraph' ] }),
-      Link,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Link.configure({
+        openOnClick: false,
+      }),
       Image,
       Color,
       TextStyle,
+      FontFamily,
     ],
-    content: '<p>Hello World!</p>',
+    content: '<p>Loading template...</p>',
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm sm:prose lg:prose-lg max-w-none focus:outline-none p-4 min-h-[300px]',
+      },
+    },
   });
 
   // Fetch available templates and default template
@@ -300,7 +507,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     try {
       // Get editor content as HTML
       const htmlContent = editor?.getHTML() || '';
-      onApprove(htmlContent, selectedTemplate);
+      onApprove(htmlContent, selectedTemplate, outputFormat);
     } finally {
       setIsLoading(false);
     }
@@ -317,9 +524,24 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
   }
 
   return (
-    <Card data-testid="document-preview-card">
+    <Card className="shadow-sm" data-testid="document-preview-card">
       <CardHeader className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold" data-testid="document-preview-title">Document Preview</h2>
+        <div className="flex justify-between items-center w-full">
+          <h2 className="text-xl font-semibold" data-testid="document-preview-title">Document Preview</h2>
+          <Tabs 
+            value={viewMode} 
+            onValueChange={(value) => setViewMode(value as "edit" | "preview")}
+            className="w-auto"
+            data-testid="view-mode-tabs"
+            variant="solid"
+            color="primary"
+            size="sm"
+            radius="full"
+          >
+            <Tab value="edit" title="Edit" data-testid="edit-tab" />
+            <Tab value="preview" title="Preview" data-testid="preview-tab" />
+          </Tabs>
+        </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full">
           <div className="w-full sm:w-2/3">
             <Select
@@ -340,15 +562,18 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
             </Select>
           </div>
           <div className="w-full sm:w-1/3">
-            <Tabs 
-              value={viewMode} 
-              onValueChange={(value) => setViewMode(value as "edit" | "preview")}
-              className="w-full"
-              data-testid="view-mode-tabs"
-            >
-              <Tab value="edit" title="Edit" data-testid="edit-tab" />
-              <Tab value="preview" title="Preview" data-testid="preview-tab" />
-            </Tabs>
+            <div className="flex flex-col">
+              <label className="text-sm text-gray-600 dark:text-gray-400 mb-1">Output Format</label>
+              <RadioGroup 
+                orientation="horizontal" 
+                value={outputFormat}
+                onValueChange={setOutputFormat}
+                className="gap-4"
+              >
+                <Radio value="docx">DOCX</Radio>
+                <Radio value="pdf">PDF</Radio>
+              </RadioGroup>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -357,13 +582,13 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
         {viewMode === "edit" ? (
           <div className="border border-gray-300 rounded-md min-h-[500px] mb-4" data-testid="editor-container">
             <EditorToolbar editor={editor} />
-            <div className="p-4">
-              <EditorContent editor={editor} />
+            <div className="p-4 bg-white">
+              <EditorContent editor={editor} className="min-h-[500px]" />
             </div>
           </div>
         ) : (
           <div 
-            className="border border-gray-300 rounded-md min-h-[500px] mb-4 p-6" 
+            className="border border-gray-300 rounded-md min-h-[500px] mb-4 p-6 bg-white" 
             data-testid="preview-container"
             role="article"
           >
@@ -376,13 +601,13 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
         
         <div className="flex justify-end space-x-2">
           <Button
-            variant="primary"
+            color="primary"
             onPress={handleApprove}
             isLoading={isLoading}
             data-testid="approve-button"
-            aria-label="Approve and Generate Document"
+            aria-label={`Generate ${outputFormat.toUpperCase()} Document`}
           >
-            {isLoading ? 'Generating...' : 'Approve & Generate Document'}
+            {isLoading ? 'Generating...' : `Generate ${outputFormat.toUpperCase()} Document`}
           </Button>
         </div>
       </CardBody>
