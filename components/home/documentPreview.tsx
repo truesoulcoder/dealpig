@@ -15,6 +15,7 @@ import { Select, SelectItem } from '@heroui/select';
 import { Tabs, Tab } from '@heroui/tabs';
 import { Spinner } from '@heroui/spinner';
 import { getTemplates, Template } from '@/lib/database';
+import { loadDefaultTemplate } from '@/actions/loadDefaultTemplate.action';
 
 // EditorToolbar component for text formatting options
 const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
@@ -169,6 +170,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
   const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [defaultTemplate, setDefaultTemplate] = useState<string>('');
 
   const editor = useEditor({
     extensions: [
@@ -183,13 +185,18 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     content: '<p>Hello World!</p>',
   });
 
-  // Fetch available templates
+  // Fetch available templates and default template
   useEffect(() => {
     async function loadTemplates() {
       try {
         setLoadingTemplates(true);
-        const templateData = await getTemplates('document');
+        const [templateData, defaultTemplateHtml] = await Promise.all([
+          getTemplates('document'),
+          loadDefaultTemplate() // Load the default DOCX template
+        ]);
+        
         setTemplates(templateData);
+        setDefaultTemplate(defaultTemplateHtml || generateDefaultLoiTemplate(documentData));
         
         if (templateData.length > 0) {
           setSelectedTemplate(templateData[0].id || 'default');
@@ -200,8 +207,8 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
         } else {
           // No templates found, load the default template
           setSelectedTemplate('default');
-          const defaultTemplate = generateDefaultLoiTemplate(documentData);
-          editor?.commands.setContent(defaultTemplate);
+          const processedDefaultTemplate = processTemplate(defaultTemplateHtml || generateDefaultLoiTemplate(documentData), documentData);
+          editor?.commands.setContent(processedDefaultTemplate);
         }
       } catch (error) {
         console.error('Error loading templates:', error);
@@ -224,17 +231,17 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     let templateContent = '';
     
     if (templateId === 'default') {
-      templateContent = generateDefaultLoiTemplate(documentData);
+      templateContent = defaultTemplate || generateDefaultLoiTemplate(documentData);
     } else {
       const selectedTemplateData = templates.find(t => t.id === templateId);
       if (selectedTemplateData) {
         templateContent = processTemplate(selectedTemplateData.content, documentData);
       } else {
-        templateContent = generateDefaultLoiTemplate(documentData);
+        templateContent = processTemplate(defaultTemplate || generateDefaultLoiTemplate(documentData), documentData);
       }
     }
     
-    editor?.commands.setContent(templateContent);
+    editor?.commands.setContent(processTemplate(templateContent, documentData));
   };
 
   // Process template with variable replacement
