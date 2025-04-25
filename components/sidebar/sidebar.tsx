@@ -27,7 +27,7 @@ export const SidebarWrapper = () => {
   return (
     <aside className="h-screen z-[20] sticky top-0">
       {collapsed ? (
-        <div className={Sidebar.Overlay()} onClick={setCollapsed} />
+        <div className={Sidebar.Overlay()} onPress={setCollapsed} />
       ) : null}
       <div
         className={Sidebar({

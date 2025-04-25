@@ -235,7 +235,7 @@ export default function GenerateDocumentForm() {
         ) : (
           <>
             <Button 
-              onClick={() => setShowPreview(false)}
+              onPress={() => setShowPreview(false)}
               variant="light"
               className="mb-4"
             >

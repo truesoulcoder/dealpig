@@ -136,7 +136,7 @@ export const Accounts = () => {
           <h3 className="text-xl font-semibold">Email Senders</h3>
           <div className="flex gap-2">
             <AddSender />
-            <Button color="primary" startContent={<ExportIcon />} onClick={handleExportCSV}>
+            <Button color="primary" startContent={<ExportIcon />} onPress={handleExportCSV}>
               Export to CSV
             </Button>
           </div>
@@ -207,10 +207,10 @@ export const Accounts = () => {
                           </Button>
                         </DropdownTrigger>
                         <DropdownMenu aria-label="Sender actions">
-                          <DropdownItem onClick={() => refreshOAuth(sender.id)}>
+                          <DropdownItem onPress={() => refreshOAuth(sender.id)}>
                             Refresh Authorization
                           </DropdownItem>
-                          <DropdownItem onClick={() => deleteSender(sender.id)} className="text-danger">
+                          <DropdownItem onPress={() => deleteSender(sender.id)} className="text-danger">
                             Delete Sender
                           </DropdownItem>
                         </DropdownMenu>

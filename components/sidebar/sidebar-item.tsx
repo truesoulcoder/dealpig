@@ -30,7 +30,7 @@ export const SidebarItem = ({ icon, title, isActive, href = "" }: Props) => {
             : "hover:bg-default-100",
           "flex gap-2 w-full min-h-[44px] h-full items-center px-3.5 rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.98]"
         )}
-        onClick={handleClick}
+        onPress={handleClick}
       >
         {icon}
         <span className={clsx(isActive ? "text-primary-500" : "text-default-900")}>{title}</span>

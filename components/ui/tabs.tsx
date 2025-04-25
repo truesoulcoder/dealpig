@@ -88,7 +88,7 @@ export function TabsTrigger({
       role="tab"
       aria-selected={isActive}
       className={`px-4 py-2 rounded-t-lg ${isActive ? 'bg-white text-primary border-b-2 border-primary' : 'text-gray-500 hover:text-gray-700'} ${className || ''}`}
-      onClick={() => setSelectedTab(value)}
+      onPress={() => setSelectedTab(value)}
       {...props}
     >
       {children}

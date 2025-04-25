@@ -269,9 +269,9 @@ export default function AdvancedTable({
                 </Button>
               </DropdownTrigger>
               <DropdownMenu>
-                <DropdownItem key="view" onClick={() => onView && onView(item)}>View</DropdownItem>
-                <DropdownItem key="edit" onClick={() => onEdit && onEdit(item)}>Edit</DropdownItem>
-                <DropdownItem key="delete" className="text-danger" color="danger" onClick={() => onDelete && onDelete(item)}>
+                <DropdownItem key="view" onPress={() => onView && onView(item)}>View</DropdownItem>
+                <DropdownItem key="edit" onPress={() => onEdit && onEdit(item)}>Edit</DropdownItem>
+                <DropdownItem key="delete" className="text-danger" color="danger" onPress={() => onDelete && onDelete(item)}>
                   Delete
                 </DropdownItem>
               </DropdownMenu>
@@ -371,7 +371,7 @@ export default function AdvancedTable({
               </DropdownMenu>
             </Dropdown>
             {onAddNew && (
-              <Button color="primary" endContent={<PlusIcon />} onClick={onAddNew}>
+              <Button color="primary" endContent={<PlusIcon />} onPress={onAddNew}>
                 Add New
               </Button>
             )}

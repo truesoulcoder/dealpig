@@ -121,8 +121,8 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
           <CardBody className="text-center py-8">
             <h2 className="text-xl font-semibold mb-4">No leads selected</h2>
             <p className="text-gray-500 mb-4">Please select leads from the leads table to generate LOIs.</p>
-            <Button color="primary" onClick={() => router.push('/leads')}>
-              Return to Leads
+            <Button color="primary" onPress={() => router.push('/leads')}>
+              Back to Leads
             </Button>
           </CardBody>
         </Card>
@@ -198,7 +198,7 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
                     size="sm" 
                     variant="flat" 
                     color={selectedLeads.includes(lead.id || '') ? 'primary' : 'default'}
-                    onClick={() => {
+                    onPress={() => {
                       if (selectedLeads.includes(lead.id || '')) {
                         setSelectedLeads(selectedLeads.filter(id => id !== lead.id));
                       } else {
@@ -216,14 +216,14 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
           <div className="flex justify-end space-x-2 mt-6">
             <Button 
               variant="flat" 
-              onClick={handleCancel}
+              onPress={handleCancel}
               isDisabled={isGenerating}
             >
               Cancel
             </Button>
             <Button
               color="primary"
-              onClick={handleGenerateLois}
+              onPress={handleGenerateLois}
               isLoading={isGenerating}
               isDisabled={selectedLeads.length === 0}
               startContent={<FaFileAlt />}
@@ -290,14 +290,14 @@ function BulkLoiContent({ leadIds }: { leadIds: string[] }) {
             <div className="flex w-full justify-end space-x-2">
               <Button 
                 color="secondary" 
-                onClick={handleDownloadAll}
+                onPress={handleDownloadAll}
                 startContent={<FaDownload />}
               >
                 Download All
               </Button>
               <Button 
                 color="primary"
-                onClick={handleSendWithEmail}
+                onPress={handleSendWithEmail}
                 isLoading={sendLoiEmailMutation.isLoading}
                 startContent={<FaEnvelope />}
               >

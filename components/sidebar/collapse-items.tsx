@@ -66,7 +66,7 @@ export const CollapseItems = ({ icon, items, title }: Props) => {
             //   },
             // }}
             // justify={"between"}
-            onClick={handleToggle}
+            onPress={handleToggle}
           >
             <div className="flex gap-4">
               {icon}

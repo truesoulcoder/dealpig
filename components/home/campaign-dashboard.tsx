@@ -196,7 +196,7 @@ export default function CampaignDashboard() {
             </Select>
             <Button 
               variant="light" 
-              onClick={refreshAnalytics}
+              onPress={refreshAnalytics}
               isIconOnly
               aria-label="Refresh analytics"
               className="bg-transparent"

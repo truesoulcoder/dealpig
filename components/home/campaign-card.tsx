@@ -145,7 +145,7 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
               color="success" 
               size="sm"
               startContent={<FaPlay size={14} />}
-              onClick={handleStart}
+              onPress={handleStart}
               isLoading={isUpdating}
             >
               Start
@@ -157,7 +157,7 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
               color="warning" 
               size="sm"
               startContent={<FaPause size={14} />}
-              onClick={handlePause}
+              onPress={handlePause}
               isLoading={isUpdating}
             >
               Pause
@@ -169,7 +169,7 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
               color="success" 
               size="sm"
               startContent={<FaPlay size={14} />}
-              onClick={handleStart}
+              onPress={handleStart}
               isLoading={isUpdating}
             >
               Resume
@@ -181,7 +181,7 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
               color="danger" 
               size="sm"
               startContent={<FaStop size={14} />}
-              onClick={handleStop}
+              onPress={handleStop}
               isLoading={isUpdating}
             >
               Complete
@@ -193,7 +193,7 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
               variant="flat" 
               size="sm"
               startContent={<FaEdit size={14} />}
-              onClick={handleEdit}
+              onPress={handleEdit}
             >
               Edit
             </Button>
@@ -204,7 +204,7 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
           variant="light" 
           size="sm"
           startContent={<FaChartLine size={14} />}
-          onClick={handleViewAnalytics}
+          onPress={handleViewAnalytics}
         >
           Analytics
         </Button>

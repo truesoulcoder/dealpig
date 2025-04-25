@@ -73,7 +73,7 @@ export default function EmailTrackingPanel({ leadId, onSendNewEmail }: EmailTrac
         <CardHeader className="flex justify-between items-center">
           <h3 className="text-lg font-semibold">Email History</h3>
           {onSendNewEmail && (
-            <Button color="primary" size="sm" onClick={onSendNewEmail}>
+            <Button color="primary" size="sm" onPress={onSendNewEmail}>
               Send New Email
             </Button>
           )}
@@ -82,7 +82,7 @@ export default function EmailTrackingPanel({ leadId, onSendNewEmail }: EmailTrac
           <div className="text-center py-6">
             <p className="text-gray-500 mb-4">No emails have been sent yet for this lead.</p>
             {onSendNewEmail && (
-              <Button color="primary" onClick={onSendNewEmail}>
+              <Button color="primary" onPress={onSendNewEmail}>
                 Send First Email
               </Button>
             )}
@@ -97,8 +97,8 @@ export default function EmailTrackingPanel({ leadId, onSendNewEmail }: EmailTrac
       <CardHeader className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Email History</h3>
         {onSendNewEmail && (
-          <Button color="primary" size="sm" onClick={onSendNewEmail}>
-            Send New Email
+          <Button color="primary" size="sm" onPress={onSendNewEmail}>
+            New Email
           </Button>
         )}
       </CardHeader>

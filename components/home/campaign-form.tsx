@@ -338,7 +338,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
                     color="primary"
                     variant="flat"
                     startContent={<FaUsers />}
-                    onClick={() => setShowSendersModal(true)}
+                    onPress={() => setShowSendersModal(true)}
                     className="w-full"
                   >
                     Select Senders
@@ -355,7 +355,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
                     color="primary"
                     variant="flat"
                     startContent={<FaList />}
-                    onClick={() => setShowLeadsModal(true)}
+                    onPress={() => setShowLeadsModal(true)}
                     className="w-full"
                   >
                     Select Leads
@@ -369,7 +369,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
           <CardFooter className="flex justify-end space-x-2">
             <Button
               variant="flat"
-              onClick={() => router.back()}
+              onPress={() => router.back()}
               startContent={<FaTimes />}
             >
               Cancel
@@ -410,7 +410,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onClick={() => setShowSendersModal(false)}>
+            <Button variant="flat" onPress={() => setShowSendersModal(false)}>
               Done
             </Button>
           </ModalFooter>
@@ -446,7 +446,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onClick={() => setShowLeadsModal(false)}>
+            <Button variant="flat" onPress={() => setShowLeadsModal(false)}>
               Done ({selectedLeadIds.length} selected)
             </Button>
           </ModalFooter>

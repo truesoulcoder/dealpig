@@ -84,7 +84,7 @@ export default function TemplatesPage() {
   
   // Function to replace template variables with sample data
   const renderTemplateWithSampleData = (content: string) => {
-    if (!content) return '<p class="text-black">Your preview will appear here as you type...</p>';
+    if (!content) return '<p class="text-foreground">Your preview will appear here as you type...</p>';
     
     let rendered = content;
     
@@ -316,13 +316,13 @@ export default function TemplatesPage() {
           <div className="flex gap-2">
             <Button 
               variant={!isEditing ? "solid" : "flat"}
-              onClick={() => setIsEditing(false)}
+              onPress={() => setIsEditing(false)}
             >
               Browse Templates
             </Button>
             <Button 
               color="primary" 
-              onClick={handleCreate}
+              onPress={handleCreate}
               startContent={<FaPlus />}
             >
               New Template
@@ -359,7 +359,7 @@ export default function TemplatesPage() {
               ) : filteredTemplates.length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-default-500 mb-4">No templates found</p>
-                  <Button color="primary" onClick={handleCreate}>Create Template</Button>
+                  <Button color="primary" onPress={handleCreate}>Create Template</Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -375,7 +375,7 @@ export default function TemplatesPage() {
                             <Button 
                               variant="light" 
                               size="sm" 
-                              onClick={() => handleEdit(template)}
+                              onPress={() => handleEdit(template)}
                               aria-label="Edit template"
                             >
                               <FaEdit className="mr-1" /> Edit
@@ -384,7 +384,7 @@ export default function TemplatesPage() {
                               variant="light" 
                               size="sm" 
                               color="danger" 
-                              onClick={() => handleDelete(template)}
+                              onPress={() => handleDelete(template)}
                               aria-label="Delete template"
                             >
                               <FaTrash className="mr-1" /> Delete
@@ -422,10 +422,10 @@ export default function TemplatesPage() {
                 {modalMode === "create" ? "Create New Template" : "Edit Template"}
               </h2>
               <div className="flex gap-2">
-                <Button variant="flat" onClick={() => setIsEditing(false)}>
+                <Button variant="flat" onPress={() => setIsEditing(false)}>
                   Cancel
                 </Button>
-                <Button color="primary" onClick={handleSubmit}>
+                <Button color="primary" onPress={handleSubmit}>
                   {modalMode === "create" ? "Create Template" : "Save Changes"}
                 </Button>
               </div>
@@ -443,20 +443,20 @@ export default function TemplatesPage() {
                 
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-medium">Template Type:</span>
-                  <div className="flex items-center bg-gray-100 rounded-full p-1">
+                  <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-full p-1">
                     <Button
                       size="sm"
-                      className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'email' ? 'bg-white shadow-md' : 'bg-transparent'}`}
-                      onClick={() => handleTemplateTypeChange('email')}
-                      startContent={<FaEnvelope className="text-gray-500" />}
+                      className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'email' ? 'bg-white dark:bg-gray-600 shadow-md' : 'bg-transparent'}`}
+                      onPress={() => handleTemplateTypeChange('email')}
+                      startContent={<FaEnvelope className="text-gray-500 dark:text-gray-400" />}
                     >
                       Email
                     </Button>
                     <Button
                       size="sm"
-                      className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'document' ? 'bg-white shadow-md' : 'bg-transparent'}`}
-                      onClick={() => handleTemplateTypeChange('document')}
-                      startContent={<FaFile className="text-gray-500" />}
+                      className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'document' ? 'bg-white dark:bg-gray-600 shadow-md' : 'bg-transparent'}`}
+                      onPress={() => handleTemplateTypeChange('document')}
+                      startContent={<FaFile className="text-gray-500 dark:text-gray-400" />}
                     >
                       Document
                     </Button>
@@ -466,14 +466,14 @@ export default function TemplatesPage() {
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
                 {/* Left Column - Editor */}
-                <div className="border rounded-lg w-full shadow-sm bg-white overflow-hidden">
+                <div className="border rounded-lg w-full shadow-sm bg-white dark:bg-gray-800 overflow-hidden">
                   {currentTemplate.type === 'email' && (
                     <div className="w-full h-full">
-                      <div className="border-b border-gray-200 p-2 flex flex-col gap-2">
+                      <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium">Email Editor</h3>
-                            <span className="bg-blue-100 text-blue-700 text-xs rounded-full px-2 py-0.5">Rich Text</span>
+                            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-0.5">Rich Text</span>
                           </div>
                           <div className="flex gap-1">
                             <Tooltip content="Undo" placement="top">
@@ -481,8 +481,8 @@ export default function TemplatesPage() {
                                 isIconOnly
                                 size="sm"
                                 variant="light"
-                                className="text-gray-600"
-                                onClick={() => emailEditorRef?.chain().focus().undo().run()}
+                                className="text-gray-600 dark:text-gray-300"
+                                onPress={() => emailEditorRef?.chain().focus().undo().run()}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M3 7v6h6"></path>
@@ -495,8 +495,8 @@ export default function TemplatesPage() {
                                 isIconOnly
                                 size="sm"
                                 variant="light"
-                                className="text-gray-600"
-                                onClick={() => emailEditorRef?.chain().focus().redo().run()}
+                                className="text-gray-600 dark:text-gray-300"
+                                onPress={() => emailEditorRef?.chain().focus().redo().run()}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M21 7v6h-6"></path>
@@ -506,13 +506,13 @@ export default function TemplatesPage() {
                             </Tooltip>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 rounded-md px-2">
+                        <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 dark:bg-gray-700 rounded-md px-2">
                           <Dropdown>
                             <DropdownTrigger>
                               <Button 
                                 size="sm" 
                                 variant="flat" 
-                                className="bg-white shadow-sm border border-gray-200 text-xs px-3 flex gap-1 items-center"
+                                className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600 text-xs px-3 flex gap-1 items-center"
                               >
                                 Insert Variable
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -524,7 +524,7 @@ export default function TemplatesPage() {
                               {emailVariables.map((variable) => (
                                 <DropdownItem 
                                   key={variable.name}
-                                  onClick={() => insertVariable(variable.value)}
+                                  onPress={() => insertVariable(variable.value)}
                                   className="text-sm"
                                   description={variable.value}
                                 >
@@ -541,8 +541,8 @@ export default function TemplatesPage() {
                               isIconOnly
                               size="sm"
                               variant="light"
-                              onClick={handleImageUpload}
                               className="text-gray-600"
+                              onPress={handleImageUpload}
                             >
                               <FaImage size={14} />
                             </Button>
@@ -553,7 +553,7 @@ export default function TemplatesPage() {
                               isIconOnly
                               size="sm"
                               variant="light"
-                              onClick={handleLogoInsert}
+                              onPress={handleLogoInsert}
                               className="text-gray-600"
                             >
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -576,44 +576,91 @@ export default function TemplatesPage() {
                   
                   {currentTemplate.type === 'document' && (
                     <div className="w-full h-full">
-                      <div className="border-b border-gray-200 p-2 flex justify-between items-center">
-                        <h3 className="font-medium">Document Editor</h3>
-                        <div className="flex gap-1">
-                          {documentVariables.map((variable, index) => index < 3 && (
+                      <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">Document Editor</h3>
+                            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-0.5">LOI Template</span>
+                          </div>
+                          <div className="flex gap-1">
                             <Button
-                              key={variable.name}
+                              isIconOnly
                               size="sm"
-                              variant="flat"
-                              onClick={() => insertVariable(variable.value)}
+                              variant="light"
+                              className="text-gray-600 dark:text-gray-300"
+                              title="Undo"
                             >
-                              {variable.display}
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 7v6h6"></path>
+                                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                              </svg>
                             </Button>
-                          ))}
+                            <Button
+                              isIconOnly
+                              size="sm"
+                              variant="light"
+                              className="text-gray-600 dark:text-gray-300"
+                              title="Redo"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 7v6h-6"></path>
+                                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 dark:bg-gray-700 rounded-md px-2">
                           <Dropdown>
                             <DropdownTrigger>
-                              <Button size="sm" variant="flat">More Variables</Button>
+                              <Button 
+                                size="sm" 
+                                variant="flat" 
+                                className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600 text-xs px-3 flex gap-1 items-center"
+                              >
+                                Insert Variable
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </Button>
                             </DropdownTrigger>
                             <DropdownMenu>
-                              {documentVariables
-                                .filter((_, index) => index >= 3)
-                                .map((variable) => (
-                                  <DropdownItem 
-                                    key={variable.name}
-                                    onClick={() => insertVariable(variable.value)}
-                                  >
-                                    {variable.display}
-                                  </DropdownItem>
-                                ))}
+                              {documentVariables.map((variable) => (
+                                <DropdownItem 
+                                  key={variable.name}
+                                  onPress={() => insertVariable(variable.value)}
+                                  className="text-sm"
+                                  description={variable.value}
+                                >
+                                  {variable.display}
+                                </DropdownItem>
+                              ))}
                             </DropdownMenu>
                           </Dropdown>
-                          <Button
-                            size="sm"
-                            color="primary"
-                            startContent={<FaUpload />}
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            Import DOCX
-                          </Button>
+                          
+                          <div className="h-5 border-r border-gray-300 dark:border-gray-600 mx-1"></div>
+                          
+                          <Tooltip content="Insert Image" placement="top">
+                            <Button
+                              isIconOnly
+                              size="sm"
+                              variant="light"
+                              className="text-gray-600 dark:text-gray-300"
+                            >
+                              <FaImage size={14} />
+                            </Button>
+                          </Tooltip>
+                          
+                          <Tooltip content="Import DOCX" placement="top">
+                            <Button
+                              isIconOnly
+                              size="sm"
+                              variant="light"
+                              className="text-gray-600 dark:text-gray-300"
+                              onPress={() => fileInputRef.current?.click()}
+                            >
+                              <FaUpload size={14} />
+                            </Button>
+                          </Tooltip>
                           <input
                             type="file"
                             ref={fileInputRef}
@@ -637,29 +684,29 @@ export default function TemplatesPage() {
                 </div>
                 
                 {/* Right Column - Preview */}
-                <div className="border rounded-lg w-full shadow-sm bg-gray-50 overflow-hidden">
-                  <div className="bg-white border-b border-gray-200 p-2 flex justify-between items-center">
+                <div className="border rounded-lg w-full shadow-sm dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden">
+                  <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium">Preview</h3>
                       <div className="flex items-center gap-1 ml-2">
                         <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span className="text-xs text-gray-500">Live</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Live</span>
                       </div>
                     </div>
                     {currentTemplate.type === 'email' && (
                       <div className="flex gap-1">
-                        <div className="bg-gray-100 p-1 rounded-lg flex items-center">
+                        <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
                           <Button 
                             size="sm" 
-                            className={`rounded-md min-w-[70px] transition-all duration-200 ${!isPreviewMode ? 'bg-white shadow-sm' : 'bg-transparent'}`}
-                            onClick={() => setIsPreviewMode(false)}
+                            className={`rounded-md min-w-[70px] transition-all duration-200 ${!isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
+                            onPress={() => setIsPreviewMode(false)}
                           >
                             Code
                           </Button>
                           <Button 
                             size="sm" 
-                            className={`rounded-md min-w-[70px] transition-all duration-200 ${isPreviewMode ? 'bg-white shadow-sm' : 'bg-transparent'}`}
-                            onClick={() => setIsPreviewMode(true)}
+                            className={`rounded-md min-w-[70px] transition-all duration-200 ${isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
+                            onPress={() => setIsPreviewMode(true)}
                           >
                             Preview
                           </Button>
@@ -667,14 +714,14 @@ export default function TemplatesPage() {
                       </div>
                     )}
                   </div>
-                  <div className="p-6 bg-white min-h-[500px] overflow-y-auto shadow-inner">
+                  <div className="p-6 bg-white dark:bg-gray-800 min-h-[500px] overflow-y-auto shadow-inner">
                     {currentTemplate.type === 'email' && (
                       <div 
-                        className={`prose max-w-none text-black transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
+                        className={`prose dark:prose-invert max-w-none transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
                         dangerouslySetInnerHTML={{ 
                           __html: isPreviewMode ? 
                             renderTemplateWithSampleData(currentTemplate.content) :
-                            '<pre class="p-4 bg-gray-50 font-mono text-sm rounded overflow-auto">' + 
+                            '<pre class="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto">' + 
                             (currentTemplate.content || '<p>Your template appears here as you type...</p>')
                               .replace(/</g, '&lt;')
                               .replace(/>/g, '&gt;') + 
@@ -685,11 +732,11 @@ export default function TemplatesPage() {
                     
                     {currentTemplate.type === 'document' && (
                       <div 
-                        className={`prose max-w-none text-black transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
+                        className={`prose dark:prose-invert max-w-none transition-all duration-300 ${isPreviewMode ? 'opacity-100' : 'opacity-100'}`}
                         dangerouslySetInnerHTML={{ 
                           __html: isPreviewMode ? 
                             renderTemplateWithSampleData(currentTemplate.content) :
-                            '<pre class="p-4 bg-gray-50 font-mono text-sm rounded overflow-auto">' + 
+                            '<pre class="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto">' + 
                             (currentTemplate.content || '<p>Your document appears here as you type...</p>')
                               .replace(/</g, '&lt;')
                               .replace(/>/g, '&gt;') + 

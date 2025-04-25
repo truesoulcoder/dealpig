@@ -100,7 +100,7 @@ export const AddSender = () => {
                   </p>
                 </ModalBody>
                 <ModalFooter>
-                  <Button color="danger" variant="flat" onClick={onClose}>
+                  <Button color="danger" variant="flat" onPress={onClose}>
                     Cancel
                   </Button>
                   <Button 

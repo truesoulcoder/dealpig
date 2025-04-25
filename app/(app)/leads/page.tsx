@@ -22,7 +22,7 @@ export default function LeadsPage() {
           <Button 
             color="primary" 
             startContent={<FaPlus />}
-            onClick={() => router.push('/leads/import')}
+            onPress={() => router.push('/leads/import')}
           >
             Import Leads
           </Button>

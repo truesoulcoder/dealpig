@@ -153,7 +153,7 @@ export default function CampaignBouncesPage() {
           {campaign && <span className="text-gray-500">- {campaign.name}</span>}
         </div>
         {bounces.length > 0 && (
-          <Button color="default" size="sm" onClick={exportCsv}>
+          <Button color="default" size="sm" onPress={exportCsv}>
             <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
             Export CSV
           </Button>

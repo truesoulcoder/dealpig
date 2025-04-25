@@ -82,7 +82,7 @@ export function MobileCampaignDashboard({ campaigns = [] }: { campaigns: Campaig
               {campaigns.map((campaign) => (
                 <div
                   key={campaign.id}
-                  onClick={() => setActiveCampaign(campaign)}
+                  onPress={() => setActiveCampaign(campaign)}
                   className={`cursor-pointer ${
                     activeCampaign?.id === campaign.id
                       ? 'ring-2 ring-primary'
@@ -149,7 +149,7 @@ export function MobileCampaignDashboard({ campaigns = [] }: { campaigns: Campaig
                           variant="outline" 
                           size="sm"
                           className="text-xs h-8"
-                          onClick={() => window.alert('Clean list feature will be available soon')}
+                          onPress={() => window.alert('Clean list feature will be available soon')}
                         >
                           Clean List
                         </Button>

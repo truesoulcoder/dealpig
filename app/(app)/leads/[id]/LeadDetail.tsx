@@ -66,7 +66,7 @@ export default function LeadDetail({ lead, contacts: initialContacts }: LeadDeta
           <p className="text-gray-500 mb-6">
             The lead you are looking for could not be found or has been deleted.
           </p>
-          <Button color="primary" onClick={() => router.push('/leads')}>
+          <Button color="primary" onPress={() => router.push('/leads')}>
             Back to Leads
           </Button>
         </CardBody>
@@ -86,10 +86,10 @@ export default function LeadDetail({ lead, contacts: initialContacts }: LeadDeta
         </div>
         <div className="mt-4 sm:mt-0">
           <ButtonGroup>
-            <Button color="primary" variant="flat" onClick={handleGenerateLOI}>
+            <Button color="primary" variant="flat" onPress={handleGenerateLOI}>
               Generate LOI
             </Button>
-            <Button color="primary" onClick={handleSendEmail}>
+            <Button color="primary" onPress={handleSendEmail}>
               Send Email
             </Button>
           </ButtonGroup>
@@ -182,7 +182,7 @@ export default function LeadDetail({ lead, contacts: initialContacts }: LeadDeta
                 variant="flat" 
                 size="sm" 
                 className="mt-4"
-                onClick={() => router.push(`/leads/${lead.id}/add-contact`)}
+                onPress={() => router.push(`/leads/${lead.id}/add-contact`)}
               >
                 Add Contact
               </Button>

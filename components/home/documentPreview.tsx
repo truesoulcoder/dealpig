@@ -29,28 +29,28 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         <Button
           size="sm"
           variant={editor.isActive('heading', { level: 1 }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         >
           H1
         </Button>
         <Button
           size="sm"
           variant={editor.isActive('heading', { level: 2 }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         >
           H2
         </Button>
         <Button
           size="sm"
           variant={editor.isActive('heading', { level: 3 }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         >
           H3
         </Button>
         <Button
           size="sm"
           variant={editor.isActive('paragraph') ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().setParagraph().run()}
+          onPress={() => editor.chain().focus().setParagraph().run()}
         >
           P
         </Button>
@@ -62,21 +62,21 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         <Button
           size="sm"
           variant={editor.isActive('bold') ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          onPress={() => editor.chain().focus().toggleBold().run()}
         >
           <span className="font-bold">B</span>
         </Button>
         <Button
           size="sm"
           variant={editor.isActive('italic') ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
+          onPress={() => editor.chain().focus().toggleItalic().run()}
         >
           <span className="italic">I</span>
         </Button>
         <Button
           size="sm"
           variant={editor.isActive('underline') ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          onPress={() => editor.chain().focus().toggleUnderline().run()}
         >
           <span className="underline">U</span>
         </Button>
@@ -88,28 +88,28 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         <Button
           size="sm"
           variant={editor.isActive({ textAlign: 'left' }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          onPress={() => editor.chain().focus().setTextAlign('left').run()}
         >
           Left
         </Button>
         <Button
           size="sm"
           variant={editor.isActive({ textAlign: 'center' }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          onPress={() => editor.chain().focus().setTextAlign('center').run()}
         >
           Center
         </Button>
         <Button
           size="sm"
           variant={editor.isActive({ textAlign: 'right' }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          onPress={() => editor.chain().focus().setTextAlign('right').run()}
         >
           Right
         </Button>
         <Button
           size="sm"
           variant={editor.isActive({ textAlign: 'justify' }) ? "secondary" : "ghost"}
-          onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+          onPress={() => editor.chain().focus().setTextAlign('justify').run()}
         >
           Justify
         </Button>
@@ -121,7 +121,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         <Button
           size="sm"
           variant={editor.isActive('link') ? "secondary" : "ghost"}
-          onClick={() => {
+          onPress={() => {
             const url = window.prompt('URL');
             if (url) {
               editor.chain().focus().setLink({ href: url }).run();
@@ -134,7 +134,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => editor.chain().focus().unsetLink().run()}
+            onPress={() => editor.chain().focus().unsetLink().run()}
           >
             Unlink
           </Button>
@@ -377,7 +377,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
         <div className="flex justify-end space-x-2">
           <Button
             variant="primary"
-            onClick={handleApprove}
+            onPress={handleApprove}
             isLoading={isLoading}
             data-testid="approve-button"
             aria-label="Approve and Generate Document"

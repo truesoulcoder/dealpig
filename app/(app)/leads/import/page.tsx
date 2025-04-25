@@ -82,7 +82,7 @@ export default function ImportLeadsPage() {
           color="default" 
           variant="flat" 
           startContent={<FaArrowLeft />} 
-          onClick={() => router.push("/leads")}
+          onPress={() => router.push("/leads")}
           className="mt-4 sm:mt-0"
         >
           Back to Leads
@@ -187,12 +187,12 @@ export default function ImportLeadsPage() {
               <CardFooter>
                 <div className="flex gap-2 w-full justify-end">
                   {uploadResult.success && (
-                    <Button color="primary" onClick={() => router.push("/leads")}>
+                    <Button color="primary" onPress={() => router.push("/leads")}>
                       View All Leads
                     </Button>
                   )}
                   {!uploadResult.success && (
-                    <Button color="primary" onClick={() => setUploadResult(null)}>
+                    <Button color="primary" onPress={() => setUploadResult(null)}>
                       Try Again
                     </Button>
                   )}
@@ -227,7 +227,7 @@ export default function ImportLeadsPage() {
                 color="default"
                 variant="flat"
                 startContent={<FaDownload />}
-                onClick={downloadSampleCsv}
+                onPress={downloadSampleCsv}
                 className="w-full"
               >
                 Download Sample CSV

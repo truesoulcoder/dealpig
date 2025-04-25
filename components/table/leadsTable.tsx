@@ -553,7 +553,7 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
               <TableRow 
                 key={lead.id} 
                 className="hover:bg-gray-50 cursor-pointer"
-                onClick={onRowClick && lead.id ? () => handleRowClick(lead.id!) : undefined}
+                onPress={onRowClick && lead.id ? () => handleRowClick(lead.id!) : undefined}
               >
                 {visibleColumns.has("property_address") && <TableCell>{lead.property_address}</TableCell>}
                 {visibleColumns.has("property_city") && <TableCell>{lead.property_city}</TableCell>}

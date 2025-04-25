@@ -45,6 +45,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
         placeholder,
       },
     },
+    immediatelyRender: false, // Prevent SSR hydration issues
   });
 
   // Pass the editor instance to parent component when it's ready
@@ -67,7 +68,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive('heading', { level: 1 }) ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             className="min-w-8 h-8"
             title="Heading 1"
           >
@@ -77,7 +78,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive('paragraph') ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().setParagraph().run()}
+            onPress={() => editor.chain().focus().setParagraph().run()}
             className="min-w-8 h-8"
             title="Paragraph"
           >
@@ -93,7 +94,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive('bold') ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().toggleBold().run()}
+            onPress={() => editor.chain().focus().toggleBold().run()}
             className="min-w-8 h-8"
             title="Bold"
           >
@@ -103,7 +104,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive('italic') ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().toggleItalic().run()}
+            onPress={() => editor.chain().focus().toggleItalic().run()}
             className="min-w-8 h-8"
             title="Italic"
           >
@@ -113,7 +114,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive('underline') ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            onPress={() => editor.chain().focus().toggleUnderline().run()}
             className="min-w-8 h-8"
             title="Underline"
           >
@@ -129,7 +130,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive({ textAlign: 'left' }) ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+            onPress={() => editor.chain().focus().setTextAlign('left').run()}
             className="min-w-8 h-8"
             title="Align Left"
           >
@@ -139,7 +140,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive({ textAlign: 'center' }) ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+            onPress={() => editor.chain().focus().setTextAlign('center').run()}
             className="min-w-8 h-8"
             title="Align Center"
           >
@@ -149,7 +150,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive({ textAlign: 'right' }) ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+            onPress={() => editor.chain().focus().setTextAlign('right').run()}
             className="min-w-8 h-8"
             title="Align Right"
           >
@@ -159,7 +160,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive({ textAlign: 'justify' }) ? "solid" : "ghost"}
-            onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+            onPress={() => editor.chain().focus().setTextAlign('justify').run()}
             className="min-w-8 h-8"
             title="Justify"
           >
@@ -175,7 +176,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             isIconOnly
             size="sm"
             variant={editor.isActive('link') ? "solid" : "ghost"}
-            onClick={() => {
+            onPress={() => {
               const url = window.prompt('URL');
               if (url) {
                 editor.chain().focus().setLink({ href: url }).run();

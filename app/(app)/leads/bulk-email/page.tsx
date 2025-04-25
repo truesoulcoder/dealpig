@@ -101,8 +101,8 @@ function BulkEmailContent() {
           <CardBody className="text-center py-8">
             <h2 className="text-xl font-semibold mb-4">No leads selected</h2>
             <p className="text-gray-500 mb-4">Please select leads from the leads table to send a bulk email.</p>
-            <Button color="primary" onClick={() => router.push('/leads')}>
-              Return to Leads
+            <Button color="primary" onPress={() => router.push('/leads')}>
+              Back to Leads
             </Button>
           </CardBody>
         </Card>
@@ -135,7 +135,7 @@ function BulkEmailContent() {
         <div className="mt-4 sm:mt-0">
           <Button 
             variant="flat"
-            onClick={() => setPreview(!preview)}
+            onPress={() => setPreview(!preview)}
           >
             {preview ? 'Edit' : 'Preview'}
           </Button>
@@ -201,14 +201,14 @@ function BulkEmailContent() {
           <div className="flex justify-end space-x-2 mt-4">
             <Button 
               variant="flat" 
-              onClick={handleCancel}
+              onPress={handleCancel}
               isDisabled={isLoading}
             >
               Cancel
             </Button>
             <Button
               color="primary"
-              onClick={handleSendEmail}
+              onPress={handleSendEmail}
               isLoading={isLoading || sendEmailMutation.isLoading}
             >
               Send to {leadIds.length} Recipients
