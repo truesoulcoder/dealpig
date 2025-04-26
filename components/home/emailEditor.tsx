@@ -129,16 +129,16 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             </Button>
           </DropdownTrigger>
           <DropdownMenu aria-label="Text styles">
-            <DropdownItem onPress={() => editor.chain().focus().setParagraph().run()}>
+            <DropdownItem key="paragraph" onPress={() => editor.chain().focus().setParagraph().run()}>
               Normal text
             </DropdownItem>
-            <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+            <DropdownItem key="heading-1" onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
               Heading 1
             </DropdownItem>
-            <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+            <DropdownItem key="heading-2" onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
               Heading 2
             </DropdownItem>
-            <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+            <DropdownItem key="heading-3" onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
               Heading 3
             </DropdownItem>
           </DropdownMenu>
@@ -187,7 +187,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
             {FONT_SIZES.map((size) => (
               <DropdownItem 
                 key={size.value}
-                onPress={() => editor.chain().focus().setStyle({ fontSize: size.value }).run()}
+                onPress={() => editor.chain().focus().setMark('textStyle', { fontSize: size.value }).run()}
               >
                 <span style={{ fontSize: size.value }}>{size.label}</span>
               </DropdownItem>
@@ -260,6 +260,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
               className="min-w-8 h-8"
             >
               <FaUnderline size={14} />
+            </Button>
           </Tooltip>
         </div>
 

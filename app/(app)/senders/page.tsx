@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Accounts } from "@/components/accounts";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function SendersPage() {
-  return <Accounts />;
+  return (
+    <Suspense fallback={<div className="flex justify-center p-8">Loading...</div>}>
+      <Accounts />
+    </Suspense>
+  );
 }

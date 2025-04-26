@@ -279,6 +279,28 @@ export async function updateLead(id: string, updates: Partial<Lead>): Promise<Le
   return data[0] as Lead;
 }
 
+export async function updateLeadStatus(id: string, status: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('leads')
+      .update({ 
+        status, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating lead status:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in updateLeadStatus:', error);
+    return false;
+  }
+}
+
 export async function deleteLead(id: string): Promise<boolean> {
   const { error } = await supabase
     .from('leads')
@@ -499,6 +521,21 @@ export async function getSenders(): Promise<Sender[]> {
   }
 
   return data as Sender[];
+}
+
+export async function getSenderById(id: string): Promise<Sender | null> {
+  const { data, error } = await supabase
+    .from('senders')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching sender by ID:', error);
+    return null;
+  }
+
+  return data as Sender;
 }
 
 export async function getSenderByEmail(email: string): Promise<Sender | null> {
