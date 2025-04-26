@@ -1,12 +1,12 @@
 import './globals.css'
 import './heroui.css'
 import { Inter } from 'next/font/google'
-import Providers from './providers'
+import { Providers } from './providers'
 
 // Try to initialize storage buckets but don't crash the app if it fails
 try {
   const { ensureStorageBuckets } = require('@/lib/supabaseAdmin');
-  ensureStorageBuckets().catch(error => {
+  ensureStorageBuckets().catch((error: any) => {
     console.error('Failed to initialize storage buckets:', error);
   });
 } catch (error) {
