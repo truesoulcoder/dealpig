@@ -71,6 +71,10 @@ export const createClient = (request: NextRequest) => {
             });
           },
         },
+        // Disable automatic storage bucket creation
+        storage: {
+          preventAutoCreateBuckets: true
+        }
       }
     );
 
