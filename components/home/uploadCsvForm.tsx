@@ -16,8 +16,8 @@ const UploadCsvSchema = Yup.object().shape({
     )
     .test(
       'fileSize',
-      'File size is too large (max 10MB)',
-      (value: any) => !value || value?.size <= 10 * 1024 * 1024
+      'File size is too large (max 50MB)',
+      (value: any) => !value || value?.size <= 50 * 1024 * 1024
     )
 });
 
@@ -127,7 +127,7 @@ export default function UploadCsvForm() {
                   <p className="mt-1 text-xs text-red-500">{formik.errors.csvFile as string}</p>
                 )}
                 <p className="mt-1 text-xs text-gray-500">
-                  Upload a CSV file with lead information. Maximum file size: 10MB.
+                  Upload a CSV file with lead information. Maximum file size: 50MB.
                 </p>
               </div>
 

@@ -13,13 +13,13 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   
-  // Increase the body size limit for Server Actions to handle large CSV imports (up to 5000 records)
+  // Increase the body size limit for Server Actions to handle large CSV imports (up to 50MB)
   experimental: {
     serverActions: {
-      bodySizeLimit: '20mb'
+      bodySizeLimit: '50mb'
     },
     // Optimize navigation reliability with optimistic navigation
-    optimizeCss: true,
+    optimizeCss: false, // Disable optimizeCss until critters is fixed
     optimisticClientCache: true,
     scrollRestoration: true,
   },
@@ -30,9 +30,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
     dirs: ['pages', 'components', 'app', 'utils', 'lib']
   },
-  
-  // Enhance client-side navigation
-  swcMinify: true,
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

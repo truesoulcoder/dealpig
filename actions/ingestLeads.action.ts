@@ -19,7 +19,7 @@ import { uploadToStorage, supabaseAdmin } from '@/lib/supabaseAdmin';
 // Bucket name for lead imports
 const LEADS_BUCKET = 'lead-imports';
 
-// Maximum file size 50MB
+// Maximum file size 50MB to match Supabase storage bucket limit
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 interface CsvLead {
@@ -325,7 +325,7 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     if (file.size > MAX_FILE_SIZE) {
       return {
         success: false,
-        message: 'File size exceeds the 10MB limit',
+        message: 'File size exceeds the 50MB limit',
         totalRows: 0,
         insertedLeads: 0,
         insertedContacts: 0,
