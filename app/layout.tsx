@@ -1,25 +1,10 @@
-import "@/styles/globals.css";
-import type { Metadata } from "next";
-import { Providers } from "./providers";
-import { fontSans } from "@/config/fonts";
-import clsx from "clsx";
+import './globals.css'
+import './heroui.css'
+import { Inter } from 'next/font/google'
+import Providers from './providers'
+import { ensureStorageBuckets } from '@/lib/supabaseAdmin'
 
-export const metadata: Metadata = {
-  title: "Dealpig",
-  description: "Dealpig is a shotgun approach to lowballing boomers on Zillow",
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang='en' suppressHydrationWarning>
-      <head />
-      <body className={clsx("font-sans antialiased", fontSans.className)}>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  );
-}
+// Initialize storage buckets when app starts on server-side
+ensureStorageBuckets().catch(error => {
+  console.error('Failed to initialize storage buckets:', error);
+});

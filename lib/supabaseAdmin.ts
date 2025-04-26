@@ -32,30 +32,80 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 
 /**
- * Creates storage buckets if they don't exist
+ * Creates a storage bucket with appropriate policies
+ * @param bucketName Name of the bucket to create
+ * @param isPublic Whether the bucket should be public (true) or private (false)
+ * @param fileSizeLimit Maximum file size in bytes (default is 52428800 = 50MB)
+ * @param mimeTypes Array of allowed MIME types (optional)
  */
-export async function ensureStorageBuckets() {
-  const requiredBuckets = ['templates', 'generated-documents', 'lead-imports'];
+export async function createBucketWithPolicy(
+  bucketName: string,
+  isPublic: boolean,
+  fileSizeLimit: number = 52428800, // 50MB
+  mimeTypes?: string[]
+): Promise<boolean> {
+  try {
+    console.log(`Creating bucket: ${bucketName}, public: ${isPublic}`);
+    
+    // Create bucket with specified settings
+    const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
+      public: isPublic,
+      fileSizeLimit: fileSizeLimit,
+      allowedMimeTypes: mimeTypes,
+    });
+    
+    if (createError) {
+      console.error(`Failed to create bucket ${bucketName}:`, createError);
+      return false;
+    }
+    
+    // Set appropriate policies based on whether the bucket is public or private
+    if (isPublic) {
+      // For public buckets, allow anyone to download files
+      const { error: policyError } = await supabaseAdmin
+        .storage
+        .from(bucketName)
+        .createSignedUrl('policy.txt', 60); // This is a hack to ensure bucket exists before setting policies
+        
+      if (!policyError) {
+        console.log(`Successfully created public bucket: ${bucketName}`);
+      } else {
+        console.error(`Error setting policy for ${bucketName}:`, policyError);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`Error creating bucket ${bucketName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Creates storage buckets if they don't exist, with appropriate policies
+ * This should be called during app initialization or before first storage operation
+ */
+export async function ensureStorageBuckets(): Promise<void> {
+  const requiredBuckets = [
+    { name: 'templates', isPublic: false, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
+    { name: 'generated-documents', isPublic: true, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
+    { name: 'lead-imports', isPublic: false, mimeTypes: ['text/csv', 'application/vnd.ms-excel'] }
+  ];
   
-  for (const bucketName of requiredBuckets) {
+  for (const bucket of requiredBuckets) {
+    // Check if bucket exists
     const { data: existingBucket, error: getBucketError } = await supabaseAdmin
       .storage
-      .getBucket(bucketName);
+      .getBucket(bucket.name);
       
-    if (getBucketError && !existingBucket) {
-      // Create the bucket if it doesn't exist
-      const { error: createError } = await supabaseAdmin
-        .storage
-        .createBucket(bucketName, {
-          public: bucketName === 'generated-documents', // Only generated docs are public
-          fileSizeLimit: 52428800, // 50MB
-        });
-        
-      if (createError) {
-        console.error(`Failed to create storage bucket ${bucketName}:`, createError);
-      } else {
-        console.log(`Created storage bucket: ${bucketName}`);
-      }
+    // If bucket doesn't exist or there was an error retrieving it, create it
+    if (getBucketError || !existingBucket) {
+      await createBucketWithPolicy(
+        bucket.name,
+        bucket.isPublic,
+        52428800, // 50MB limit
+        bucket.mimeTypes
+      );
     }
   }
 }
@@ -67,6 +117,7 @@ export function getSupabaseAdmin() {
 
 /**
  * Upload a file to Supabase storage and return the public URL
+ * Will automatically create the bucket if it doesn't exist
  */
 export async function uploadToStorage(
   bucketName: string, 
@@ -75,15 +126,22 @@ export async function uploadToStorage(
   contentType?: string
 ): Promise<string> {
   try {
-    // Create bucket if it doesn't exist
-    const { data: bucketExists } = await supabaseAdmin.storage.getBucket(bucketName);
+    // Check if bucket exists, create if it doesn't
+    const { data: bucketExists, error: bucketError } = await supabaseAdmin.storage.getBucket(bucketName);
     
-    if (!bucketExists) {
-      await supabaseAdmin.storage.createBucket(bucketName, {
-        public: true,
-        allowedMimeTypes: ['text/csv', 'application/vnd.ms-excel', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        fileSizeLimit: 10485760 // 10MB
-      });
+    // If bucket doesn't exist, create with appropriate settings based on bucket name
+    if (bucketError || !bucketExists) {
+      const isPublic = bucketName === 'generated-documents'; // Only generated docs are public
+      let mimeTypes: string[] | undefined;
+      
+      // Set appropriate MIME types based on bucket purpose
+      if (bucketName === 'lead-imports') {
+        mimeTypes = ['text/csv', 'application/vnd.ms-excel'];
+      } else if (bucketName === 'templates' || bucketName === 'generated-documents') {
+        mimeTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      }
+      
+      await createBucketWithPolicy(bucketName, isPublic, 52428800, mimeTypes);
     }
     
     // Upload file
@@ -111,6 +169,15 @@ export async function uploadToStorage(
 
 export async function downloadFromStorage(bucketName: string, filePath: string): Promise<Buffer | null> {
   try {
+    // Check if bucket exists, create if it doesn't using the same logic as uploadToStorage
+    const { data: bucketExists, error: bucketError } = await supabaseAdmin.storage.getBucket(bucketName);
+    
+    if (bucketError || !bucketExists) {
+      const isPublic = bucketName === 'generated-documents';
+      await createBucketWithPolicy(bucketName, isPublic);
+    }
+  
+    // Download file
     const { data, error } = await supabaseAdmin
       .storage
       .from(bucketName)

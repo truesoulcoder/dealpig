@@ -14,7 +14,7 @@ import {
   LeadSource,
   Campaign
 } from '@/lib/database';
-import { uploadToStorage, supabaseAdmin } from '@/lib/supabaseAdmin';
+import { uploadToStorage, supabaseAdmin, ensureStorageBuckets } from '@/lib/supabaseAdmin';
 
 // Bucket name for lead imports
 const LEADS_BUCKET = 'lead-imports';

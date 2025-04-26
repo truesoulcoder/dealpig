@@ -1,8 +1,20 @@
-import { Button, Card, CardBody } from "@heroui/react";
-import { FaPlus } from "react-icons/fa6";
+// This is a Server Component
+import { Suspense } from 'react';
+import { Card, CardBody } from "@heroui/react";
 import { ImportButton, LeadsTableClient } from './client-components';
+import { Spinner } from '@heroui/react';
 
-export default async function LeadsPage() {
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="flex justify-center items-center p-8">
+      <Spinner size="lg" />
+      <span className="ml-4">Loading leads...</span>
+    </div>
+  );
+}
+
+export default function LeadsPage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
@@ -19,7 +31,9 @@ export default async function LeadsPage() {
 
       <Card className="mb-6">
         <CardBody>
-          <LeadsTableClient />
+          <Suspense fallback={<LoadingFallback />}>
+            <LeadsTableClient />
+          </Suspense>
         </CardBody>
       </Card>
     </div>
