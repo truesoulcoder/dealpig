@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 interface NavigationContextType {
@@ -19,7 +19,8 @@ export function useNavigation() {
   return useContext(NavigationContext);
 }
 
-export function NavigationProvider({ children }: { children: ReactNode }) {
+// Create a component that uses the search params but is wrapped in Suspense
+function NavigationProviderInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -46,5 +47,16 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     <NavigationContext.Provider value={{ isNavigating, previousPath, currentPath }}>
       {children}
     </NavigationContext.Provider>
+  );
+}
+
+// Export the provider with Suspense built in
+export function NavigationProvider({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <NavigationProviderInner>
+        {children}
+      </NavigationProviderInner>
+    </Suspense>
   );
 }
