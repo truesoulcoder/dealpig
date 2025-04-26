@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Card, CardBody, CardHeader, Button, Spinner, Chip } from "@heroui/react";
 import { FaPlus } from "react-icons/fa";
 import { useRouter } from 'next/navigation';
 import CampaignCard from '@/components/home/campaign-card';
 import { getCampaigns } from '@/actions/campaign.action';
 
-export default function CampaignsPage() {
+// Component that uses useRouter wrapped in Suspense
+function CampaignsContent() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -83,5 +84,29 @@ export default function CampaignsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Fallback component for Suspense
+function CampaignsFallback() {
+  return (
+    <div className="container p-4 mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Campaigns</h1>
+        <div className="w-40 h-10 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+      </div>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CampaignsPage() {
+  return (
+    <Suspense fallback={<CampaignsFallback />}>
+      <CampaignsContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import { supabaseClient } from '@/lib/supabaseClient';
 import { Card, CardBody, CardHeader, Chip, Button, Spinner, Table } from "@heroui/react";
@@ -54,7 +54,8 @@ interface CampaignDetails {
   };
 }
 
-export default function CampaignBouncesPage() {
+// Component that uses useParams wrapped in Suspense
+function CampaignBounceContent() {
   const { id } = useParams();
   const campaignId = Array.isArray(id) ? id[0] : id;
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -277,5 +278,28 @@ export default function CampaignBouncesPage() {
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+// Fallback component for Suspense
+function BounceFallback() {
+  return (
+    <div className="container py-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <Spinner size="md" />
+        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+      <div className="h-40 w-full bg-gray-200 rounded animate-pulse"></div>
+      <div className="h-60 w-full bg-gray-200 rounded animate-pulse"></div>
+    </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function CampaignBouncesPage() {
+  return (
+    <Suspense fallback={<BounceFallback />}>
+      <CampaignBounceContent />
+    </Suspense>
   );
 }
