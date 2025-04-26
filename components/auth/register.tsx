@@ -1,6 +1,6 @@
 "use client";
 
-import { loginUser, registerUser } from "@/actions/auth.action";
+import { loginUser } from "@/actions/auth.action";
 import { RegisterSchema } from "@/helpers/schemas";
 import { RegisterFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
@@ -28,8 +28,18 @@ export const Register = () => {
       setRegError(null);
       
       try {
-        // Call registerUser to create the user account
-        const registrationResult = await registerUser(values.email, values.password, values.name);
+        // Call the new direct API route instead of registerUser action
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: values.email,
+            password: values.password,
+            name: values.name
+          })
+        });
+        
+        const registrationResult = await response.json();
         
         if (registrationResult?.success) {
           // If registration is successful, automatically log the user in
