@@ -109,3 +109,48 @@ export async function registerUser(email: string, password: string, name: string
     return { success: false, message: 'Unexpected server error during registration' };
   }
 }
+
+// Generate OAuth URL for Gmail access
+export async function getGmailAuthUrl(senderId: string): Promise<string> {
+  // OAuth 2.0 configuration
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`;
+  const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.profile';
+  
+  // Store the sender ID in the state parameter for retrieval after authorization
+  const state = Buffer.from(JSON.stringify({ senderId })).toString('base64');
+  
+  // Generate and return the authorization URL
+  const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${state}`;
+  
+  return authUrl;
+}
+
+// Save Gmail OAuth tokens and profile info for a sender
+export async function saveGmailCredentials(
+  senderId: string, 
+  accessToken: string, 
+  refreshToken: string,
+  profileData: { email: string; picture?: string; name?: string }
+): Promise<void> {
+  try {
+    // Update the sender with OAuth tokens and profile info
+    const { error } = await supabaseAdmin
+      .from('senders')
+      .update({
+        oauth_token: accessToken,
+        refresh_token: refreshToken,
+        profile_picture: profileData.picture || null,
+        last_token_refresh: new Date().toISOString()
+      })
+      .eq('id', senderId);
+
+    if (error) {
+      console.error('Error saving Gmail credentials:', error);
+      throw new Error('Failed to save Gmail credentials');
+    }
+  } catch (error) {
+    console.error('Save Gmail credentials error:', error);
+    throw error;
+  }
+}

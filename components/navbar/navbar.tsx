@@ -112,7 +112,7 @@ export const NavbarWrapper = ({ children }: Props) => {
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
       <Navbar
         isBordered
-        className="w-full sticky top-0 z-40"
+        className="w-full sticky top-0 z-40 bg-background/90 backdrop-blur-md"
         classNames={{
           wrapper: "w-full max-w-full",
         }}
@@ -132,7 +132,7 @@ export const NavbarWrapper = ({ children }: Props) => {
             placeholder="Search..."
           />
           
-          {/* Campaign selector */}
+          {/* Campaign selector and controls */}
           <div className="flex items-center gap-2 ml-4">
             <Select 
               size="sm"

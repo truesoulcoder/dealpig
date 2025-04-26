@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { DarkModeSwitch } from "./darkmodeswitch";
 import { useRouter } from "next/navigation";
 import { deleteAuthCookie } from "@/actions/auth.action";
-import Link from "next/link";
 
 export const UserDropdown = () => {
   const router = useRouter();
@@ -46,7 +45,7 @@ export const UserDropdown = () => {
   const handleLogout = useCallback(async () => {
     try {
       await deleteAuthCookie();
-      // Force a page reload to ensure all state is cleared
+      // Redirect to login page
       window.location.href = '/login';
     } catch (error) {
       console.error("Logout failed:", error);
@@ -57,7 +56,7 @@ export const UserDropdown = () => {
   const handleAction = useCallback((actionKey: React.Key) => {
     switch (actionKey) {
       case 'profile':
-        // No navigation for profile info display
+        router.push('/profile');
         break;
       case 'settings':
         router.push('/settings');

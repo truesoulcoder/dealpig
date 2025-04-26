@@ -398,58 +398,124 @@ export default function TemplatesPage() {
               </div>
               
               {isLoading ? (
-                <div className="py-12 text-center">Loading templates...</div>
+                <div className="py-12 text-center flex justify-center items-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                </div>
               ) : filteredTemplates.length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-default-500 mb-4">No templates found</p>
                   <Button color="primary" onPress={handleCreate}>Create Template</Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {filteredTemplates.map((template) => (
-                    <Card key={template.id} className="border border-gray-200 hover:border-primary hover:shadow-md transition-all">
-                      <CardBody>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="text-lg font-semibold">{template.name}</h3>
-                            <p className="text-default-500 capitalize">{template.type}</p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="light" 
-                              size="sm" 
-                              onPress={() => handleEdit(template)}
-                              aria-label="Edit template"
-                            >
-                              <FaEdit className="mr-1" /> Edit
-                            </Button>
-                            <Button 
-                              variant="light" 
-                              size="sm" 
-                              color="danger" 
-                              onPress={() => handleDelete(template)}
-                              aria-label="Delete template"
-                            >
-                              <FaTrash className="mr-1" /> Delete
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="mt-4 text-default-500 border-t pt-2">
-                          {template.content ? (
-                            <div className="h-16 overflow-hidden text-ellipsis">
-                              {template.content.substring(0, 100).replace(/<[^>]*>?/gm, '')}...
+                <AnimatePresence>
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+                  >
+                    {filteredTemplates.map((template, index) => (
+                      <motion.div
+                        key={template.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <Card className="border border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-lg transition-all duration-300">
+                          <CardBody>
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center gap-2">
+                                {template.type === 'email' ? (
+                                  <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full">
+                                    <FaEnvelope className="text-blue-600 dark:text-blue-400" />
+                                  </div>
+                                ) : (
+                                  <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-full">
+                                    <FaFile className="text-purple-600 dark:text-purple-400" />
+                                  </div>
+                                )}
+                                <div>
+                                  <h3 className="text-lg font-semibold">{template.name}</h3>
+                                  <div className="flex items-center gap-1">
+                                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                      template.type === 'email' 
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' 
+                                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300'
+                                    }`}>
+                                      {template.type === 'email' ? 'Email Template' : 'LOI Document'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <Dropdown>
+                                  <DropdownTrigger>
+                                    <Button 
+                                      variant="light" 
+                                      size="sm" 
+                                      isIconOnly
+                                      aria-label="Template actions"
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M19 13C19.5523 13 20 12.5523 20 12C20 11.4477 19.5523 11 19 11C18.4477 11 18 11.4477 18 12C18 12.5523 18.4477 13 19 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M5 13C5.55228 13 6 12.5523 6 12C6 11.4477 5.55228 11 5 11C4.44772 11 4 11.4477 4 12C4 12.5523 4.44772 13 5 13Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      </svg>
+                                    </Button>
+                                  </DropdownTrigger>
+                                  <DropdownMenu aria-label="Template actions">
+                                    <DropdownItem 
+                                      startContent={<FaEdit />}
+                                      onPress={() => handleEdit(template)} key={''}                                    >
+                                      Edit template
+                                    </DropdownItem>
+                                    <DropdownItem 
+                                      key="delete"
+                                      startContent={<FaTrash />} 
+                                      className="text-danger" 
+                                      color="danger"
+                                      onPress={() => handleDelete(template)}
+                                    >
+                                      Delete template
+                                    </DropdownItem>
+                                  </DropdownMenu>
+                                </Dropdown>
+                              </div>
                             </div>
-                          ) : (
-                            <div className="italic text-default-400">No content</div>
-                          )}
-                        </div>
-                        <div className="mt-2 text-xs text-default-400">
-                          Last updated: {template.updated_at ? new Date(template.updated_at).toLocaleDateString() : 'Never'}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
+                            <div className="mt-4 text-default-500 border-t pt-2">
+                              <div className="h-16 overflow-hidden">
+                                {template.content ? (
+                                  <p className="text-sm line-clamp-3">
+                                    {template.content.substring(0, 120).replace(/<[^>]*>?/gm, '')}...
+                                  </p>
+                                ) : template.file_url ? (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <FaFile /> DOCX template uploaded
+                                  </div>
+                                ) : (
+                                  <p className="italic text-default-400 text-sm">No content</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-4 flex items-center gap-2 justify-between">
+                              <div className="text-xs text-default-400">
+                                Last updated: {template.updated_at ? new Date(template.updated_at).toLocaleDateString() : 'Never'}
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="flat" 
+                                className="text-blue-600"
+                                onPress={() => handleEdit(template)}
+                              >
+                                Edit
+                              </Button>
+                            </div>
+                          </CardBody>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </AnimatePresence>
               )}
             </>
           ) : null}
@@ -457,327 +523,336 @@ export default function TemplatesPage() {
       </Card>
 
       {/* Template Editor */}
-      {isEditing && (
-        <div className="transition-all duration-300 ease-in-out">
-          <Card className="mb-6 w-full shadow-lg border-none overflow-hidden">
-            <CardHeader className="flex justify-between items-center bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
-              <h2 className="text-xl font-semibold">
-                {modalMode === "create" ? "Create New Template" : "Edit Template"}
-              </h2>
-              <div className="flex gap-2">
-                <Button variant="flat" onPress={() => setIsEditing(false)}>
-                  Cancel
-                </Button>
-                <Button color="primary" onPress={handleSubmit}>
-                  {modalMode === "create" ? "Create Template" : "Save Changes"}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardBody>
-              <div className="mb-4 flex flex-col gap-3">
-                <Input
-                  label="Template Name"
-                  placeholder="Enter template name"
-                  value={currentTemplate.name || ''}
-                  onChange={(e) => setCurrentTemplate((prev: any) => ({ ...prev, name: e.target.value }))}
-                  isRequired
-                  className="w-full"
-                />
-                
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium">Template Type:</span>
-                  <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-full p-1">
-                    <Button
-                      size="sm"
-                      className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'email' ? 'bg-white dark:bg-gray-600 shadow-md' : 'bg-transparent'}`}
-                      onPress={() => handleTemplateTypeChange('email')}
-                      startContent={<FaEnvelope className="text-gray-500 dark:text-gray-400" />}
-                    >
-                      Email
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'document' ? 'bg-white dark:bg-gray-600 shadow-md' : 'bg-transparent'}`}
-                      onPress={() => handleTemplateTypeChange('document')}
-                      startContent={<FaFile className="text-gray-500 dark:text-gray-400" />}
-                    >
-                      Document
-                    </Button>
+      <AnimatePresence>
+        {isEditing && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="transition-all duration-300 ease-in-out"
+          >
+            <Card className="mb-6 w-full shadow-lg border-none overflow-hidden">
+              <CardHeader className="flex justify-between items-center bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+                <h2 className="text-xl font-semibold">
+                  {modalMode === "create" ? "Create New Template" : "Edit Template"}
+                </h2>
+                <div className="flex gap-2">
+                  <Button variant="flat" onPress={() => setIsEditing(false)}>
+                    Cancel
+                  </Button>
+                  <Button color="primary" onPress={handleSubmit}>
+                    {modalMode === "create" ? "Create Template" : "Save Changes"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardBody>
+                <div className="mb-4 flex flex-col gap-3">
+                  <Input
+                    label="Template Name"
+                    placeholder="Enter template name"
+                    value={currentTemplate.name || ''}
+                    onChange={(e) => setCurrentTemplate((prev: any) => ({ ...prev, name: e.target.value }))}
+                    isRequired
+                    className="w-full"
+                    size="lg"
+                  />
+                  
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">Template Type:</span>
+                    <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-full p-1">
+                      <Button
+                        size="sm"
+                        className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'email' ? 'bg-white dark:bg-gray-600 shadow-md' : 'bg-transparent'}`}
+                        onPress={() => handleTemplateTypeChange('email')}
+                        startContent={<FaEnvelope className="text-gray-500 dark:text-gray-400" />}
+                      >
+                        Email
+                      </Button>
+                      <Button
+                        size="sm"
+                        className={`rounded-full min-w-[100px] transition-all duration-300 ${currentTemplate.type === 'document' ? 'bg-white dark:bg-gray-600 shadow-md' : 'bg-transparent'}`}
+                        onPress={() => handleTemplateTypeChange('document')}
+                        startContent={<FaFile className="text-gray-500 dark:text-gray-400" />}
+                      >
+                        Document
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full min-h-[600px]">
-                {/* Left Column - Editor - Set fixed height to prevent resizing issues */}
-                <div className="border rounded-lg w-full shadow-sm bg-white dark:bg-gray-800 overflow-hidden h-[600px] flex flex-col">
-                  {currentTemplate.type === 'email' && (
-                    <div className="w-full h-full flex flex-col">
-                      <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium">Email Editor</h3>
-                            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-0.5">Rich Text</span>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full min-h-[600px]">
+                  {/* Left Column - Editor */}
+                  <div className="border rounded-lg w-full shadow-sm bg-white dark:bg-gray-800 overflow-hidden h-[600px] flex flex-col">
+                    {currentTemplate.type === 'email' && (
+                      <div className="w-full h-full flex flex-col">
+                        <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">Email Editor</h3>
+                              <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-0.5">Rich Text</span>
+                            </div>
+                            <div className="flex gap-1">
+                              <Tooltip content="Undo" placement="top">
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="light"
+                                  className="text-gray-600 dark:text-gray-300"
+                                  onPress={() => emailEditorRef?.chain().focus().undo().run()}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 7v6h6"></path>
+                                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                                  </svg>
+                                </Button>
+                              </Tooltip>
+                              <Tooltip content="Redo" placement="top">
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="light"
+                                  className="text-gray-600 dark:text-gray-300"
+                                  onPress={() => emailEditorRef?.chain().focus().redo().run()}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 7v6h-6"></path>
+                                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+                                  </svg>
+                                </Button>
+                              </Tooltip>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            <Tooltip content="Undo" placement="top">
+                          <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 dark:bg-gray-700 rounded-md px-2">
+                            <Dropdown>
+                              <DropdownTrigger>
+                                <Button 
+                                  size="sm" 
+                                  variant="flat" 
+                                  className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600 text-xs px-3 flex gap-1 items-center"
+                                >
+                                  Insert Variable
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                </Button>
+                              </DropdownTrigger>
+                              <DropdownMenu>
+                                {emailVariables.map((variable) => (
+                                  <DropdownItem 
+                                    key={variable.name}
+                                    onPress={() => insertVariable(variable.value)}
+                                    className="text-sm"
+                                    description={variable.value}
+                                  >
+                                    {variable.display}
+                                  </DropdownItem>
+                                ))}
+                              </DropdownMenu>
+                            </Dropdown>
+                            
+                            <div className="h-5 border-r border-gray-300 mx-1"></div>
+                            
+                            <Tooltip content="Insert Image" placement="top">
+                              <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                className="text-gray-600"
+                                onPress={handleImageUpload}
+                              >
+                                <FaImage size={14} />
+                              </Button>
+                            </Tooltip>
+                            
+                            <Tooltip content="Insert Logo" placement="top">
+                              <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                onPress={handleLogoInsert}
+                                className="text-gray-600"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <path d="M8.5 10C9.32843 10 10 9.32843 10 8.5C10 7.67157 9.32843 7 8.5 7C7.67157 7 7 7.67157 7 8.5C7 9.32843 7.67157 10 8.5 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <path d="M21 15L16 10L5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </Button>
+                            </Tooltip>
+                          </div>
+                        </div>
+                        <div className="flex-grow overflow-auto">
+                          <EmailEditor 
+                            initialContent={currentTemplate.content || ''} 
+                            onChange={handleContentChange}
+                            placeholder="Write your email template here..."
+                            onEditorReady={handleEditorReady}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {currentTemplate.type === 'document' && (
+                      <div className="w-full h-full flex flex-col">
+                        <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">Document Editor</h3>
+                              <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-0.5">LOI Template</span>
+                            </div>
+                            <div className="flex gap-1">
                               <Button
                                 isIconOnly
                                 size="sm"
                                 variant="light"
                                 className="text-gray-600 dark:text-gray-300"
-                                onPress={() => emailEditorRef?.chain().focus().undo().run()}
+                                title="Undo"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M3 7v6h6"></path>
                                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
                                 </svg>
                               </Button>
-                            </Tooltip>
-                            <Tooltip content="Redo" placement="top">
                               <Button
                                 isIconOnly
                                 size="sm"
                                 variant="light"
                                 className="text-gray-600 dark:text-gray-300"
-                                onPress={() => emailEditorRef?.chain().focus().redo().run()}
+                                title="Redo"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M21 7v6h-6"></path>
                                   <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
                                 </svg>
                               </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 dark:bg-gray-700 rounded-md px-2">
+                            <Dropdown>
+                              <DropdownTrigger>
+                                <Button 
+                                  size="sm" 
+                                  variant="flat" 
+                                  className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600 text-xs px-3 flex gap-1 items-center"
+                                >
+                                  Insert Variable
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                </Button>
+                              </DropdownTrigger>
+                              <DropdownMenu>
+                                {documentVariables.map((variable) => (
+                                  <DropdownItem 
+                                    key={variable.name}
+                                    onPress={() => insertVariable(variable.value)}
+                                    className="text-sm"
+                                    description={variable.value}
+                                  >
+                                    {variable.display}
+                                  </DropdownItem>
+                                ))}
+                              </DropdownMenu>
+                            </Dropdown>
+                            
+                            <div className="h-5 border-r border-gray-300 dark:border-gray-600 mx-1"></div>
+                            
+                            <Tooltip content="Insert Image" placement="top">
+                              <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                className="text-gray-600 dark:text-gray-300"
+                              >
+                                <FaImage size={14} />
+                              </Button>
                             </Tooltip>
+                            
+                            <Tooltip content="Import DOCX" placement="top">
+                              <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                className="text-gray-600 dark:text-gray-300"
+                                onPress={() => fileInputRef.current?.click()}
+                              >
+                                <FaUpload size={14} />
+                              </Button>
+                            </Tooltip>
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              className="hidden"
+                              accept=".docx"
+                              onChange={handleTemplateUpload}
+                            />
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 dark:bg-gray-700 rounded-md px-2">
-                          <Dropdown>
-                            <DropdownTrigger>
-                              <Button 
-                                size="sm" 
-                                variant="flat" 
-                                className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600 text-xs px-3 flex gap-1 items-center"
-                              >
-                                Insert Variable
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              </Button>
-                            </DropdownTrigger>
-                            <DropdownMenu>
-                              {emailVariables.map((variable) => (
-                                <DropdownItem 
-                                  key={variable.name}
-                                  onPress={() => insertVariable(variable.value)}
-                                  className="text-sm"
-                                  description={variable.value}
-                                >
-                                  {variable.display}
-                                </DropdownItem>
-                              ))}
-                            </DropdownMenu>
-                          </Dropdown>
-                          
-                          <div className="h-5 border-r border-gray-300 mx-1"></div>
-                          
-                          <Tooltip content="Insert Image" placement="top">
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              className="text-gray-600"
-                              onPress={handleImageUpload}
-                            >
-                              <FaImage size={14} />
-                            </Button>
-                          </Tooltip>
-                          
-                          <Tooltip content="Insert Logo" placement="top">
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              onPress={handleLogoInsert}
-                              className="text-gray-600"
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M8.5 10C9.32843 10 10 9.32843 10 8.5C10 7.67157 9.32843 7 8.5 7C7.67157 7 7 7.67157 7 8.5C7 9.32843 7.67157 10 8.5 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M21 15L16 10L5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </Button>
-                          </Tooltip>
-                        </div>
-                      </div>
-                      <div className="flex-grow overflow-auto">
-                        <EmailEditor 
-                          initialContent={currentTemplate.content || ''} 
-                          onChange={handleContentChange}
-                          placeholder="Write your email template here..."
-                          onEditorReady={handleEditorReady}
+                        <DynamicDocumentPreview 
+                          documentData={sampleDocumentData}
+                          onApprove={(htmlContent) => {
+                            handleContentChange(htmlContent);
+                          }}
                         />
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   
-                  {currentTemplate.type === 'document' && (
-                    <div className="w-full h-full flex flex-col">
-                      <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-medium">Document Editor</h3>
-                            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs rounded-full px-2 py-0.5">LOI Template</span>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              className="text-gray-600 dark:text-gray-300"
-                              title="Undo"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 7v6h6"></path>
-                                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-                              </svg>
-                            </Button>
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              className="text-gray-600 dark:text-gray-300"
-                              title="Redo"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 7v6h-6"></path>
-                                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
-                              </svg>
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-1 items-center py-1 bg-gray-50 dark:bg-gray-700 rounded-md px-2">
-                          <Dropdown>
-                            <DropdownTrigger>
-                              <Button 
-                                size="sm" 
-                                variant="flat" 
-                                className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-600 text-xs px-3 flex gap-1 items-center"
-                              >
-                                Insert Variable
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              </Button>
-                            </DropdownTrigger>
-                            <DropdownMenu>
-                              {documentVariables.map((variable) => (
-                                <DropdownItem 
-                                  key={variable.name}
-                                  onPress={() => insertVariable(variable.value)}
-                                  className="text-sm"
-                                  description={variable.value}
-                                >
-                                  {variable.display}
-                                </DropdownItem>
-                              ))}
-                            </DropdownMenu>
-                          </Dropdown>
-                          
-                          <div className="h-5 border-r border-gray-300 dark:border-gray-600 mx-1"></div>
-                          
-                          <Tooltip content="Insert Image" placement="top">
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              className="text-gray-600 dark:text-gray-300"
-                            >
-                              <FaImage size={14} />
-                            </Button>
-                          </Tooltip>
-                          
-                          <Tooltip content="Import DOCX" placement="top">
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              className="text-gray-600 dark:text-gray-300"
-                              onPress={() => fileInputRef.current?.click()}
-                            >
-                              <FaUpload size={14} />
-                            </Button>
-                          </Tooltip>
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept=".docx"
-                            onChange={handleTemplateUpload}
-                          />
+                  {/* Right Column - Preview */}
+                  <div className="border rounded-lg w-full shadow-sm dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden h-[600px] flex flex-col">
+                    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium">Preview</h3>
+                        <div className="flex items-center gap-1 ml-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Live</span>
                         </div>
                       </div>
-                      <DynamicDocumentPreview 
-                        documentData={sampleDocumentData}
-                        onApprove={(htmlContent) => {
-                          handleContentChange(htmlContent);
+                      <div className="flex gap-1">
+                        <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
+                          <Button 
+                            size="sm" 
+                            className={`rounded-md min-w-[70px] transition-all duration-200 ${!isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
+                            onPress={() => setIsPreviewMode(false)}
+                          >
+                            HTML
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className={`rounded-md min-w-[70px] transition-all duration-200 ${isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
+                            onPress={() => setIsPreviewMode(true)}
+                          >
+                            Preview
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6 bg-white dark:bg-gray-800 flex-grow overflow-y-auto">
+                      {/* Show rich text preview by default (isPreviewMode is true) */}
+                      <div 
+                        className={`prose dark:prose-invert max-w-none transition-all duration-300 h-full ${isPreviewMode ? 'block' : 'hidden'}`}
+                        dangerouslySetInnerHTML={{ 
+                          __html: renderTemplateWithSampleData(currentTemplate.content || '')
                         }}
                       />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Right Column - Preview - Match height with editor column */}
-                <div className="border rounded-lg w-full shadow-sm dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden h-[600px] flex flex-col">
-                  <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">Preview</h3>
-                      <div className="flex items-center gap-1 ml-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Live</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
-                        <Button 
-                          size="sm" 
-                          className={`rounded-md min-w-[70px] transition-all duration-200 ${!isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
-                          onPress={() => setIsPreviewMode(false)}
-                        >
-                          HTML
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className={`rounded-md min-w-[70px] transition-all duration-200 ${isPreviewMode ? 'bg-white dark:bg-gray-600 shadow-sm' : 'bg-transparent'}`}
-                          onPress={() => setIsPreviewMode(true)}
-                        >
-                          Preview
-                        </Button>
+                      
+                      {/* Full-height HTML preview when code view is active */}
+                      <div className={`h-full w-full transition-all duration-300 ${!isPreviewMode ? 'block' : 'hidden'}`}>
+                        <pre className="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto h-full w-full">
+                          {(currentTemplate.content || '<p>Your template appears here as you type...</p>')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')}
+                        </pre>
                       </div>
                     </div>
                   </div>
-                  <div className="p-6 bg-white dark:bg-gray-800 flex-grow overflow-y-auto">
-                    {/* Show rich text preview by default (isPreviewMode is true) */}
-                    <div 
-                      className={`prose dark:prose-invert max-w-none transition-all duration-300 h-full ${isPreviewMode ? 'block' : 'hidden'}`}
-                      dangerouslySetInnerHTML={{ 
-                        __html: renderTemplateWithSampleData(currentTemplate.content || '')
-                      }}
-                    />
-                    
-                    {/* Full-height HTML preview when code view is active */}
-                    <div className={`h-full w-full transition-all duration-300 ${!isPreviewMode ? 'block' : 'hidden'}`}>
-                      <pre className="p-4 bg-gray-50 dark:bg-gray-900 font-mono text-sm rounded overflow-auto h-full w-full">
-                        {(currentTemplate.content || '<p>Your template appears here as you type...</p>')
-                          .replace(/</g, '&lt;')
-                          .replace(/>/g, '&gt;')}
-                      </pre>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-      )}
+              </CardBody>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

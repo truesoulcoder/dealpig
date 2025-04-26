@@ -65,44 +65,47 @@ export function getSupabaseAdmin() {
   return supabaseAdmin;
 }
 
-// Helper functions for storage operations
-export async function uploadToStorage(bucketName: string, filePath: string, fileContent: Buffer | Blob | File, contentType?: string): Promise<string | null> {
+/**
+ * Upload a file to Supabase storage and return the public URL
+ */
+export async function uploadToStorage(
+  bucketName: string, 
+  filePath: string, 
+  fileContent: Buffer | string,
+  contentType?: string
+): Promise<string> {
   try {
-    // Extract just the filename without the path
-    const fileName = filePath.split('/').pop() || `file_${Date.now()}`;
+    // Create bucket if it doesn't exist
+    const { data: bucketExists } = await supabaseAdmin.storage.getBucket(bucketName);
     
-    const { data, error } = await supabaseAdmin
-      .storage
+    if (!bucketExists) {
+      await supabaseAdmin.storage.createBucket(bucketName, {
+        public: true,
+        allowedMimeTypes: ['text/csv', 'application/vnd.ms-excel', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        fileSizeLimit: 10485760 // 10MB
+      });
+    }
+    
+    // Upload file
+    const { error: uploadError } = await supabaseAdmin.storage
       .from(bucketName)
       .upload(filePath, fileContent, {
         contentType,
-        upsert: true,
+        cacheControl: '3600',
+        upsert: false
       });
       
-    if (error) {
-      console.error('Error uploading file:', error);
-      return null;
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      throw new Error(`File upload failed: ${uploadError.message}`);
     }
-
-    if (!supabaseUrl) {
-      console.error('Supabase URL is not set. Cannot generate public URL.');
-      return null;
-    }
-
-    const { data: urlData } = supabaseAdmin
-      .storage
-      .from(bucketName)
-      .getPublicUrl(filePath);
-
-    if (!urlData || !urlData.publicUrl) {
-      console.error('Failed to generate public URL for the uploaded file.');
-      return null;
-    }
-
-    return urlData.publicUrl;
+    
+    // Get public URL
+    const { data } = supabaseAdmin.storage.from(bucketName).getPublicUrl(filePath);
+    return data.publicUrl;
   } catch (error) {
     console.error('Error in uploadToStorage:', error);
-    return null;
+    throw error;
   }
 }
 
