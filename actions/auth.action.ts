@@ -79,30 +79,49 @@ export async function saveToken(email: string, oauthToken: string, refreshToken:
 // Add a new user registration function
 export async function registerUser(email: string, password: string, name: string) {
   try {
-    console.log("Starting user registration process for:", email);
+    console.log("===== REGISTRATION DEBUGGING =====");
+    console.log("1. Starting user registration for:", email);
+    console.log("2. Checking Supabase admin client availability:", !!supabaseAdmin);
+
+    // Debug Supabase URL and key availability
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    console.log("3. Supabase URL is set:", !!supabaseUrl);
+    console.log("4. Supabase service role key is set:", !!supabaseServiceRoleKey);
     
-    // Use supabaseAdmin for creating users
+    // Use direct createUser call instead of admin.createUser
+    console.log("5. Attempting to create user with direct API");
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // Auto-confirm the email for now
+      email_confirm: true,
       user_metadata: { full_name: name }
     });
 
     if (userError) {
-      console.error("User creation error:", userError);
+      console.error("6. ERROR creating user:", userError);
+      // If we hit an error, dump detailed error info for debugging
+      console.error("Error details:", JSON.stringify({
+        message: userError.message,
+        status: userError.status,
+        name: userError.name,
+        details: userError?.details,
+        hint: userError?.hint,
+        code: userError?.code
+      }, null, 2));
       return { success: false, message: userError.message };
     }
 
-    console.log("User created successfully, creating profile");
-    
-    // Skip creating profile record for now as it might be causing the RLS issue
-    // The auth hooks will handle this automatically on the first login
-    
+    console.log("6. User created successfully:", userData.user.id);
+
     return { success: true, message: 'User registered successfully', userId: userData.user.id };
-  } catch (error) {
-    console.error('Registration error:', error);
-    return { success: false, message: 'Unexpected server error during registration' };
+  } catch (error: any) {
+    // Detailed error logging
+    console.error("REGISTRATION FAILED WITH EXCEPTION:", error);
+    console.error("Error details:", error?.message);
+    console.error("Stack trace:", error?.stack);
+    
+    return { success: false, message: `Registration error: ${error?.message || 'Unknown error'}` };
   }
 }
 
