@@ -164,13 +164,15 @@ CREATE TABLE IF NOT EXISTS campaigns (
     min_interval_minutes INTEGER DEFAULT 15,
     max_interval_minutes INTEGER DEFAULT 45,
     attachment_type VARCHAR DEFAULT 'PDF',
+    tracking_enabled BOOLEAN DEFAULT TRUE,
     total_leads INTEGER DEFAULT 0,
     leads_worked INTEGER DEFAULT 0,
     company_logo_path VARCHAR,
     email_subject VARCHAR,
     email_body TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
 -- Campaign Senders junction table
@@ -217,6 +219,25 @@ CREATE TABLE IF NOT EXISTS emails (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Email Events table for detailed tracking
+CREATE TABLE IF NOT EXISTS email_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email_id UUID REFERENCES emails(id) ON DELETE CASCADE,
+    event_type VARCHAR NOT NULL, -- 'sent', 'delivered', 'opened', 'clicked', etc.
+    recipient_email VARCHAR NOT NULL,
+    campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+    metadata JSONB,
+    user_agent TEXT,
+    ip_address VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indexes for email events
+CREATE INDEX IF NOT EXISTS idx_email_events_email_id ON email_events(email_id);
+CREATE INDEX IF NOT EXISTS idx_email_events_campaign_id ON email_events(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_email_events_event_type ON email_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_email_events_created_at ON email_events(created_at);
 
 -- Create foreign key references
 ALTER TABLE leads ADD CONSTRAINT fk_lead_source 
@@ -572,3 +593,26 @@ BEGIN
   RAISE NOTICE '=====================';
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.get_table_columns()
+RETURNS SETOF information_schema.columns
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT *
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name NOT LIKE 'pg_%'
+    AND table_name NOT LIKE '_prisma_%'
+    ORDER BY table_name, ordinal_position;
+END;
+$$;
+
+-- Grant execution permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.get_table_columns() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_table_columns() TO service_role;
+
+COMMENT ON FUNCTION public.get_table_columns IS 'Returns information about all columns in the public schema tables, useful for schema introspection and application development';

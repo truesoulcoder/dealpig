@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader, CardFooter, Input, Button, Select, SelectItem, Textarea, Checkbox, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/react";
+import { Card, CardBody, CardHeader, CardFooter, Input, Button, Select, Textarea, Checkbox, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/react";
 import { FaPlus, FaSave, FaTimes, FaUsers, FaList } from "react-icons/fa";
 import { createCampaign, getTemplates, getCampaigns, getSenders, addSendersToCampaign, addLeadsToCampaign, getLeads } from '@/lib/database';
 import { useRouter } from 'next/navigation';
+
+// Custom SelectItem as a workaround for @heroui/react component
+const SelectItem = (props: any) => (
+  <option value={props.value}>{props.children}</option>
+);
 
 interface CampaignFormProps {
   campaignId?: string;
@@ -25,6 +30,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
   const [minInterval, setMinInterval] = useState(15);
   const [maxInterval, setMaxInterval] = useState(60);
   const [attachmentType, setAttachmentType] = useState('PDF');
+  const [trackingEnabled, setTrackingEnabled] = useState(true);
   
   // Data for selectors
   const [emailTemplates, setEmailTemplates] = useState<any[]>([]);
@@ -83,6 +89,8 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
             setMinInterval(campaign.min_interval_minutes || 15);
             setMaxInterval(campaign.max_interval_minutes || 60);
             setAttachmentType(campaign.attachment_type || 'PDF');
+            // Use optional chaining for potentially missing property
+            setTrackingEnabled(campaign.tracking_enabled ?? true); 
             
             // TODO: Load campaign senders and leads
           }
@@ -124,7 +132,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
     
     setIsLoading(true);
     try {
-      const newCampaign = await createCampaign({
+      const campaignData: any = {
         name,
         description,
         email_template_id: emailTemplateId,
@@ -136,7 +144,12 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
         max_interval_minutes: maxInterval,
         attachment_type: attachmentType,
         status: 'DRAFT'
-      });
+      };
+      
+      // Add tracking_enabled if your API supports it
+      campaignData.tracking_enabled = trackingEnabled;
+      
+      const newCampaign = await createCampaign(campaignData);
       
       if (newCampaign?.id) {
         // Add senders to campaign
@@ -266,8 +279,12 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
                   value={attachmentType}
                   onChange={(e) => setAttachmentType(e.target.value)}
                 >
-                  <SelectItem key="PDF" value="PDF">PDF</SelectItem>
-                  <SelectItem key="DOCX" value="DOCX">DOCX</SelectItem>
+                  <SelectItem key="PDF" value="PDF">
+                    PDF
+                  </SelectItem>
+                  <SelectItem key="DOCX" value="DOCX">
+                    DOCX
+                  </SelectItem>
                 </Select>
                 <Input
                   type="time"
@@ -312,6 +329,24 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
                   errorMessage={errors.maxInterval}
                 />
               </div>
+            </div>
+            
+            {/* Email Tracking Settings */}
+            <div>
+              <h2 className="text-lg font-medium mb-3">Email Tracking Settings</h2>
+              <div className="flex items-start space-x-4">
+                <Checkbox
+                  isSelected={trackingEnabled}
+                  onValueChange={setTrackingEnabled}
+                  size="lg"
+                >
+                  Enable Email Tracking
+                </Checkbox>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                When enabled, emails will include tracking for opens, clicks, and replies. 
+                This helps measure campaign performance.
+              </p>
             </div>
             
             {/* Senders and Leads */}
@@ -387,7 +422,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
       </form>
       
       {/* Senders Selection Modal */}
-      <Modal isOpen={showSendersModal} onClose={() => setShowSendersModal(false)}>
+      <Modal isOpen={showSendersModal} onOpenChange={(open) => setShowSendersModal(open)}>
         <ModalContent>
           <ModalHeader>Select Senders</ModalHeader>
           <ModalBody>
@@ -396,7 +431,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
                 <div key={sender.id} className="flex items-center p-2 border-b">
                   <Checkbox
                     isSelected={selectedSenders.includes(sender.id)}
-                    onChange={() => toggleSender(sender.id)}
+                    onValueChange={() => toggleSender(sender.id)}
                   />
                   <div className="ml-2">
                     <p className="font-medium">{sender.name || 'Unnamed'}</p>
@@ -418,7 +453,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
       </Modal>
       
       {/* Leads Selection Modal */}
-      <Modal isOpen={showLeadsModal} onClose={() => setShowLeadsModal(false)}>
+      <Modal isOpen={showLeadsModal} onOpenChange={(open) => setShowLeadsModal(open)}>
         <ModalContent>
           <ModalHeader>Select Leads</ModalHeader>
           <ModalBody>
@@ -432,7 +467,7 @@ export default function CampaignForm({ campaignId, isEdit = false }: CampaignFor
                 <div key={lead.id} className="flex items-center p-2 border-b">
                   <Checkbox
                     isSelected={selectedLeadIds.includes(lead.id)}
-                    onChange={() => toggleLead(lead.id)}
+                    onValueChange={() => toggleLead(lead.id)}
                   />
                   <div className="ml-2">
                     <p className="font-medium">{lead.property_address}</p>

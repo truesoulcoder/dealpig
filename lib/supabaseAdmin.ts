@@ -25,7 +25,7 @@ if (!supabaseUrl.startsWith('http')) {
 }
 
 // Create a Supabase client with the service role key for server-side operations
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -33,53 +33,17 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   }
 });
 
-// Export as standalone function for server components
-export function getSupabaseAdmin() {
+// Export the admin client directly
+export { supabaseAdmin };
+
+// Export as async function for server components
+export async function getSupabaseAdmin() {
   return supabaseAdmin;
 }
 
 /**
- * Creates a bucket with appropriate access policy
- */
-async function createBucketWithPolicy(
-  bucketName: string, 
-  isPublic: boolean, 
-  fileSizeLimit = 52428800, 
-  allowedMimeTypes?: string[]
-) {
-  try {
-    // Create the bucket - avoid chaining to prevent errors
-    const storage = supabaseAdmin.storage;
-    const { error } = await storage.createBucket(bucketName, {
-      public: isPublic,
-      fileSizeLimit,
-      allowedMimeTypes
-    });
-    
-    if (error) {
-      console.error(`Error creating bucket ${bucketName}:`, error);
-      throw new Error(`Failed to create storage bucket: ${error.message}`);
-    }
-    
-    // If public bucket, set appropriate policies
-    if (isPublic) {
-      // Set bucket policy to allow public access - avoid chaining
-      await storage.updateBucket(bucketName, {
-        public: true,
-        allowedMimeTypes
-      });
-    }
-    
-    return true;
-  } catch (error) {
-    console.error(`Error in createBucketWithPolicy for ${bucketName}:`, error);
-    throw error;
-  }
-}
-
-/**
  * Upload a file to Supabase storage and return the public URL
- * Will automatically create the bucket if it doesn't exist
+ * Assumes the bucket already exists
  */
 export async function uploadToStorage(
   bucketName: string, 
@@ -88,27 +52,8 @@ export async function uploadToStorage(
   contentType?: string
 ): Promise<string> {
   try {
-    const storage = supabaseAdmin.storage;
-    
-    // Check if bucket exists, create if it doesn't - avoid chaining
-    const bucketResult = await storage.getBucket(bucketName);
-    const bucketExists = bucketResult.data;
-    const bucketError = bucketResult.error;
-    
-    // If bucket doesn't exist, create with appropriate settings based on bucket name
-    if (bucketError || !bucketExists) {
-      const isPublic = bucketName === 'generated-documents'; // Only generated docs are public
-      let mimeTypes: string[] | undefined;
-      
-      // Set appropriate MIME types based on bucket purpose
-      if (bucketName === 'lead-imports') {
-        mimeTypes = ['text/csv', 'application/vnd.ms-excel'];
-      } else if (bucketName === 'templates' || bucketName === 'generated-documents') {
-        mimeTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      }
-      
-      await createBucketWithPolicy(bucketName, isPublic, 52428800, mimeTypes);
-    }
+    const supabase = await getSupabaseAdmin();
+    const storage = supabase.storage;
     
     // Upload file - avoid chaining
     const bucket = storage.from(bucketName);
@@ -132,51 +77,11 @@ export async function uploadToStorage(
   }
 }
 
-// Create a safe version of ensureStorageBuckets to avoid build time errors
-export async function ensureStorageBuckets() {
-  try {
-    const storage = supabaseAdmin.storage;
-    // Define standard buckets with their settings
-    const buckets = [
-      { name: 'lead-imports', isPublic: false, mimeTypes: ['text/csv', 'application/vnd.ms-excel'] },
-      { name: 'templates', isPublic: false, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
-      { name: 'generated-documents', isPublic: true, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
-    ];
-    
-    // Ensure each bucket exists
-    for (const bucket of buckets) {
-      const bucketResult = await storage.getBucket(bucket.name);
-      if (bucketResult.error || !bucketResult.data) {
-        await createBucketWithPolicy(
-          bucket.name, 
-          bucket.isPublic, 
-          52428800, // 50MB limit
-          bucket.mimeTypes
-        );
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error ensuring storage buckets:', error);
-    return false;
-  }
-}
-
 export async function downloadFromStorage(bucketName: string, filePath: string): Promise<Buffer | null> {
   try {
-    const storage = supabaseAdmin.storage;
+    const supabase = await getSupabaseAdmin();
+    const storage = supabase.storage;
     
-    // Check if bucket exists, create if it doesn't using the same logic as uploadToStorage
-    const bucketResult = await storage.getBucket(bucketName);
-    const bucketExists = bucketResult.data;
-    const bucketError = bucketResult.error;
-    
-    if (bucketError || !bucketExists) {
-      const isPublic = bucketName === 'generated-documents';
-      await createBucketWithPolicy(bucketName, isPublic);
-    }
-  
     // Download file - avoid chaining
     const bucket = storage.from(bucketName);
     const downloadResult = await bucket.download(filePath);

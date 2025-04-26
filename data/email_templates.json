@@ -1,0 +1,49 @@
+{
+  "templates": [
+    {
+      "id": "et_001",
+      "name": "Initial Property Inquiry",
+      "type": "email",
+      "subject": "Interested in your property at {{property_address}}",
+      "content": "<p>Hello {{contact_name}},</p><p>I hope this email finds you well. My name is {{sender_name}} with {{company_name}}, and I'm reaching out because we're interested in acquiring properties in the {{property_city}} area.</p><p>I noticed your property at <strong>{{property_address}}</strong> and wondered if you've considered selling? We're offering competitive cash offers with flexible closing timelines.</p><p>Some benefits of working with us:</p><ul><li>No fees or commissions</li><li>As-is purchase (no repairs needed)</li><li>Flexible closing timeline</li><li>Cash offer</li></ul><p>If you're interested in exploring this opportunity, please reply to this email or call me directly at {{sender_phone}}.</p><p>Looking forward to hearing from you!</p><p>Best regards,</p><p><strong>{{sender_name}}</strong><br>{{sender_title}}<br>{{company_name}}<br>{{sender_phone}}<br>{{sender_email}}</p>",
+      "created_at": "2025-01-15T09:30:00Z",
+      "updated_at": "2025-02-23T14:15:00Z"
+    },
+    {
+      "id": "et_002",
+      "name": "FSBO Follow-up",
+      "type": "email",
+      "subject": "Following up about your property listing",
+      "content": "<p>Hi {{contact_name}},</p><p>I noticed your property at <strong>{{property_address}}</strong> has been listed for sale by owner for {{days_on_market}} days. I wanted to follow up and see if you're still looking for a buyer?</p><p>If you're encountering challenges with the traditional selling process, we offer a hassle-free alternative that might be worth considering. Our team at {{company_name}} specializes in providing fair cash offers with no contingencies or financing delays.</p><p>Here's what sets us apart:</p><ul><li>Closing in as little as 7 days</li><li>No showings or open houses required</li><li>No need for repairs or staging</li><li>No realtor commissions or hidden fees</li></ul><p>Would you be open to a brief conversation about your property and how we might be able to help? I'm available this week for a call at your convenience.</p><p>Best regards,</p><p><strong>{{sender_name}}</strong><br>{{sender_title}}<br>{{company_name}}<br>{{sender_phone}}<br>{{sender_email}}</p><p>P.S. If you've already found a buyer, congratulations! Feel free to disregard this email.</p>",
+      "created_at": "2025-02-08T11:45:00Z",
+      "updated_at": "2025-03-17T16:30:00Z"
+    },
+    {
+      "id": "et_003",
+      "name": "Expired Listing Outreach",
+      "type": "email",
+      "subject": "Alternative solution for your property at {{property_address}}",
+      "content": "<p>Hello {{contact_name}},</p><p>I noticed that your listing for <strong>{{property_address}}</strong> recently expired after {{days_on_market}} days on the market. I understand how frustrating it can be when a property doesn't sell as expected.</p><p>My name is {{sender_name}} with {{company_name}}. We specialize in providing solutions for property owners who may be looking for alternatives to the traditional real estate listing process.</p><p>We offer:</p><ul><li>A fair cash offer based on current market values</li><li>Quick closing - often in under 3 weeks</li><li>No additional marketing or showing required</li><li>No repairs needed - we buy properties in any condition</li></ul><p>If you're still interested in selling your property, I'd be happy to discuss how we might be able to help. Our process is straightforward and designed to save you time and stress.</p><p>Would you be available for a brief call this week to discuss potential options?</p><p>Warm regards,</p><p><strong>{{sender_name}}</strong><br>{{sender_title}}<br>{{company_name}}<br>{{sender_phone}}<br>{{sender_email}}</p>",
+      "created_at": "2025-01-22T13:20:00Z",
+      "updated_at": "2025-04-02T10:45:00Z"
+    },
+    {
+      "id": "et_004",
+      "name": "Distressed Property Outreach",
+      "type": "email",
+      "subject": "We can help with your property at {{property_address}}",
+      "content": "<p>Hello {{contact_name}},</p><p>I hope this message finds you well. My name is {{sender_name}} with {{company_name}}.</p><p>We specialize in providing solutions for property owners who may be facing challenging situations such as:</p><ul><li>Properties needing significant repairs</li><li>Behind on mortgage payments</li><li>Inherited properties</li><li>Tired landlord situations</li><li>Tax liens or other financial concerns</li></ul><p>I'm reaching out specifically about your property at <strong>{{property_address}}</strong>. If any of these situations sound familiar, we may be able to help by offering:</p><ul><li>A fair cash offer</li><li>Quick closing timeline</li><li>Purchase in as-is condition (no repairs needed)</li><li>No fees or commissions</li><li>Potential solutions for outstanding liens or payments</li></ul><p>Every situation is unique, and we pride ourselves on creating customized solutions that work for property owners. If you're interested in exploring options, I'd be happy to schedule a confidential, no-obligation conversation.</p><p>Best regards,</p><p><strong>{{sender_name}}</strong><br>{{sender_title}}<br>{{company_name}}<br>{{sender_phone}}<br>{{sender_email}}</p>",
+      "created_at": "2025-03-05T15:10:00Z",
+      "updated_at": "2025-04-10T09:20:00Z"
+    },
+    {
+      "id": "et_005",
+      "name": "Follow-up After No Response",
+      "type": "email",
+      "subject": "Following up: Your property at {{property_address}}",
+      "content": "<p>Hello again {{contact_name}},</p><p>I reached out last week about your property at <strong>{{property_address}}</strong> and wanted to follow up in case my previous message was missed.</p><p>We're still interested in discussing the possibility of purchasing your property, and I'd be happy to provide you with a no-obligation cash offer.</p><p>If you're interested, here's how our simple process works:</p><ol><li>Brief phone conversation to understand your needs</li><li>Free property evaluation (no inspection required)</li><li>We present a fair cash offer</li><li>If you accept, we handle all paperwork and closing</li><li>You receive cash for your property in as little as 7-14 days</li></ol><p>If the timing isn't right or you've already made other arrangements, no problem at all. You can simply reply to let me know, and I won't follow up further.</p><p>However, if you're curious about what we might offer for your property, I'm available for a quick call or to answer any questions via email.</p><p>Best regards,</p><p><strong>{{sender_name}}</strong><br>{{sender_title}}<br>{{company_name}}<br>{{sender_phone}}<br>{{sender_email}}</p>",
+      "created_at": "2025-02-18T10:00:00Z",
+      "updated_at": "2025-03-24T11:35:00Z"
+    }
+  ]
+}

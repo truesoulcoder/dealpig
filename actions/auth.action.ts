@@ -5,6 +5,34 @@ import { supabase } from '@/lib/supabaseClient';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { Lead, LoginFormType } from '@/helpers/types';
 
+// Get the current user session
+export async function getSession() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("userAuth")?.value;
+    
+    if (!token) {
+      return null;
+    }
+    
+    // Use the token to get the session
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    
+    if (error || !data.user) {
+      console.error("Session error:", error);
+      return null;
+    }
+    
+    // Return session object with user data
+    return {
+      user: data.user
+    };
+  } catch (error) {
+    console.error("Error getting session:", error);
+    return null;
+  }
+}
+
 export const createAuthCookie = async (session: any) => {
   if (!session || !session.access_token) {
     throw new Error("No valid session provided for authentication");
@@ -133,6 +161,37 @@ export async function registerUser(email: string, password: string, name: string
     console.error("Error details:", error?.message);
     
     return { success: false, message: `Registration error: ${error?.message || 'Unknown error'}` };
+  }
+}
+
+/**
+ * Initiate Google OAuth login flow
+ * Generates an OAuth URL for Google authentication
+ */
+export async function loginWithGoogle() {
+  try {
+    // Supabase provides built-in OAuth providers
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+        scopes: 'email profile',
+      }
+    });
+
+    if (error) {
+      console.error('Google OAuth initialization error:', error);
+      return { error: error.message };
+    }
+
+    if (!data.url) {
+      return { error: 'Failed to generate Google login URL' };
+    }
+
+    return { redirectUrl: data.url };
+  } catch (error) {
+    console.error('Google login error:', error);
+    return { error: 'Unexpected error during Google login initialization' };
   }
 }
 

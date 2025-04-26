@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { Card, CardBody, CardHeader, CardFooter, Button, Chip, Tooltip, Progress } from "@heroui/react";
-import { FaPlay, FaPause, FaStop, FaEdit, FaChartLine } from "react-icons/fa";
+import { Card, CardBody, CardHeader, CardFooter, Button, Chip, Tooltip, Progress, Badge } from "@heroui/react";
+import { FaPlay, FaPause, FaStop, FaEdit, FaChartLine, FaEye, FaEyeSlash } from "react-icons/fa";
 import { startCampaign, pauseCampaign, completeCampaign } from '@/lib/database';
 import { useRouter } from 'next/navigation';
 
@@ -18,9 +18,16 @@ export interface CampaignCardProps {
     loi_template?: { name: string };
   };
   onStatusChange?: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export default function CampaignCard({ campaign, onStatusChange }: CampaignCardProps) {
+export default function CampaignCard({ 
+  campaign, 
+  onStatusChange, 
+  isSelected = false, 
+  onToggleSelect 
+}: CampaignCardProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const router = useRouter();
   
@@ -96,10 +103,15 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
   };
   
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+    <Card className={`shadow-md hover:shadow-lg transition-shadow duration-300 ${isSelected ? 'border-primary-500 border-2' : ''}`}>
       <CardHeader className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">{campaign.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">{campaign.name}</h3>
+            {isSelected && (
+              <Badge color="primary" variant="flat" className="animate-pulse">Monitoring</Badge>
+            )}
+          </div>
           <div className="flex gap-2 items-center mt-1">
             <Chip 
               size="sm" 
@@ -122,6 +134,19 @@ export default function CampaignCard({ campaign, onStatusChange }: CampaignCardP
             )}
           </div>
         </div>
+        
+        {onToggleSelect && (
+          <Button
+            isIconOnly
+            variant="light"
+            color={isSelected ? "primary" : "default"}
+            onPress={onToggleSelect}
+            aria-label={isSelected ? "Stop monitoring" : "Start monitoring"}
+            className="min-w-0"
+          >
+            {isSelected ? <FaEye size={16} /> : <FaEyeSlash size={16} />}
+          </Button>
+        )}
       </CardHeader>
       
       <CardBody>

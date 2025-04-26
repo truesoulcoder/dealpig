@@ -7,6 +7,10 @@ import {
   saveOAuthToken,
   OAuthCredentials as DBOAuthCredentials
 } from './database';
+import { google } from 'googleapis';
+
+// Define constants for tokens
+const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // Refresh if token expires in less than 5 minutes
 
 /**
  * OAuth Credentials Manager
@@ -30,7 +34,7 @@ export async function getOAuthCredentials(): Promise<OAuthCredentials> {
     return {
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/callback',
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI || 'http://dealpig.vercel.app/api/auth/callback',
       refresh_token: process.env.GOOGLE_REFRESH_TOKEN
     };
   }
@@ -53,6 +57,100 @@ export async function getOAuthCredentials(): Promise<OAuthCredentials> {
   }
   
   throw new Error('OAuth credentials not found in environment or database');
+}
+
+/**
+ * Checks if a token needs refreshing and refreshes it if needed
+ * @param senderEmail The email of the sender whose token needs to be checked
+ * @returns The updated OAuth credentials object or null if refresh failed
+ */
+export async function refreshTokenIfNeeded(senderEmail: string): Promise<OAuthCredentials | null> {
+  try {
+    // Get current token
+    const tokenRecord = await getOAuthTokenByEmail(senderEmail);
+    
+    if (!tokenRecord || !tokenRecord.refresh_token) {
+      console.error(`No refresh token available for ${senderEmail}`);
+      return null;
+    }
+    
+    // Check if token is about to expire
+    const now = Date.now();
+    const tokenExpiryTime = tokenRecord.expiry_date;
+    
+    if (!tokenExpiryTime || tokenExpiryTime - now <= TOKEN_REFRESH_THRESHOLD_MS) {
+      console.log(`Token for ${senderEmail} needs refreshing (expires in ${tokenExpiryTime ? Math.floor((tokenExpiryTime - now) / 1000) + 's' : 'unknown'})`);
+      
+      // Get OAuth client credentials
+      const oauthCredentials = await getOAuthCredentials();
+      
+      // Set up OAuth2 client
+      const oauth2Client = new google.auth.OAuth2(
+        oauthCredentials.client_id,
+        oauthCredentials.client_secret,
+        oauthCredentials.redirect_uri
+      );
+      
+      // Set the refresh token
+      oauth2Client.setCredentials({
+        refresh_token: tokenRecord.refresh_token
+      });
+      
+      // Refresh the token
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      
+      // Save the updated token
+      const updatedToken: DBOAuthCredentials = {
+        email: senderEmail,
+        sender_id: tokenRecord.sender_id,
+        access_token: credentials.access_token || '',
+        refresh_token: credentials.refresh_token || tokenRecord.refresh_token, // Keep old refresh token if no new one
+        token_type: credentials.token_type || 'Bearer',
+        expiry_date: credentials.expiry_date ?? undefined, // Convert null to undefined
+        scopes: Array.isArray(credentials.scope) ? credentials.scope.join(' ') : credentials.scope
+      };
+      
+      const saveResult = await saveOAuthToken(updatedToken);
+      
+      if (!saveResult) {
+        throw new Error('Failed to save refreshed token');
+      }
+      
+      console.log(`Successfully refreshed token for ${senderEmail}`);
+      
+      return {
+        client_id: oauthCredentials.client_id,
+        client_secret: oauthCredentials.client_secret,
+        redirect_uri: oauthCredentials.redirect_uri,
+        refresh_token: updatedToken.refresh_token
+      };
+    }
+    
+    // Token is still valid
+    return {
+      client_id: tokenRecord.client_id || '',
+      client_secret: tokenRecord.client_secret || '',
+      redirect_uri: 'http://localhost:3000/api/auth/callback',
+      refresh_token: tokenRecord.refresh_token
+    };
+  } catch (error) {
+    console.error(`Error refreshing token for ${senderEmail}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Enhanced version of getSenderTokens that automatically refreshes tokens if needed
+ */
+export async function getValidSenderTokens(senderEmail: string): Promise<OAuthCredentials | null> {
+  // First, check if token needs refresh and refresh it
+  const refreshedTokens = await refreshTokenIfNeeded(senderEmail);
+  if (refreshedTokens) {
+    return refreshedTokens;
+  }
+  
+  // Fallback to regular token retrieval if refresh fails
+  return await getSenderTokens(senderEmail);
 }
 
 /**

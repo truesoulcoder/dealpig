@@ -14,9 +14,8 @@ import { useEffect } from 'react';
 import { 
   FaBold, FaItalic, FaUnderline, FaAlignLeft, 
   FaAlignCenter, FaAlignRight, FaAlignJustify, 
-  FaLink, FaHeading, FaParagraph, FaListUl, FaListOl,
-  FaFont, FaPalette
-} from 'react-icons/fa';
+  FaLink, FaListUl, FaListOl,
+  FaFont} from 'react-icons/fa';
 import { MdFormatColorText, MdFormatSize } from 'react-icons/md';
 
 // Interface for the editor props

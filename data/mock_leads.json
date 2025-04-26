@@ -1,0 +1,136 @@
+{
+  "leads": [
+    {
+      "id": "lead_001",
+      "property_address": "123 Main Street",
+      "property_city": "Austin",
+      "property_state": "TX",
+      "property_zip": "78701",
+      "wholesale_value": 210000,
+      "market_value": 275000,
+      "days_on_market": 45,
+      "mls_status": "Expired",
+      "status": "new",
+      "source": "MLS",
+      "created_at": "2025-03-12T10:15:00Z",
+      "updated_at": "2025-04-20T14:30:00Z",
+      "contacts": [
+        {
+          "id": "contact_001",
+          "name": "John Doe",
+          "email": "john.doe@example.com",
+          "phone": "(512) 555-1234",
+          "is_primary": true
+        }
+      ],
+      "notes": "Owner mentioned they're looking to sell quickly due to relocation"
+    },
+    {
+      "id": "lead_002",
+      "property_address": "456 Oak Avenue",
+      "property_city": "Dallas",
+      "property_state": "TX",
+      "property_zip": "75201",
+      "wholesale_value": 175000,
+      "market_value": 225000,
+      "days_on_market": 92,
+      "mls_status": "For Sale By Owner",
+      "status": "contacted",
+      "source": "FSBO Listing",
+      "created_at": "2025-02-18T09:45:00Z",
+      "updated_at": "2025-04-22T11:20:00Z",
+      "contacts": [
+        {
+          "id": "contact_002",
+          "name": "Jane Smith",
+          "email": "jane.smith@example.com",
+          "phone": "(214) 555-6789",
+          "is_primary": true
+        },
+        {
+          "id": "contact_003",
+          "name": "Robert Smith",
+          "email": "robert.smith@example.com",
+          "phone": "(214) 555-9876",
+          "is_primary": false
+        }
+      ],
+      "notes": "Property needs significant repairs, owner open to investor offers"
+    },
+    {
+      "id": "lead_003",
+      "property_address": "789 Pine Boulevard",
+      "property_city": "Houston",
+      "property_state": "TX",
+      "property_zip": "77002",
+      "wholesale_value": 320000,
+      "market_value": 390000,
+      "days_on_market": 30,
+      "mls_status": "Active",
+      "status": "negotiating",
+      "source": "Direct Mail Response",
+      "created_at": "2025-03-29T15:30:00Z",
+      "updated_at": "2025-04-25T16:15:00Z",
+      "contacts": [
+        {
+          "id": "contact_004",
+          "name": "Michael Johnson",
+          "email": "michael.johnson@example.com",
+          "phone": "(713) 555-4567",
+          "is_primary": true
+        }
+      ],
+      "notes": "Owner is motivated due to financial hardship, looking for quick cash offer"
+    },
+    {
+      "id": "lead_004",
+      "property_address": "101 Maple Drive",
+      "property_city": "San Antonio",
+      "property_state": "TX",
+      "property_zip": "78205",
+      "wholesale_value": 250000,
+      "market_value": 310000,
+      "days_on_market": 62,
+      "mls_status": "Expired",
+      "status": "contacted",
+      "source": "Cold Call",
+      "created_at": "2025-02-25T11:45:00Z",
+      "updated_at": "2025-04-23T09:30:00Z",
+      "contacts": [
+        {
+          "id": "contact_005",
+          "name": "Sarah Williams",
+          "email": "sarah.williams@example.com",
+          "phone": "(210) 555-8901",
+          "is_primary": true
+        }
+      ],
+      "notes": "Property inherited, owner not local and wants to liquidate quickly"
+    },
+    {
+      "id": "lead_005",
+      "property_address": "202 Cedar Lane",
+      "property_city": "Austin",
+      "property_state": "TX",
+      "property_zip": "78704",
+      "wholesale_value": 295000,
+      "market_value": 365000,
+      "days_on_market": 15,
+      "mls_status": "For Sale By Owner",
+      "status": "new",
+      "source": "Website Inquiry",
+      "created_at": "2025-04-10T13:20:00Z",
+      "updated_at": "2025-04-24T10:15:00Z",
+      "contacts": [
+        {
+          "id": "contact_006",
+          "name": "James Anderson",
+          "email": "james.anderson@example.com",
+          "phone": "(512) 555-3456",
+          "is_primary": true
+        }
+      ],
+      "notes": "Owner received lowball offers from other investors, open to reasonable cash offers"
+    }
+  ]
+}

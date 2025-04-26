@@ -1,5 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveGmailCredentials } from '@/actions/auth.action';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+
+// Local implementation of saveGmailCredentials to avoid "use server" issues
+async function saveGmailCredentials(
+  senderId: string, 
+  accessToken: string, 
+  refreshToken: string,
+  profileData: { email: string; picture?: string; name?: string }
+): Promise<void> {
+  try {
+    // Update the sender with OAuth tokens and profile info
+    const { error } = await supabaseAdmin
+      .from('senders')
+      .update({
+        oauth_token: accessToken,
+        refresh_token: refreshToken,
+        profile_picture: profileData.picture || null,
+        last_token_refresh: new Date().toISOString()
+      })
+      .eq('id', senderId);
+
+    if (error) {
+      console.error('Error saving Gmail credentials:', error);
+      throw new Error('Failed to save Gmail credentials');
+    }
+  } catch (error) {
+    console.error('Save Gmail credentials error:', error);
+    throw error;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {

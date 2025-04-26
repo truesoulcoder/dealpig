@@ -1,0 +1,569 @@
+openapi: 3.0.0
+info:
+  title: DealPig API
+  description: |
+    API documentation for the DealPig application.
+    This API provides endpoints for managing leads, campaigns, email tracking, and more.
+  version: 1.0.0
+  contact:
+    email: support@dealpig.com
+servers:
+  - url: https://app.dealpig.com/api
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    
+  schemas:
+    Lead:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        status:
+          type: string
+          enum: [new, contacted, qualified, unqualified, converted, lost]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    
+    Campaign:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, paused, completed]
+        stats:
+          type: object
+          properties:
+            sent:
+              type: integer
+            delivered:
+              type: integer
+            opened:
+              type: integer
+            clicked:
+              type: integer
+            replied:
+              type: integer
+            bounced:
+              type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    
+    Email:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        body:
+          type: string
+        sender_id:
+          type: string
+          format: uuid
+        recipient:
+          type: string
+          format: email
+        status:
+          type: string
+          enum: [draft, scheduled, sent, delivered, opened, clicked, replied, bounced, failed]
+        tracking_id:
+          type: string
+        opened_at:
+          type: string
+          format: date-time
+        replied_at:
+          type: string
+          format: date-time
+        bounced_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        code:
+          type: string
+    
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, error]
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [operational, degraded, down]
+              latency:
+                type: integer
+              lastChecked:
+                type: string
+                format: date-time
+
+paths:
+  /health:
+    get:
+      summary: Check system health
+      description: Returns the health status of all system services
+      operationId: getHealthStatus
+      parameters:
+        - name: service
+          in: query
+          description: Specific service to check
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  
+  /leads:
+    get:
+      summary: Get all leads
+      description: Returns a list of all leads
+      operationId: getLeads
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          description: Filter by lead status
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lead'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    post:
+      summary: Create a new lead
+      description: Creates a new lead in the system
+      operationId: createLead
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                zip:
+                  type: string
+      responses:
+        '201':
+          description: Lead created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Lead'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /leads/{id}:
+    get:
+      summary: Get a lead by ID
+      description: Returns a lead by ID
+      operationId: getLeadById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Lead ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lead found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Lead'
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    put:
+      summary: Update a lead
+      description: Updates a lead's information
+      operationId: updateLead
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Lead ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                zip:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Lead updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Lead'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    delete:
+      summary: Delete a lead
+      description: Deletes a lead from the system
+      operationId: deleteLead
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Lead ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lead deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /campaigns:
+    get:
+      summary: Get all campaigns
+      description: Returns a list of all campaigns
+      operationId: getCampaigns
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          description: Filter by campaign status
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of campaigns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Campaign'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tracking:
+    get:
+      summary: Track email opens via pixel
+      description: Records when an email is opened by loading a tracking pixel
+      operationId: trackEmailOpen
+      parameters:
+        - name: id
+          in: query
+          description: Email tracking ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 1x1 transparent pixel image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Missing tracking ID
+          
+    post:
+      summary: Track email events
+      description: Records email events like bounces and replies
+      operationId: trackEmailEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event
+                - trackingId
+              properties:
+                event:
+                  type: string
+                  enum: [bounce, reply]
+                trackingId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Event recorded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

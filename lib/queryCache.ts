@@ -36,13 +36,14 @@ export async function cachedQuery<T>(
   }
   
   // Start with base query
-  let query = supabaseAdmin.from(table);
+  const supabase = supabaseAdmin;
+  let query = supabase.from(table);
   
   // Apply the query function
   query = queryFn(query);
   
   // Execute the query
-  const { data, error } = await query;
+  const { data, error } = await query.select();
   
   if (error) {
     console.error(`Cache query error for key ${cacheKey}:`, error);
@@ -67,7 +68,7 @@ export function invalidateCache(cacheKey: string): boolean {
  */
 export function invalidateCachePattern(pattern: string): void {
   const keys = cache.keys();
-  const matchingKeys = keys.filter(key => key.includes(pattern));
+  const matchingKeys: string[] = keys.filter((key: string) => key.includes(pattern));
   
   if (matchingKeys.length > 0) {
     cache.del(matchingKeys);
@@ -110,7 +111,8 @@ export async function getCachedUserCampaigns(userId: string, options: QueryOptio
  */
 export async function refreshCampaignAnalytics() {
   try {
-    await supabaseAdmin.rpc('refresh_campaign_analytics');
+    const supabase = supabaseAdmin;
+    await supabase.rpc('refresh_campaign_analytics');
     // Invalidate all campaign stats caches
     invalidateCachePattern('campaign_stats:');
     return { success: true };

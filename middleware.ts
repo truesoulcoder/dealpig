@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { csrfProtection } from '@/lib/csrf';
 
 // Helper function to create Supabase client
 export const createClient = (request: NextRequest) => {
@@ -70,10 +71,6 @@ export const createClient = (request: NextRequest) => {
               ...options,
             });
           },
-        },
-        // Disable automatic storage bucket creation
-        storage: {
-          preventAutoCreateBuckets: true
         }
       }
     );
@@ -99,6 +96,17 @@ export default async function middleware(request: NextRequest) {
   
   if ((pathname === "/" || pathname === "/accounts") && !request.cookies.has("userAuth")) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+  
+  // CSRF protection for API routes
+  if (pathname.startsWith('/api/') && 
+      !pathname.startsWith('/api/auth/') && 
+      !pathname.startsWith('/api/webhooks/') && 
+      !pathname.startsWith('/api/tracking/') &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+    
+    // Apply CSRF protection to mutation requests
+    return csrfProtection(request);
   }
   
   return response;

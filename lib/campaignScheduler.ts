@@ -10,9 +10,14 @@ import {
   createEmail, 
   updateEmailStatus,
   getSenderById,
+  updateCampaignLeadStatus,
+  getCampaignUnassignedLeads,
+  markLeadAsWorked,
   updateSenderStats,
+  updateCampaignStats,
   updateCampaignProgress
 } from '@/lib/database';
+import { assignLeadsToCampaignSenders, markLeadWorkedAndGetNext } from '@/lib/leadAssignmentService';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
@@ -67,11 +72,11 @@ export async function processCampaigns(): Promise<{ success: boolean, message: s
 }
 
 /**
- * Process a single campaign
+ * Process a single campaign using round-robin lead distribution
  * @param {Campaign} campaign The campaign to process
  * @returns {Promise<number>} Number of emails processed
  */
-async function processCampaign(campaign: any): Promise<number> {
+export async function processCampaign(campaign: any): Promise<number> {
   console.log(`Processing campaign: ${campaign.name} (${campaign.id})`);
   
   try {
@@ -82,76 +87,114 @@ async function processCampaign(campaign: any): Promise<number> {
       return 0;
     }
     
-    // 2. Get pending leads for this campaign that haven't been worked yet
-    const pendingLeads = await getCampaignLeads(campaign.id, 'PENDING');
-    if (!pendingLeads || pendingLeads.length === 0) {
+    // 2. Get unassigned leads for this campaign (still in PENDING status)
+    const unassignedLeads = await getCampaignUnassignedLeads(campaign.id);
+    if (!unassignedLeads || unassignedLeads.length === 0) {
       console.log(`No pending leads found for campaign ${campaign.id}. Skipping.`);
       return 0;
     }
     
-    // 3. Calculate how many leads each sender should process now based on daily quotas
+    // 3. Calculate daily processing limit based on campaign settings
     const dailyLimit = campaign.leads_per_day || 10;
-    const leadsPerSender = Math.ceil(dailyLimit / senders.length);
-    console.log(`Processing up to ${dailyLimit} leads (${leadsPerSender} per sender)`);
+    const leadsToProcessNow = Math.min(unassignedLeads.length, dailyLimit);
     
+    console.log(`Found ${unassignedLeads.length} unassigned leads. Processing ${leadsToProcessNow} now.`);
+    
+    // 4. Get the lead IDs to assign
+    const leadIdsToAssign = unassignedLeads
+      .slice(0, leadsToProcessNow)
+      .map(lead => lead.id);
+    
+    // 5. Use our round-robin assignment algorithm to distribute leads to senders
+    const assignmentResult = await assignLeadsToCampaignSenders(
+      campaign.id,
+      leadIdsToAssign
+    );
+    
+    if (!assignmentResult.success) {
+      console.log(`Failed to assign leads: ${assignmentResult.message}`);
+      return 0;
+    }
+    
+    console.log(`Successfully assigned ${leadIdsToAssign.length} leads to ${assignmentResult.assignments?.length} senders using round-robin distribution`);
+    
+    // 6. Process the assigned leads
     let processedCount = 0;
     
-    // 4. Process leads for each sender up to their limit
-    for (const sender of senders) {
-      // Check if sender has already reached their daily limit
-      if (sender.emails_sent_today >= leadsPerSender) {
-        console.log(`Sender ${sender.email} has reached their daily limit. Skipping.`);
-        continue;
-      }
+    if (!assignmentResult.assignments || assignmentResult.assignments.length === 0) {
+      return 0;
+    }
+    
+    // Process leads for each sender
+    for (const assignment of assignmentResult.assignments) {
+      const { senderId, leadIds } = assignment;
       
-      // Calculate how many more emails this sender can send today
-      const remainingQuota = leadsPerSender - (sender.emails_sent_today || 0);
+      // Get the sender details
+      const sender = await getSenderById(senderId);
+      if (!sender) continue;
       
-      // Get the leads for this sender to work
-      const leadsToProcess = pendingLeads.slice(
-        processedCount, 
-        processedCount + remainingQuota
-      );
+      console.log(`Processing ${leadIds.length} leads for sender ${sender.email}`);
       
-      if (leadsToProcess.length === 0) break;
-      
-      // Process each lead for this sender
-      for (const lead of leadsToProcess) {
+      // Process each lead assigned to this sender
+      for (const leadId of leadIds) {
+        // Get the lead details
+        const lead = unassignedLeads.find(l => l.id === leadId);
+        if (!lead) continue;
+        
         // Add random delay between emails based on campaign settings
         const delayMinutes = getRandomInt(
           campaign.min_interval_minutes || 15,
           campaign.max_interval_minutes || 60
         );
         
-        // Schedule the email to be sent after the delay
-        await sendCampaignEmail(campaign, sender, lead);
+        // Send the campaign email
+        const emailSent = await sendCampaignEmail(campaign, sender, lead);
         
-        // Update lead status
-        await updateLeadStatus(lead.id, 'IN_PROGRESS');
-        
-        // Update processed count
-        processedCount++;
-        
-        console.log(`Scheduled email for lead ${lead.id} from sender ${sender.email}. Next email in ${delayMinutes} minutes.`);
-        
-        // Simulate the delay (in a real implementation, this would be handled by a job queue)
-        // Instead of actually waiting, we'll just log when the next email would be sent
-        const nextEmailTime = new Date();
-        nextEmailTime.setMinutes(nextEmailTime.getMinutes() + delayMinutes);
-        console.log(`Next email will be sent at approximately: ${nextEmailTime.toLocaleTimeString()}`);
+        // Update the lead status and record metrics
+        if (emailSent) {
+          // Make sure senderId is not undefined
+          if (sender.id) {
+            // Mark the lead as worked
+            await markLeadWorkedAndGetNext(
+              campaign.id,
+              lead.id,
+              sender.id,
+              {
+                status: 'CONTACTED',
+                emailSent: true
+              }
+            );
+          
+            processedCount++;
+          
+            console.log(`Sent email for lead ${lead.id} from sender ${sender.email}. Next email in ${delayMinutes} minutes.`);
+          
+            // Simulate the delay (in a real implementation, this would be handled by a job queue)
+            // Instead of actually waiting, we'll just log when the next email would be sent
+            const nextEmailTime = new Date();
+            nextEmailTime.setMinutes(nextEmailTime.getMinutes() + delayMinutes);
+            console.log(`Next email will be sent at approximately: ${nextEmailTime.toLocaleTimeString()}`);
+          }
+        } else {
+          // Record the failure
+          if (sender.id) {
+            await markLeadWorkedAndGetNext(
+              campaign.id,
+              lead.id,
+              sender.id,
+              {
+                status: 'FAILED',
+                emailSent: false
+              }
+            );
+          }
+          
+          console.error(`Failed to send email for lead ${lead.id}`);
+        }
       }
-      
-      // Update sender stats
-      await updateSenderStats(sender.id, {
-        emails_sent_today: (sender.emails_sent_today || 0) + leadsToProcess.length,
-        total_emails_sent: (sender.total_emails_sent || 0) + leadsToProcess.length,
-        last_sent_at: new Date().toISOString()
-      });
     }
     
-    // 5. Update campaign progress
-    await updateCampaignProgress(campaign.id, processedCount);
-    
+    console.log(`Finished processing campaign ${campaign.id}. Processed ${processedCount} leads.`);
     return processedCount;
     
   } catch (error) {
@@ -167,46 +210,61 @@ async function sendCampaignEmail(campaign: any, sender: any, lead: any): Promise
   try {
     console.log(`Sending campaign email to lead ${lead.id} from ${sender.email}`);
     
-    // Get sender details
-    const senderDetails = await getSenderById(sender.id);
-    if (!senderDetails) {
-      console.error(`Sender ${sender.id} not found`);
+    // Check if the lead has contacts
+    if (!lead.contacts || lead.contacts.length === 0) {
+      console.error(`Lead ${lead.id} has no contacts to email`);
       return false;
     }
+    
+    // Use the primary contact, or the first one if no primary is marked
+    const contact = lead.contacts.find((c: any) => c.is_primary) || lead.contacts[0];
     
     // Generate subject and body using campaign templates
-    const subject = replacePlaceholders(campaign.email_subject || 'Letter of Intent for your property', lead);
-    const body = replacePlaceholders(campaign.email_body || '<p>Please see the attached Letter of Intent.</p>', lead);
+    const subject = replacePlaceholders(campaign.email_subject || 'Letter of Intent for your property', lead, contact, sender);
+    const body = replacePlaceholders(campaign.email_body || '<p>Please see the attached Letter of Intent.</p>', lead, contact, sender);
     
-    // Generate LOI document
-    const loiPath = await generateLoi({
-      propertyAddress: lead.property_address,
-      propertyCity: lead.property_city,
-      propertyState: lead.property_state,
-      propertyZip: lead.property_zip || lead.property_postal_code,
-      offerPrice: lead.offer_price || lead.wholesale_value,
-      earnestMoney: Math.round((lead.offer_price || lead.wholesale_value) * 0.01),
-      closingDate: getClosingDate(14), // 14 days from now
-      recipientName: lead.contact_name || lead.owner_name || 'Property Owner',
-      companyLogoPath: campaign.company_logo_path
-    });
-    
-    if (!loiPath) {
-      console.error(`Failed to generate LOI document for lead ${lead.id}`);
-      return false;
+    // Check if we should generate and attach LOI
+    let attachments = [];
+    if (campaign.attachment_type === 'LOI' || campaign.loi_template_id) {
+      // Generate LOI document
+      const loiFileName = `LOI-${lead.property_address.replace(/\s+/g, "-")}.pdf`;
+      
+      const loiPath = await generateLoi({
+        propertyAddress: lead.property_address,
+        propertyCity: lead.property_city,
+        propertyState: lead.property_state,
+        propertyZip: lead.property_zip || '',
+        offerPrice: lead.wholesale_value || 0,
+        earnestMoney: Math.round((lead.wholesale_value || 0) * 0.01),
+        closingDate: getClosingDate(14), // 14 days from now
+        recipientName: contact.name || 'Property Owner',
+        companyLogoPath: campaign.company_logo_path || null,
+        templateId: campaign.loi_template_id || null
+      });
+      
+      if (loiPath) {
+        attachments.push({
+          path: loiPath,
+          filename: loiFileName
+        });
+      } else {
+        console.error(`Failed to generate LOI document for lead ${lead.id}`);
+      }
     }
     
-    // Create email record
-    const trackingId = uuidv4();
+    // Create email record with tracking ID only if tracking is enabled
+    const trackingEnabled = campaign.tracking_enabled !== false; // Default to true if undefined
+    const trackingId = trackingEnabled ? uuidv4() : undefined;
+    
     const emailRecord = await createEmail({
       lead_id: lead.id,
-      sender_id: sender.id,
+      sender_id: sender.id || '',
       subject,
       body,
-      loi_path: loiPath,
+      loi_path: attachments[0]?.path || undefined,
       status: 'PENDING',
       tracking_id: trackingId,
-      campaign_id: campaign.id
+      campaignId: campaign.id
     });
     
     if (!emailRecord) {
@@ -214,16 +272,18 @@ async function sendCampaignEmail(campaign: any, sender: any, lead: any): Promise
       return false;
     }
     
-    // Full path to the LOI file
-    const fullPath = path.join(process.cwd(), 'public', loiPath.replace(/^\//, ''));
-    
-    // Send the email
+    // Send the email - ensure we're using the correct parameter structure
     const emailResult = await sendEmail({
-      to: lead.contact_email || lead.email,
+      to: contact.email,
       subject,
       body,
-      attachmentPath: fullPath,
-      senderEmail: sender.email
+      attachments,
+      trackingEnabled,
+      trackingId,
+      senderId: sender.id || '',
+      senderName: sender.name,
+      senderEmail: sender.email,
+      userId: campaign.user_id // Owner of the campaign
     });
     
     if (!emailResult.success) {
@@ -237,7 +297,8 @@ async function sendCampaignEmail(campaign: any, sender: any, lead: any): Promise
     
     // Update email record to reflect successful sending
     await updateEmailStatus(emailRecord.id!, 'SENT', {
-      sent_at: new Date().toISOString()
+      sent_at: new Date().toISOString(),
+      message_id: emailResult.emailId || undefined
     });
     
     console.log(`Successfully sent email for lead ${lead.id}`);
@@ -289,15 +350,42 @@ function getRandomInt(min: number, max: number): number {
 /**
  * Replace placeholders in a template with lead data
  */
-function replacePlaceholders(template: string, lead: any): string {
-  return template
-    .replace(/\{property_address\}/g, lead.property_address || '')
-    .replace(/\{property_city\}/g, lead.property_city || '')
-    .replace(/\{property_state\}/g, lead.property_state || '')
-    .replace(/\{property_zip\}/g, lead.property_zip || lead.property_postal_code || '')
-    .replace(/\{contact_name\}/g, lead.contact_name || lead.owner_name || 'Property Owner')
-    .replace(/\{offer_price\}/g, formatCurrency(lead.offer_price || lead.wholesale_value))
-    .replace(/\{earnest_money\}/g, formatCurrency((lead.offer_price || lead.wholesale_value) * 0.01));
+function replacePlaceholders(template: string, lead: any, contact: any, sender: any): string {
+  let result = template;
+  
+  // Replace lead-related placeholders
+  result = result
+    .replace(/\{\{property_address\}\}/g, lead.property_address || '')
+    .replace(/\{\{property_city\}\}/g, lead.property_city || '')
+    .replace(/\{\{property_state\}\}/g, lead.property_state || '')
+    .replace(/\{\{property_zip\}\}/g, lead.property_zip || '')
+    .replace(/\{\{days_on_market\}\}/g, lead.days_on_market?.toString() || '0')
+    .replace(/\{\{offer_price\}\}/g, formatCurrency(lead.wholesale_value || 0));
+  
+  // Replace contact-related placeholders
+  if (contact) {
+    result = result
+      .replace(/\{\{contact_name\}\}/g, contact.name || 'Property Owner')
+      .replace(/\{\{contact_email\}\}/g, contact.email || '');
+  }
+  
+  // Replace sender-related placeholders
+  if (sender) {
+    result = result
+      .replace(/\{\{sender_name\}\}/g, sender.name || '')
+      .replace(/\{\{sender_email\}\}/g, sender.email || '')
+      .replace(/\{\{sender_phone\}\}/g, sender.phone || '')
+      .replace(/\{\{sender_title\}\}/g, sender.title || '')
+      .replace(/\{\{company_name\}\}/g, sender.company_name || 'Our Company');
+  }
+  
+  // Replace date-related placeholders
+  result = result
+    .replace(/\{\{closing_date\}\}/g, getClosingDate(14))
+    .replace(/\{\{expiration_date\}\}/g, getClosingDate(7))
+    .replace(/\{\{earnest_money\}\}/g, formatCurrency((lead.wholesale_value || 0) * 0.01));
+  
+  return result;
 }
 
 /**

@@ -4,7 +4,48 @@
   "installCommand": "npm install",
   "outputDirectory": ".next",
   "github": {
-    "enabled": true,
-    "silent": true
-  }
+    "silent": true,
+    "autoAlias": true
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron?job=token-refresh",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron?job=email-monitor",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }

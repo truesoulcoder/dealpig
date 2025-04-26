@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import { getTemplateById } from '@/lib/database';
-import { downloadFromStorage, uploadToStorage, supabaseAdmin } from '@/lib/supabaseAdmin';
+import { downloadFromStorage, uploadToStorage, getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
 // Bucket names for storage
 const TEMPLATE_BUCKET = 'templates';

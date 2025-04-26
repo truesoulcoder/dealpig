@@ -14,8 +14,13 @@ export interface SenderPerformanceData {
 
 /**
  * Get sender performance data for the dashboard chart
+ * @param timeRange The time range to fetch data for
+ * @param campaignIds Optional array of campaign IDs to filter by
  */
-export async function getSenderPerformance(timeRange: TimeRange = '7d'): Promise<SenderPerformanceData[]> {
+export async function getSenderPerformance(
+  timeRange: TimeRange = '7d',
+  campaignIds?: string[]
+): Promise<SenderPerformanceData[]> {
   const now = new Date();
   let startDate: Date;
   
@@ -35,10 +40,37 @@ export async function getSenderPerformance(timeRange: TimeRange = '7d'): Promise
   const formattedStartDate = formatISO(startDate);
   
   try {
+    // If campaign IDs are specified, first get all unique sender IDs from these campaigns
+    let relevantSenderIds: string[] = [];
+    
+    if (campaignIds && campaignIds.length > 0) {
+      // Get senders associated with the selected campaigns
+      const { data: campaignSenders, error: campaignSenderError } = await supabase
+        .from('campaign_senders')
+        .select('sender_id')
+        .in('campaign_id', campaignIds);
+        
+      if (campaignSenderError) {
+        console.error('Error fetching campaign senders:', campaignSenderError);
+      } else if (campaignSenders) {
+        relevantSenderIds = [...new Set(campaignSenders.map(cs => cs.sender_id))];
+      }
+      
+      // If no senders found for the campaigns, return empty result
+      if (relevantSenderIds.length === 0) {
+        return [];
+      }
+    }
+    
     // Get senders with their email counts
-    const { data: senders, error: senderError } = await supabase
-      .from('senders')
-      .select('id, name');
+    let query = supabase.from('senders').select('id, name');
+    
+    // Filter by relevant sender IDs if we have campaign filters
+    if (relevantSenderIds.length > 0) {
+      query = query.in('id', relevantSenderIds);
+    }
+    
+    const { data: senders, error: senderError } = await query;
     
     if (senderError || !senders) {
       console.error('Error fetching senders:', senderError);
@@ -48,12 +80,20 @@ export async function getSenderPerformance(timeRange: TimeRange = '7d'): Promise
     // Build sender performance data by querying emails
     const performanceData: SenderPerformanceData[] = await Promise.all(
       senders.map(async (sender) => {
-        // Get email counts for each sender
-        const { data: emails, error: emailError } = await supabase
+        // Start building email query for this sender
+        let emailQuery = supabase
           .from('emails')
           .select('*')
           .eq('sender_id', sender.id)
           .gte('created_at', formattedStartDate);
+          
+        // Apply campaign filter if specified
+        if (campaignIds && campaignIds.length > 0) {
+          emailQuery = emailQuery.in('campaign_id', campaignIds);
+        }
+          
+        // Execute the query
+        const { data: emails, error: emailError } = await emailQuery;
         
         if (emailError || !emails) {
           return {
@@ -71,13 +111,18 @@ export async function getSenderPerformance(timeRange: TimeRange = '7d'): Promise
           email.status === 'OPENED' || email.status === 'REPLIED').length;
         const replied = emails.filter(email => email.status === 'REPLIED').length;
         
+        // Get lead IDs from the emails
+        const leadIds = [...new Set(emails.map(email => email.lead_id))];
+        
         // Get converted leads (leads that changed status to 'interested' or 'closed' after email)
-        const { data: convertedLeads, error: leadError } = await supabase
+        let leadQuery = supabase
           .from('leads')
           .select('count')
-          .eq('sender_id', sender.id)
+          .in('id', leadIds)
           .in('status', ['INTERESTED', 'NEGOTIATING', 'CLOSED'])
           .gte('updated_at', formattedStartDate);
+        
+        const { data: convertedLeads, error: leadError } = await leadQuery;
         
         const converted = convertedLeads ? convertedLeads.length : 0;
         
@@ -93,6 +138,11 @@ export async function getSenderPerformance(timeRange: TimeRange = '7d'): Promise
     
     // Remove senders with zero emails sent
     const filteredData = performanceData.filter(d => d.sent > 0);
+    
+    // If we have campaign filters but no relevant data, return empty array instead of mock data
+    if (campaignIds && campaignIds.length > 0 && filteredData.length === 0) {
+      return [];
+    }
     
     return filteredData.length > 0 ? filteredData : generateMockData();
   } catch (error) {

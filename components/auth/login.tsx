@@ -1,6 +1,6 @@
 "use client";
 
-import { loginUser } from "@/actions/auth.action";
+import { loginUser, loginWithGoogle } from "@/actions/auth.action";
 import { LoginSchema } from "@/helpers/schemas";
 import { LoginFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
@@ -14,6 +14,7 @@ export const Login = () => {
   const router = useRouter();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const initialValues: LoginFormType = {
     email: "",
@@ -45,6 +46,27 @@ export const Login = () => {
     [router]
   );
 
+  const handleGoogleLogin = useCallback(async () => {
+    setIsGoogleLoading(true);
+    setAuthError(null);
+    
+    try {
+      const result = await loginWithGoogle();
+      
+      if (result?.redirectUrl) {
+        // Redirect to Google OAuth consent screen
+        window.location.href = result.redirectUrl;
+      } else if (result?.error) {
+        setAuthError(result.error);
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      setAuthError("Failed to initiate Google login. Please try again.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  }, []);
+
   return (
     <div className="flex flex-col items-center max-w-md w-full mx-auto">
       <div className="mb-8 text-center">
@@ -58,6 +80,48 @@ export const Login = () => {
         />
         <h1 className="text-2xl font-bold">Welcome to DealPig</h1>
         <p className="text-gray-500 mt-2">Log in to access your campaigns</p>
+      </div>
+
+      {/* Google Login Button */}
+      <div className="w-full mb-6">
+        <Button
+          type="button"
+          variant="flat"
+          color="default"
+          className="w-full flex items-center justify-center gap-3 shadow-sm hover:shadow-md transition-shadow border border-gray-200 bg-white hover:bg-gray-50"
+          size="lg"
+          onClick={handleGoogleLogin}
+          isLoading={isGoogleLoading}
+          isDisabled={isLoading || isGoogleLoading}
+          startContent={
+            !isGoogleLoading && (
+              <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                <g transform="matrix(1, 0, 0, 1, 0, 0)">
+                  <path d="M21.35,11.1H12v3.6h5.41c-0.52,2.37-2.35,4.1-5.41,4.1c-3.31,0-6-2.69-6-6s2.69-6,6-6c1.49,0,2.85,0.55,3.89,1.45 l2.91-2.91C17.16,3.54,14.71,2.5,12,2.5c-5.24,0-9.5,4.26-9.5,9.5s4.26,9.5,9.5,9.5c5.49,0,9.11-3.86,9.11-9.29 c0-0.62-0.05-1.21-0.16-1.79L21.35,11.1z" fill="#4285F4" />
+                  <path d="M12,16c-1.93,0-3.5-1.57-3.5-3.5S10.07,9,12,9c0.95,0,1.81,0.38,2.44,1l2.08-2.08C15.19,6.68,13.7,6,12,6 c-3.59,0-6.5,2.91-6.5,6.5S8.41,19,12,19s6.5-2.91,6.5-6.5v-1.25H12V16z" fill="#34A853" />
+                  <path d="M7.5,13.5c0-0.73,0.22-1.42,0.59-2L5.59,9C4.91,10.18,4.5,11.54,4.5,13c0,1.46,0.41,2.82,1.09,4l2.5-2.5 C7.72,14.92,7.5,14.23,7.5,13.5z" fill="#FBBC05" />
+                  <path d="M12,4c1.93,0,3.68,0.78,4.95,2.05L19.53,3.4C17.56,1.56,14.93,0.5,12,0.5C7.86,0.5,4.27,2.9,2.58,6.42l2.5,2.5 C5.87,6.22,8.69,4,12,4z" fill="#EA4335" />
+                </g>
+              </svg>
+            )
+          }
+        >
+          <span className={`font-medium ${isGoogleLoading ? 'opacity-0' : ''}`}>
+            Continue with Google
+          </span>
+          {isGoogleLoading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin h-5 w-5 border-2 border-t-transparent border-blue-600 rounded-full"></div>
+            </div>
+          )}
+        </Button>
+      </div>
+
+      {/* Divider */}
+      <div className="w-full flex items-center mb-6">
+        <div className="flex-grow border-t border-gray-200"></div>
+        <span className="px-4 text-gray-500 text-sm font-medium">or continue with email</span>
+        <div className="flex-grow border-t border-gray-200"></div>
       </div>
 
       <Formik
@@ -106,7 +170,7 @@ export const Login = () => {
               className="w-full mt-2"
               size="lg"
               isLoading={isLoading}
-              isDisabled={isLoading}
+              isDisabled={isLoading || isGoogleLoading}
             >
               {isLoading ? "Logging in..." : "Login"}
             </Button>

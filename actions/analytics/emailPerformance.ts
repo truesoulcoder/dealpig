@@ -14,8 +14,13 @@ export interface EmailPerformanceData {
 
 /**
  * Get email performance data for the dashboard chart
+ * @param timeRange The time range to fetch data for
+ * @param campaignIds Optional array of campaign IDs to filter by
  */
-export async function getEmailPerformance(timeRange: TimeRange = '7d'): Promise<EmailPerformanceData[]> {
+export async function getEmailPerformance(
+  timeRange: TimeRange = '7d',
+  campaignIds?: string[]
+): Promise<EmailPerformanceData[]> {
   const now = new Date();
   let startDate: Date;
   
@@ -35,11 +40,19 @@ export async function getEmailPerformance(timeRange: TimeRange = '7d'): Promise<
   const formattedStartDate = formatISO(startDate);
   
   try {
-    // Fetch emails from database
-    const { data: emails, error } = await supabase
+    // Start building the query
+    let query = supabase
       .from('emails')
       .select('*')
       .gte('created_at', formattedStartDate);
+      
+    // Apply campaign filter if specified
+    if (campaignIds && campaignIds.length > 0) {
+      query = query.in('campaign_id', campaignIds);
+    }
+    
+    // Execute the query
+    const { data: emails, error } = await query;
     
     if (error) {
       console.error('Error fetching email data:', error);
@@ -77,9 +90,11 @@ export async function getEmailPerformance(timeRange: TimeRange = '7d'): Promise<
     }, {} as Record<string, EmailPerformanceData>);
     
     // Convert to array and sort by date
-    const sortedData = (Object.values(groupedData) as EmailPerformanceData[]).sort((a, b) => {
-        const dateA = parseISO(a.name);
-        const dateB = parseISO(b.name);
+    const sortedData = Object.values(groupedData)
+      .sort((a, b) => {
+        // Parse as dates for proper sorting
+        const dateA = new Date(a.name);
+        const dateB = new Date(b.name);
         return dateA.getTime() - dateB.getTime();
       });
     
@@ -116,8 +131,4 @@ function generateMockData(timeRange: TimeRange): EmailPerformanceData[] {
   }
   
   return data;
-}
-
-function sort(arg0: (a: any, b: any) => number) {
-  throw new Error("Function not implemented.");
 }

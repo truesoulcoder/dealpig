@@ -1,0 +1,82 @@
+{
+  "campaigns": [
+    {
+      "id": "cam_001",
+      "name": "Spring Acquisition 2025",
+      "description": "Campaign targeting expired listings in Austin metro area",
+      "status": "active",
+      "templateIds": ["et_001", "et_005"],
+      "documentTemplates": ["doc_template_001"],
+      "senderIds": ["sender_001", "sender_003"],
+      "stats": {
+        "sent": 0,
+        "delivered": 0,
+        "opened": 0,
+        "clicked": 0,
+        "replied": 0,
+        "bounced": 0,
+        "converted": 0
+      },
+      "created_at": "2025-04-01T10:00:00Z",
+      "updated_at": "2025-04-25T14:30:00Z",
+      "settings": {
+        "followUpDays": 7,
+        "maxFollowUps": 3,
+        "includeLOI": true,
+        "includePurchaseAgreement": false
+      }
+    },
+    {
+      "id": "cam_002",
+      "name": "FSBO Dallas Properties",
+      "description": "Campaign targeting For Sale By Owner listings in Dallas area",
+      "status": "draft",
+      "templateIds": ["et_002", "et_003", "et_005"],
+      "documentTemplates": ["doc_template_001", "doc_template_002"],
+      "senderIds": ["sender_002", "sender_004"],
+      "stats": {
+        "sent": 0,
+        "delivered": 0,
+        "opened": 0,
+        "clicked": 0,
+        "replied": 0,
+        "bounced": 0,
+        "converted": 0
+      },
+      "created_at": "2025-04-15T09:45:00Z",
+      "updated_at": "2025-04-24T11:20:00Z",
+      "settings": {
+        "followUpDays": 5,
+        "maxFollowUps": 4,
+        "includeLOI": true,
+        "includePurchaseAgreement": true
+      }
+    },
+    {
+      "id": "cam_003",
+      "name": "Distressed Properties Houston",
+      "description": "Campaign focusing on properties with high equity in Houston",
+      "status": "active",
+      "templateIds": ["et_004", "et_005"],
+      "documentTemplates": ["doc_template_003"],
+      "senderIds": ["sender_001", "sender_002", "sender_004"],
+      "stats": {
+        "sent": 0,
+        "delivered": 0,
+        "opened": 0,
+        "clicked": 0,
+        "replied": 0,
+        "bounced": 0,
+        "converted": 0
+      },
+      "created_at": "2025-04-10T14:30:00Z",
+      "updated_at": "2025-04-23T16:15:00Z",
+      "settings": {
+        "followUpDays": 3,
+        "maxFollowUps": 5,
+        "includeLOI": false,
+        "includePurchaseAgreement": false
+      }
+    }
+  ]
+}

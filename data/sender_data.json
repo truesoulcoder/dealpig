@@ -1,0 +1,60 @@
+{
+  "senders": [
+    {
+      "id": "sender_001",
+      "name": "John Smith",
+      "email": "john.smith@dealpig.com",
+      "title": "Senior Acquisition Specialist",
+      "phone": "(512) 555-1234",
+      "company_name": "DealPig Investments",
+      "daily_quota": 100,
+      "emails_sent": 78,
+      "status": "active",
+      "last_sent_at": "2025-04-26T09:15:00Z",
+      "created_at": "2025-01-05T08:30:00Z",
+      "updated_at": "2025-04-26T09:15:00Z"
+    },
+    {
+      "id": "sender_002",
+      "name": "Emily Johnson",
+      "email": "emily.johnson@dealpig.com",
+      "title": "Lead Generation Manager",
+      "phone": "(512) 555-5678",
+      "company_name": "DealPig Investments",
+      "daily_quota": 150,
+      "emails_sent": 112,
+      "status": "active",
+      "last_sent_at": "2025-04-26T10:20:00Z",
+      "created_at": "2025-01-05T09:45:00Z",
+      "updated_at": "2025-04-26T10:20:00Z"
+    },
+    {
+      "id": "sender_003",
+      "name": "Michael Chen",
+      "email": "michael.chen@dealpig.com",
+      "title": "Acquisition Specialist",
+      "phone": "(512) 555-2345",
+      "company_name": "DealPig Investments",
+      "daily_quota": 100,
+      "emails_sent": 45,
+      "status": "active",
+      "last_sent_at": "2025-04-25T16:30:00Z",
+      "created_at": "2025-02-10T11:15:00Z",
+      "updated_at": "2025-04-25T16:30:00Z"
+    },
+    {
+      "id": "sender_004",
+      "name": "Sarah Williams",
+      "email": "sarah.williams@dealpig.com",
+      "title": "Property Acquisition Director",
+      "phone": "(512) 555-7890",
+      "company_name": "DealPig Investments",
+      "daily_quota": 125,
+      "emails_sent": 92,
+      "status": "active", 
+      "last_sent_at": "2025-04-26T08:45:00Z",
+      "created_at": "2025-01-15T13:20:00Z",
+      "updated_at": "2025-04-26T08:45:00Z"
+    }
+  ]
+}

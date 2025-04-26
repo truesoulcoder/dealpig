@@ -88,6 +88,8 @@ export interface Email {
   bounce_reason?: string;
   sent_at?: string;
   tracking_id?: string;
+  message_id?: string;    // Gmail message ID for tracking replies
+  campaignId?: string;    // Campaign ID for associating emails with campaigns
   created_at?: string;
   updated_at?: string;
 }
@@ -125,6 +127,7 @@ export interface Campaign {
   email_body?: string;
   created_at?: string;
   updated_at?: string;
+  tracking_enabled?: boolean;
 }
 
 export interface CampaignSender {
@@ -426,6 +429,60 @@ export async function getEmailsByLeadId(leadId: string): Promise<Email[]> {
   }
 
   return data as unknown as Email[];
+}
+
+/**
+ * Get emails by message ID (needed for Gmail reply tracking)
+ * @param messageId The Gmail message ID to search for
+ * @returns Array of matching Email records
+ */
+export async function getEmailsByMessageId(messageId: string): Promise<Email[]> {
+  try {
+    const { data, error } = await supabase
+      .from('emails')
+      .select('*')
+      .eq('message_id', messageId);
+      
+    if (error) {
+      console.error('Error fetching emails by message ID:', error);
+      return [];
+    }
+    
+    return data as Email[];
+  } catch (error) {
+    console.error('Error in getEmailsByMessageId:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all active senders that need email monitoring
+ * @returns Array of active senders with validated OAuth tokens
+ */
+export async function getAllActiveSenders(): Promise<Sender[]> {
+  try {
+    // Join senders with oauth_tokens to only get senders with valid tokens
+    const { data, error } = await supabase
+      .from('senders')
+      .select(`
+        *,
+        oauth_tokens:oauth_tokens!inner (*)
+      `)
+      .neq('oauth_tokens.refresh_token', null);
+      
+    if (error) {
+      console.error('Error fetching active senders:', error);
+      return [];
+    }
+    
+    return data.map(item => ({
+      ...item,
+      oauth_token: item.oauth_tokens?.refresh_token
+    })) as Sender[];
+  } catch (error) {
+    console.error('Error in getAllActiveSenders:', error);
+    return [];
+  }
 }
 
 // Template operations
@@ -836,7 +893,7 @@ export async function addSendersToCampaign(campaignId: string, senderIds: string
   }
 }
 
-export async function updateSenderStats(senderId: string, stats: any): Promise<boolean> {
+export async function updateCampaignSenderStats(senderId: string, stats: any): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('campaign_senders')
@@ -853,7 +910,7 @@ export async function updateSenderStats(senderId: string, stats: any): Promise<b
     
     return true;
   } catch (error) {
-    console.error('Error in updateSenderStats:', error);
+    console.error('Error in updateCampaignSenderStats:', error);
     return false;
   }
 }
@@ -903,10 +960,9 @@ export async function getCampaignLeads(campaignId: string, status?: string): Pro
     // Transform the data to include lead details
     return data.map(item => ({
       id: item.lead_id,
-      campaign_id: item.campaign_id,
       campaign_lead_id: item.id,
+      campaign_id: item.campaign_id,
       status: item.status,
-      processed_at: item.processed_at,
       ...item.lead
     }));
   } catch (error) {
@@ -956,16 +1012,22 @@ export async function addLeadsToCampaign(campaignId: string, leadIds: string[]):
   }
 }
 
+/**
+ * Update campaign lead status with assigned sender
+ * Extends the basic updateCampaignLeadStatus function to include sender assignment
+ */
 export async function updateCampaignLeadStatus(
   campaignId: string,
   leadId: string,
-  status: string
+  status: string,
+  senderId?: string
 ): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('campaign_leads')
       .update({
         status,
+        assigned_sender_id: senderId,
         updated_at: new Date().toISOString(),
         ...(status === 'PROCESSED' ? { processed_at: new Date().toISOString() } : {})
       })
@@ -984,157 +1046,327 @@ export async function updateCampaignLeadStatus(
   }
 }
 
-export async function getCampaignStatsByDate(
+/**
+ * Get unassigned leads for a campaign
+ * Returns leads that are in PENDING status (not yet assigned to any sender)
+ */
+export async function getCampaignUnassignedLeads(
   campaignId: string,
-  startDate: string,
-  endDate: string
+  limit: number = 10
 ): Promise<any[]> {
   try {
-    // This is a simplified version - in a real implementation,
-    // you would use a SQL query with GROUP BY to aggregate data by date
     const { data, error } = await supabase
-      .from('emails')
-      .select('*')
+      .from('campaign_leads')
+      .select(`
+        *,
+        lead:lead_id (*)
+      `)
       .eq('campaign_id', campaignId)
-      .gte('sent_at', startDate)
-      .lte('sent_at', endDate);
+      .eq('status', 'PENDING')
+      .is('assigned_sender_id', null)
+      .limit(limit);
     
     if (error || !data) {
-      console.error('Error getting campaign stats:', error);
+      console.error('Error getting unassigned campaign leads:', error);
       return [];
     }
     
-    // Process the data to group by date
-    const statsByDate = new Map<string, any>();
-    
-    data.forEach(email => {
-      if (!email.sent_at) return;
-      
-      const date = email.sent_at.split('T')[0];
-      
-      if (!statsByDate.has(date)) {
-        statsByDate.set(date, {
-          date,
-          total_sent: 0,
-          total_opened: 0,
-          total_replied: 0,
-          total_bounced: 0
-        });
-      }
-      
-      const stats = statsByDate.get(date);
-      stats.total_sent++;
-      
-      if (email.opened_at) stats.total_opened++;
-      if (email.replied_at) stats.total_replied++;
-      if (email.bounced_at) stats.total_bounced++;
-    });
-    
-    return Array.from(statsByDate.values());
+    // Transform the data to include lead details
+    return data.map(item => ({
+      id: item.lead_id,
+      campaign_lead_id: item.id,
+      campaign_id: item.campaign_id,
+      status: item.status,
+      ...item.lead
+    }));
   } catch (error) {
-    console.error('Error in getCampaignStatsByDate:', error);
+    console.error('Error in getCampaignUnassignedLeads:', error);
     return [];
   }
 }
 
-// Campaign status update functions
-export async function startCampaign(campaignId: string): Promise<boolean> {
-  return updateCampaignStatus(campaignId, 'ACTIVE');
-}
-
-export async function pauseCampaign(campaignId: string): Promise<boolean> {
-  return updateCampaignStatus(campaignId, 'PAUSED');
-}
-
-export async function completeCampaign(campaignId: string): Promise<boolean> {
-  return updateCampaignStatus(campaignId, 'COMPLETED');
-}
-
-// OAuth Token storage interfaces
-export interface OAuthCredentials {
-  id?: string;
-  user_id?: string;
-  sender_id?: string;
-  email: string;
-  client_id?: string;
-  client_secret?: string;
-  refresh_token: string;
-  access_token: string;
-  token_type?: string;
-  expiry_date?: number;
-  created_at?: string;
-  updated_at?: string;
-  scopes?: string;
-}
-
-// OAuth token operations
-export async function saveOAuthToken(credentials: OAuthCredentials): Promise<OAuthCredentials | null> {
+/**
+ * Mark a lead as worked by a sender with specific results
+ * This updates the lead status and records the outcome in campaign_lead_results
+ */
+export async function markLeadAsWorked(
+  campaignId: string,
+  leadId: string,
+  senderId: string,
+  workResult: {
+    status: 'CONTACTED' | 'BOUNCED' | 'FAILED' | 'SKIPPED';
+    emailSent?: boolean;
+    emailOpened?: boolean;
+    emailClicked?: boolean;
+    emailReplied?: boolean;
+    notes?: string;
+  }
+): Promise<boolean> {
   try {
     const now = new Date().toISOString();
     
-    // Check if a record already exists for this email
-    const { data: existingData, error: fetchError } = await supabase
-      .from('oauth_tokens')
-      .select('id')
-      .eq('email', credentials.email)
-      .maybeSingle();
-      
-    if (fetchError) {
-      console.error('Error checking for existing token:', fetchError);
-      return null;
-    }
-    
-    // If token exists, update it
-    if (existingData?.id) {
-      const { data: updatedData, error: updateError } = await supabase
-        .from('oauth_tokens')
-        .update({
-          ...credentials,
-          updated_at: now
-        })
-        .eq('id', existingData.id)
-        .select();
-        
-      if (updateError) {
-        console.error('Error updating OAuth token:', updateError);
-        return null;
-      }
-      
-      return updatedData[0] as OAuthCredentials;
-    }
-    
-    // Otherwise insert a new record
-    const { data: insertedData, error: insertError } = await supabase
-      .from('oauth_tokens')
-      .insert([{
-        ...credentials,
-        created_at: now,
+    // 1. Update the campaign_leads status to PROCESSED
+    const { error: updateError } = await supabase
+      .from('campaign_leads')
+      .update({
+        status: 'PROCESSED',
+        processed_at: now,
         updated_at: now
-      }])
-      .select();
-      
-    if (insertError) {
-      console.error('Error saving OAuth token:', insertError);
-      return null;
+      })
+      .eq('campaign_id', campaignId)
+      .eq('lead_id', leadId);
+    
+    if (updateError) {
+      console.error('Error updating campaign lead as processed:', updateError);
+      return false;
     }
     
-    return insertedData[0] as OAuthCredentials;
+    // 2. Record the result details in campaign_lead_results
+    const { error: resultError } = await supabase
+      .from('campaign_lead_results')
+      .insert([{
+        campaign_id: campaignId,
+        lead_id: leadId,
+        sender_id: senderId,
+        result_status: workResult.status,
+        email_sent: workResult.emailSent || false,
+        email_opened: workResult.emailOpened || false,
+        email_clicked: workResult.emailClicked || false,
+        email_replied: workResult.emailReplied || false,
+        notes: workResult.notes || '',
+        created_at: now
+      }]);
+    
+    if (resultError) {
+      console.error('Error recording campaign lead result:', resultError);
+      return false;
+    }
+    
+    // 3. Increment the campaign's leads_worked count by 1
+    await updateCampaignProgress(campaignId, 1);
+    
+    return true;
   } catch (error) {
-    console.error('Error in saveOAuthToken:', error);
-    return null;
+    console.error('Error in markLeadAsWorked:', error);
+    return false;
   }
 }
 
+/**
+ * Update campaign statistics
+ */
+export async function updateCampaignStats(
+  campaignId: string,
+  stats: {
+    leadsWorked?: number;
+    emailsSent?: number;
+    emailsOpened?: number;
+    emailsClicked?: number;
+    emailsReplied?: number;
+    emailsBounced?: number;
+  }
+): Promise<boolean> {
+  try {
+    // Get current campaign stats
+    const { data: campaign, error: getError } = await supabase
+      .from('campaigns')
+      .select('stats')
+      .eq('id', campaignId)
+      .single();
+    
+    if (getError) {
+      console.error('Error getting campaign stats:', getError);
+      return false;
+    }
+    
+    // Initialize or update stats object
+    const currentStats = campaign.stats || {
+      leadsWorked: 0,
+      emailsSent: 0,
+      emailsOpened: 0,
+      emailsClicked: 0,
+      emailsReplied: 0,
+      emailsBounced: 0
+    };
+    
+    const newStats = {
+      leadsWorked: (currentStats.leadsWorked || 0) + (stats.leadsWorked || 0),
+      emailsSent: (currentStats.emailsSent || 0) + (stats.emailsSent || 0),
+      emailsOpened: (currentStats.emailsOpened || 0) + (stats.emailsOpened || 0),
+      emailsClicked: (currentStats.emailsClicked || 0) + (stats.emailsClicked || 0),
+      emailsReplied: (currentStats.emailsReplied || 0) + (stats.emailsReplied || 0),
+      emailsBounced: (currentStats.emailsBounced || 0) + (stats.emailsBounced || 0)
+    };
+    
+    // Update campaign with new stats
+    const { error: updateError } = await supabase
+      .from('campaigns')
+      .update({
+        stats: newStats,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', campaignId);
+    
+    if (updateError) {
+      console.error('Error updating campaign stats:', updateError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateCampaignStats:', error);
+    return false;
+  }
+}
+
+/**
+ * Update sender statistics for a campaign
+ */
+export async function updateSenderStats(
+  senderId: string,
+  stats: {
+    leadsWorked?: number;
+    emailsSent?: number;
+    emailsOpened?: number;
+    emailsClicked?: number;
+    emailsReplied?: number;
+    emailsBounced?: number;
+  }
+): Promise<boolean> {
+  try {
+    // Get current sender stats from campaign_senders
+    const { data: senderEntries, error: getError } = await supabase
+      .from('campaign_senders')
+      .select('*')
+      .eq('sender_id', senderId);
+    
+    if (getError) {
+      console.error('Error getting sender stats:', getError);
+      return false;
+    }
+    
+    // For each campaign this sender is part of, update their stats
+    for (const entry of senderEntries) {
+      // Update campaign-specific stats
+      const currentEmailsSent = entry.total_emails_sent || 0;
+      const currentEmailsSentToday = entry.emails_sent_today || 0;
+      
+      const { error: updateError } = await supabase
+        .from('campaign_senders')
+        .update({
+          total_emails_sent: currentEmailsSent + (stats.emailsSent || 0),
+          emails_sent_today: currentEmailsSentToday + (stats.emailsSent || 0),
+          last_sent_at: stats.emailsSent ? new Date().toISOString() : entry.last_sent_at,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', entry.id);
+      
+      if (updateError) {
+        console.error('Error updating sender stats for campaign:', updateError);
+        // Continue with other campaigns even if one fails
+      }
+    }
+    
+    // Update global sender stats
+    const { data: sender, error: senderGetError } = await supabase
+      .from('senders')
+      .select('emails_sent, last_sent_at')
+      .eq('id', senderId)
+      .single();
+    
+    if (senderGetError) {
+      console.error('Error getting sender:', senderGetError);
+      return false;
+    }
+    
+    const currentEmailsSent = sender.emails_sent || 0;
+    
+    const { error: senderUpdateError } = await supabase
+      .from('senders')
+      .update({
+        emails_sent: currentEmailsSent + (stats.emailsSent || 0),
+        last_sent_at: stats.emailsSent ? new Date().toISOString() : sender.last_sent_at,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', senderId);
+    
+    if (senderUpdateError) {
+      console.error('Error updating global sender stats:', senderUpdateError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateSenderStats:', error);
+    return false;
+  }
+}
+
+/**
+ * Start a campaign by setting its status to ACTIVE
+ */
+export async function startCampaign(campaignId: string): Promise<boolean> {
+  try {
+    return await updateCampaignStatus(campaignId, 'ACTIVE');
+  } catch (error) {
+    console.error('Error starting campaign:', error);
+    return false;
+  }
+}
+
+/**
+ * Pause a campaign by setting its status to PAUSED
+ */
+export async function pauseCampaign(campaignId: string): Promise<boolean> {
+  try {
+    return await updateCampaignStatus(campaignId, 'PAUSED');
+  } catch (error) {
+    console.error('Error pausing campaign:', error);
+    return false;
+  }
+}
+
+/**
+ * Complete a campaign by setting its status to COMPLETED
+ */
+export async function completeCampaign(campaignId: string): Promise<boolean> {
+  try {
+    return await updateCampaignStatus(campaignId, 'COMPLETED');
+  } catch (error) {
+    console.error('Error completing campaign:', error);
+    return false;
+  }
+}
+
+/**
+ * OAuth Credentials Type Definition
+ * Used for storing and retrieving OAuth tokens
+ */
+export interface OAuthCredentials {
+  email: string;
+  sender_id?: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expiry_date?: number;
+  scopes?: string;
+  client_id?: string;
+  client_secret?: string;
+}
+
+/**
+ * Get OAuth token by email address
+ */
 export async function getOAuthTokenByEmail(email: string): Promise<OAuthCredentials | null> {
   try {
     const { data, error } = await supabase
       .from('oauth_tokens')
       .select('*')
       .eq('email', email)
-      .maybeSingle();
-      
+      .single();
+    
     if (error || !data) {
-      console.error('Error fetching OAuth token:', error);
+      console.error('Error getting OAuth token by email:', error);
       return null;
     }
     
@@ -1145,118 +1377,132 @@ export async function getOAuthTokenByEmail(email: string): Promise<OAuthCredenti
   }
 }
 
-export async function saveClientSecret(clientId: string, clientSecret: string): Promise<boolean> {
+/**
+ * Save or update OAuth token
+ */
+export async function saveOAuthToken(credentials: OAuthCredentials): Promise<OAuthCredentials | null> {
   try {
+    // First check if a token already exists for this email
+    const { data: existingToken } = await supabase
+      .from('oauth_tokens')
+      .select('*')
+      .eq('email', credentials.email)
+      .maybeSingle();
+    
     const now = new Date().toISOString();
     
-    // Check if client secret already exists
-    const { data: existingData, error: fetchError } = await supabase
-      .from('oauth_client_secrets')
-      .select('id')
-      .eq('client_id', clientId)
-      .maybeSingle();
-      
-    if (fetchError) {
-      console.error('Error checking for existing client secret:', fetchError);
-      return false;
-    }
-    
-    // If client secret exists, update it
-    if (existingData?.id) {
-      const { error: updateError } = await supabase
-        .from('oauth_client_secrets')
+    if (existingToken) {
+      // Update existing token
+      const { data, error } = await supabase
+        .from('oauth_tokens')
         .update({
-          client_secret: clientSecret,
+          ...credentials,
           updated_at: now
         })
-        .eq('id', existingData.id);
-        
-      if (updateError) {
-        console.error('Error updating client secret:', updateError);
-        return false;
+        .eq('email', credentials.email)
+        .select();
+      
+      if (error) {
+        console.error('Error updating OAuth token:', error);
+        return null;
       }
       
-      return true;
-    }
-    
-    // Otherwise insert a new record
-    const { error: insertError } = await supabase
-      .from('oauth_client_secrets')
-      .insert([{
-        client_id: clientId,
-        client_secret: clientSecret,
-        created_at: now,
-        updated_at: now
-      }]);
+      return data[0] as OAuthCredentials;
+    } else {
+      // Insert new token
+      const { data, error } = await supabase
+        .from('oauth_tokens')
+        .insert([{
+          ...credentials,
+          created_at: now,
+          updated_at: now
+        }])
+        .select();
       
-    if (insertError) {
-      console.error('Error saving client secret:', insertError);
-      return false;
+      if (error) {
+        console.error('Error creating OAuth token:', error);
+        return null;
+      }
+      
+      return data[0] as OAuthCredentials;
     }
-    
-    return true;
   } catch (error) {
-    console.error('Error in saveClientSecret:', error);
-    return false;
+    console.error('Error in saveOAuthToken:', error);
+    return null;
   }
 }
 
+/**
+ * Get client secret by client ID
+ */
 export async function getClientSecret(clientId: string): Promise<string | null> {
   try {
     const { data, error } = await supabase
-      .from('oauth_client_secrets')
+      .from('client_secrets')
       .select('client_secret')
       .eq('client_id', clientId)
-      .maybeSingle();
-      
+      .single();
+    
     if (error || !data) {
-      console.error('Error fetching client secret:', error);
+      console.error('Error getting client secret:', error);
       return null;
     }
     
-    return data.client_secret;
+    return data.client_secret as string;
   } catch (error) {
     console.error('Error in getClientSecret:', error);
     return null;
   }
 }
 
-// Get all OAuth tokens for a user
-export async function getOAuthTokensForUser(userId: string): Promise<OAuthCredentials[]> {
+/**
+ * Save client secret
+ */
+export async function saveClientSecret(clientId: string, clientSecret: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from('oauth_tokens')
+    // First check if a client secret already exists for this client ID
+    const { data: existingSecret } = await supabase
+      .from('client_secrets')
       .select('*')
-      .eq('user_id', userId);
-      
-    if (error) {
-      console.error('Error fetching OAuth tokens for user:', error);
-      return [];
-    }
+      .eq('client_id', clientId)
+      .maybeSingle();
     
-    return data as OAuthCredentials[];
-  } catch (error) {
-    console.error('Error in getOAuthTokensForUser:', error);
-    return [];
-  }
-}
-
-// Delete an OAuth token
-export async function deleteOAuthToken(id: string): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('oauth_tokens')
-      .delete()
-      .eq('id', id);
+    const now = new Date().toISOString();
+    
+    if (existingSecret) {
+      // Update existing secret
+      const { error } = await supabase
+        .from('client_secrets')
+        .update({
+          client_secret: clientSecret,
+          updated_at: now
+        })
+        .eq('client_id', clientId);
       
-    if (error) {
-      console.error('Error deleting OAuth token:', error);
-      return false;
+      if (error) {
+        console.error('Error updating client secret:', error);
+        return false;
+      }
+    } else {
+      // Insert new secret
+      const { error } = await supabase
+        .from('client_secrets')
+        .insert([{
+          client_id: clientId,
+          client_secret: clientSecret,
+          created_at: now,
+          updated_at: now
+        }]);
+      
+      if (error) {
+        console.error('Error creating client secret:', error);
+        return false;
+      }
     }
     
     return true;
   } catch (error) {
-    console.error('Error in deleteOAuthToken:', error);
+    console.error('Error in saveClientSecret:', error);
     return false;
   }
 }

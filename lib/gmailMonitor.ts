@@ -1,9 +1,8 @@
 "use server";
 
 import { google } from 'googleapis';
-import fs from 'fs';
-import path from 'path';
-import { updateEmailStatus, getEmailsByLeadId } from '@/lib/database';
+import { getValidSenderTokens } from './oauthCredentials';
+import { updateEmailStatus, getEmailsByLeadId, getAllActiveSenders, getEmailsByMessageId } from '@/lib/database';
 
 interface GmailMonitorResult {
   success: boolean;
@@ -61,30 +60,14 @@ export async function monitorEmailResponses(): Promise<GmailMonitorResult> {
  * Get all sender emails that should be monitored
  */
 async function getSenderEmails(): Promise<string[]> {
-  // In a real implementation, you'd query your database for active senders
-  // For this example, we'll scan the token directory
-  const tokenDir = path.join(process.cwd(), 'auth_tokens');
-  
-  if (!fs.existsSync(tokenDir)) {
+  try {
+    // Get active senders from database instead of scanning files
+    const senders = await getAllActiveSenders();
+    return senders.map((sender: { email: string }) => sender.email);
+  } catch (error) {
+    console.error('Error getting sender emails:', error);
     return [];
   }
-  
-  const files = fs.readdirSync(tokenDir);
-  const emails: string[] = [];
-  
-  for (const file of files) {
-    if (file.startsWith('token_') && file.endsWith('.json')) {
-      // Extract email from filename (e.g., token_example_com.json -> example@com)
-      const email = file
-        .replace('token_', '')
-        .replace('.json', '')
-        .replace('_', '@');
-      
-      emails.push(email);
-    }
-  }
-  
-  return emails;
 }
 
 /**
@@ -92,16 +75,13 @@ async function getSenderEmails(): Promise<string[]> {
  */
 async function processInbox(senderEmail: string): Promise<number> {
   try {
-    // Load OAuth tokens for this sender
-    const normalizedEmail = senderEmail.replace(/[@.]/g, '_');
-    const tokenPath = path.join(process.cwd(), 'auth_tokens', `token_${normalizedEmail}.json`);
+    // Use our token refresh mechanism instead of reading from files
+    const credentials = await getValidSenderTokens(senderEmail);
     
-    if (!fs.existsSync(tokenPath)) {
-      console.warn(`No token file found for ${senderEmail}`);
+    if (!credentials || !credentials.refresh_token) {
+      console.warn(`No valid credentials found for ${senderEmail}`);
       return 0;
     }
-    
-    const credentials = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
     
     const oAuth2Client = new google.auth.OAuth2(
       credentials.client_id,
@@ -209,34 +189,48 @@ async function processMessageForTracking(message: any, senderEmail: string): Pro
 }
 
 /**
- * Update email status by message ID
- * This would typically query your database to find the matching sent email
+ * Extract Gmail message IDs from a string
  */
-async function updateEmailStatusByMessageId(messageId: string, status: string, data: any): Promise<boolean> {
-  try {
-    // In a real implementation, you'd query your emails table by the Gmail message ID
-    // For now, we'll simulate this functionality
-    console.log(`Would update status to ${status} for message ID: ${messageId}`);
-    
-    // This is where you'd perform the actual database update
-    // For example:
-    // const result = await updateEmailStatusByField('gmail_message_id', messageId, status, data);
-    // return !!result;
-    
-    return true;
-  } catch (error) {
-    console.error('Error updating email status by message ID:', error);
-    return false;
+function extractMessageIds(text: string): string[] {
+  if (!text) return [];
+  
+  // Gmail message IDs are surrounded by angle brackets
+  const messageIdRegex = /<([^>]+)>/g;
+  const matches: string[] = [];
+  let match;
+  
+  while ((match = messageIdRegex.exec(text)) !== null) {
+    matches.push(match[1]);
   }
+  
+  return matches;
 }
 
 /**
- * Extract Message IDs from a References or In-Reply-To header
+ * Update email status by message ID 
+ * This function is needed for reply tracking
  */
-function extractMessageIds(headerValue: string): string[] {
-  if (!headerValue) return [];
-  
-  // Message IDs are typically enclosed in angle brackets
-  const matches = headerValue.match(/<([^>]+)>/g) || [];
-  return matches.map(match => match.replace(/[<>]/g, ''));
+async function updateEmailStatusByMessageId(
+  messageId: string, 
+  status: string, 
+  additionalData?: any
+): Promise<boolean> {
+  try {
+    // Get emails with this message ID
+    const emails = await getEmailsByMessageId(messageId);
+    
+    if (!emails || emails.length === 0) {
+      return false;
+    }
+    
+    // Update the status of each matching email
+    for (const email of emails) {
+      await updateEmailStatus(email.id!, status, additionalData);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error updating email status for message ID ${messageId}:`, error);
+    return false;
+  }
 }
