@@ -90,6 +90,39 @@ export async function uploadToStorage(
   }
 }
 
+/**
+ * Creates a bucket with appropriate access policy
+ */
+async function createBucketWithPolicy(
+  bucketName: string, 
+  isPublic: boolean, 
+  fileSizeLimit = 52428800, 
+  allowedMimeTypes?: string[]
+) {
+  // Create the bucket
+  const { error } = await supabaseAdmin.storage.createBucket(bucketName, {
+    public: isPublic,
+    fileSizeLimit,
+    allowedMimeTypes
+  });
+  
+  if (error) {
+    console.error(`Error creating bucket ${bucketName}:`, error);
+    throw new Error(`Failed to create storage bucket: ${error.message}`);
+  }
+  
+  // If public bucket, set appropriate policies
+  if (isPublic) {
+    // Set bucket policy to allow public access
+    await supabaseAdmin.storage.updateBucket(bucketName, {
+      public: true,
+      allowedMimeTypes
+    });
+  }
+  
+  return true;
+}
+
 export async function downloadFromStorage(bucketName: string, filePath: string): Promise<Buffer | null> {
   try {
     // Check if bucket exists, create if it doesn't using the same logic as uploadToStorage
