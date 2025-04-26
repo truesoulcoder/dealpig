@@ -52,27 +52,39 @@ export async function uploadToStorage(
   contentType?: string
 ): Promise<string> {
   try {
-    const supabase = await getSupabaseAdmin();
-    const storage = supabase.storage;
+    console.log(`[STORAGE] Starting upload to bucket: ${bucketName}, file: ${filePath}`);
+    console.log(`[STORAGE] Content type: ${contentType || 'not specified'}, Content size: ${
+      typeof fileContent === 'string' ? fileContent.length : fileContent.byteLength
+    } bytes`);
     
-    // Upload file - avoid chaining
-    const bucket = storage.from(bucketName);
+    const supabase = await getSupabaseAdmin();
+    
+    // Skip bucket checking since we know it exists from setup-complete-schema.sql
+    // Go directly to upload using the service_role client
+    
+    // Get direct reference to the bucket
+    const bucket = supabase.storage.from(bucketName);
+    
+    console.log(`[STORAGE] Starting file upload to ${bucketName}/${filePath}`);
     const uploadResult = await bucket.upload(filePath, fileContent, {
       contentType,
       cacheControl: '3600',
-      upsert: false
+      upsert: true
     });
       
     if (uploadResult.error) {
-      console.error('Error uploading file:', uploadResult.error);
+      console.error('[STORAGE] Error uploading file:', uploadResult.error);
       throw new Error(`File upload failed: ${uploadResult.error.message}`);
     }
     
+    console.log(`[STORAGE] File uploaded successfully: ${filePath}`);
+    
     // Get public URL - avoid chaining
     const urlResult = bucket.getPublicUrl(filePath);
+    console.log(`[STORAGE] Generated public URL: ${urlResult.data.publicUrl}`);
     return urlResult.data.publicUrl;
   } catch (error) {
-    console.error('Error in uploadToStorage:', error);
+    console.error('[STORAGE] Error in uploadToStorage:', error);
     throw error;
   }
 }

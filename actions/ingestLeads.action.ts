@@ -1,6 +1,6 @@
 "use server";
 
-import fs from 'fs';
+// No import needed here - fs is not used
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 import { 
@@ -291,6 +291,12 @@ export async function ingestLeadsFromCsvCore(
 export async function ingestLeadsFromCsv(fileContent: string, fileName: string): Promise<IngestResult> {
   // Convert string to Buffer for storage
   const fileBuffer = Buffer.from(fileContent);
+  
+  // Log upload attempt details
+  console.log(`[LEADIMPORT] Preparing to import file: ${fileName}`);
+  console.log(`[LEADIMPORT] File size: ${fileBuffer.length} bytes`);
+  console.log(`[LEADIMPORT] Using bucket: ${LEADS_BUCKET}`);
+  
   return ingestLeadsFromCsvCore(fileContent, fileName, fileBuffer);
 }
 
