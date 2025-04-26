@@ -38,13 +38,48 @@ export default function ImportLeadsPage() {
       const formData = new FormData();
       formData.append("file", file);
       
-      const result = await uploadCsv(formData);
-      setUploadResult(result);
+      console.log(`Starting upload for file: ${file.name} (${Math.round(file.size / 1024)} KB)`);
+      
+      // Set a longer timeout for the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      
+      try {
+        const result = await uploadCsv(formData);
+        clearTimeout(timeoutId);
+        
+        setUploadResult(result);
+        
+        if (result.success) {
+          console.log('CSV import successful:', result);
+        } else {
+          console.error('CSV import failed:', result);
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        console.error('Error during CSV upload fetch:', fetchError);
+        
+        // Handle network errors or timeout
+        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') {
+          setUploadResult({
+            success: false,
+            message: "The request timed out. The file might be too large or the server is busy. Try a smaller file or try again later.",
+            errors: ["Request timeout"]
+          });
+        } else {
+          setUploadResult({
+            success: false,
+            message: fetchError instanceof Error ? fetchError.message : "Network error occurred",
+            errors: [fetchError instanceof Error ? fetchError.message : "Unknown network error"]
+          });
+        }
+      }
     } catch (error) {
       console.error("Error uploading CSV:", error);
       setUploadResult({
         success: false,
         message: error instanceof Error ? error.message : "An unknown error occurred",
+        errors: [error instanceof Error ? error.message : "Unknown error"]
       });
     } finally {
       setIsUploading(false);

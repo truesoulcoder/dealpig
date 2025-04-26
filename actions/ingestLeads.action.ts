@@ -299,6 +299,7 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     const file = formData.get('file') as File;
     
     if (!file) {
+      console.error('CSV Upload Error: No file provided in form data');
       return {
         success: false,
         message: 'No file uploaded',
@@ -311,6 +312,7 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
 
     // Check file type
     if (!file.name.endsWith('.csv')) {
+      console.error('CSV Upload Error: Invalid file type', file.name);
       return {
         success: false,
         message: 'Invalid file type. Please upload a CSV file.',
@@ -323,9 +325,10 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     
     // Check file size
     if (file.size > MAX_FILE_SIZE) {
+      console.error('CSV Upload Error: File too large', { size: file.size, maxSize: MAX_FILE_SIZE });
       return {
         success: false,
-        message: 'File size exceeds the 50MB limit',
+        message: `File size exceeds the 50MB limit (${Math.round(file.size / (1024 * 1024))}MB)`,
         totalRows: 0,
         insertedLeads: 0,
         insertedContacts: 0,
@@ -337,7 +340,9 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     let fileContent;
     try {
       fileContent = await file.text();
+      console.log(`CSV file read successfully: ${file.name}, ${fileContent.length} bytes`);
     } catch (error) {
+      console.error('CSV Upload Error: Failed to read file content', error);
       return {
         success: false,
         message: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
@@ -350,6 +355,7 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     
     // If file is empty or invalid
     if (!fileContent || fileContent.trim().length === 0) {
+      console.error('CSV Upload Error: Empty file');
       return {
         success: false,
         message: 'The uploaded file is empty',
@@ -361,14 +367,30 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
     }
     
     // Convert file to buffer for storage
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = Buffer.from(await file.arrayBuffer());
+      console.log(`CSV file converted to buffer: ${fileBuffer.length} bytes`);
+    } catch (error) {
+      console.error('CSV Upload Error: Failed to convert file to buffer', error);
+      return {
+        success: false,
+        message: `Error processing file: ${error instanceof Error ? error.message : String(error)}`,
+        totalRows: 0,
+        insertedLeads: 0,
+        insertedContacts: 0,
+        errors: ['File processing error']
+      };
+    }
     
     try {
-      // Set a longer timeout for processing large files
+      // Process the CSV file
+      console.log(`Starting CSV processing for file: ${file.name}`);
       const result = await ingestLeadsFromCsvCore(fileContent, file.name, fileBuffer);
+      console.log(`CSV processing complete: ${result.insertedLeads} leads inserted`);
       return result;
     } catch (error) {
-      console.error('Error in CSV processing:', error);
+      console.error('CSV Upload Error: Failed during CSV processing', error);
       // Provide detailed error information
       return {
         success: false,
@@ -380,7 +402,7 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
       };
     }
   } catch (error) {
-    console.error('Unexpected error uploading CSV:', error);
+    console.error('CSV Upload: Unexpected error', error);
     return {
       success: false,
       message: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
