@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
-import { Card, CardBody, Button, Spinner } from "@nextui-org/react"; // Fix import from heroui to nextui
+import { Card, CardBody, Button, Spinner } from "@heroui/react"; // Correctly use heroui
 import { FaPlus } from "react-icons/fa";
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
