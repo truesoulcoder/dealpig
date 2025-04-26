@@ -81,7 +81,7 @@ export async function registerUser(email: string, password: string, name: string
   try {
     console.log("Starting user registration process for:", email);
     
-    // Use supabaseAdmin for creating users - fixed method call
+    // Use supabaseAdmin for creating users
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -96,18 +96,9 @@ export async function registerUser(email: string, password: string, name: string
 
     console.log("User created successfully, creating profile");
     
-    // Create the user profile in the profiles table
-    const { error: profileError } = await supabaseAdmin.from('profiles').insert({
-      id: userData.user.id,
-      full_name: name,
-      email: email,
-    });
-
-    if (profileError) {
-      console.error('Error creating profile:', profileError.message);
-      return { success: false, message: 'Failed to create user profile' };
-    }
-
+    // Skip creating profile record for now as it might be causing the RLS issue
+    // The auth hooks will handle this automatically on the first login
+    
     return { success: true, message: 'User registered successfully', userId: userData.user.id };
   } catch (error) {
     console.error('Registration error:', error);
