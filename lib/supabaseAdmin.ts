@@ -3,17 +3,24 @@ import { createClient } from '@supabase/supabase-js';
 // Get environment variables - make sure these are set in your .env file
 // SUPABASE_URL should be the same as NEXT_PUBLIC_SUPABASE_URL
 // SUPABASE_SERVICE_ROLE_KEY is different from the anon key and has admin privileges
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // Storage configuration
 const storageS3Endpoint = process.env.STORAGE_S3_ENDPOINT || 'https://fzvueuydzfwtbyiumbep.supabase.co/storage/v1/s3';
 const storageS3Region = process.env.STORAGE_S3_REGION || 'us-east-1';
 
+// Debug environment variables (without exposing secrets)
+console.log(`Supabase URL available: ${Boolean(supabaseUrl)}`);
+console.log(`Supabase service role key available: ${Boolean(supabaseServiceRoleKey)}`);
+
 if (!supabaseUrl || !supabaseServiceRoleKey) {
+  console.error("Missing Supabase environment variables!");
+  console.error(`URL defined: ${Boolean(supabaseUrl)}, key defined: ${Boolean(supabaseServiceRoleKey)}`);
   throw new Error('Missing Supabase server-side environment variables');
 }
 
 if (!supabaseUrl.startsWith('http')) {
+  console.error(`Invalid Supabase URL format: "${supabaseUrl.substring(0, 10)}..."`);
   throw new Error(`Invalid Supabase URL: ${supabaseUrl}`);
 }
 

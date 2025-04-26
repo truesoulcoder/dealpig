@@ -5,6 +5,29 @@ import { authLimiter, apiLimiter, standardLimiter } from "./lib/rateLimit";
 import { applySecurityHeaders } from "./lib/security";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
+// Verify environment variables on startup in production
+const requiredEnvVars = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY'
+];
+
+// Only log in production to avoid cluttering development
+if (process.env.NODE_ENV === 'production') {
+  console.log('Checking environment variables...');
+  const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.error(`⚠️ Missing required environment variables: ${missingVars.join(', ')}`);
+  } else {
+    console.log('✅ All required environment variables are set');
+    // Log URL format without exposing full URL
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    console.log(`Supabase URL format check: ${url.startsWith('http') ? 'valid' : 'invalid'}`);
+    console.log(`Supabase URL length: ${url.length}`);
+  }
+}
+
 export const createClient = (request: NextRequest) => {
   // Create an unmodified response
   let supabaseResponse = NextResponse.next({
@@ -13,28 +36,47 @@ export const createClient = (request: NextRequest) => {
     },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error(`Missing Supabase client environment variables: URL: ${!!supabaseUrl}, ANON_KEY: ${!!supabaseAnonKey}`);
+    }
+    
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+            supabaseResponse = NextResponse.next({
+              request,
+            })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
+          },
         },
       },
-    },
-  );
+    );
 
-  return { supabase, response: supabaseResponse };
+    return { supabase, response: supabaseResponse };
+  } catch (error) {
+    console.error('Error creating Supabase client:', error);
+    return { 
+      supabase: null, 
+      response: NextResponse.next({
+        request: {
+          headers: request.headers,
+        },
+      }) 
+    };
+  }
 };
 
 export async function middleware(request: NextRequest) {
