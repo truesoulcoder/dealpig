@@ -43,7 +43,7 @@ export async function getSupabaseAdmin() {
 
 /**
  * Upload a file to Supabase storage and return the public URL
- * Assumes the bucket already exists
+ * Direct implementation with minimal steps to ensure upload works
  */
 export async function uploadToStorage(
   bucketName: string, 
@@ -52,37 +52,59 @@ export async function uploadToStorage(
   contentType?: string
 ): Promise<string> {
   try {
-    console.log(`[STORAGE] Starting upload to bucket: ${bucketName}, file: ${filePath}`);
+    console.log(`[STORAGE] Direct upload to bucket: ${bucketName}, file: ${filePath}`);
     console.log(`[STORAGE] Content type: ${contentType || 'not specified'}, Content size: ${
       typeof fileContent === 'string' ? fileContent.length : fileContent.byteLength
     } bytes`);
     
-    const supabase = await getSupabaseAdmin();
-    
-    // Skip bucket checking since we know it exists from setup-complete-schema.sql
-    // Go directly to upload using the service_role client
+    // Create a fresh Supabase admin client with explicit auth settings
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false
+      },
+      // Add global error handler
+      global: {
+        fetch: (url, options) => {
+          console.log(`[FETCH] ${options?.method || 'GET'} ${url}`);
+          return fetch(url, options);
+        }
+      }
+    });
     
     // Get direct reference to the bucket
     const bucket = supabase.storage.from(bucketName);
     
-    console.log(`[STORAGE] Starting file upload to ${bucketName}/${filePath}`);
-    const uploadResult = await bucket.upload(filePath, fileContent, {
-      contentType,
+    console.log(`[STORAGE] Executing upload to ${bucketName}/${filePath}`);
+    const { data, error } = await bucket.upload(filePath, fileContent, {
+      contentType: contentType || 'text/plain',
       cacheControl: '3600',
-      upsert: true
+      upsert: true // Always use upsert to avoid conflicts
     });
       
-    if (uploadResult.error) {
-      console.error('[STORAGE] Error uploading file:', uploadResult.error);
-      throw new Error(`File upload failed: ${uploadResult.error.message}`);
+    if (error) {
+      console.error('[STORAGE] Error uploading file:', error);
+      throw new Error(`File upload failed: ${error.message}`);
     }
     
-    console.log(`[STORAGE] File uploaded successfully: ${filePath}`);
+    if (!data || !data.path) {
+      console.error('[STORAGE] Upload succeeded but no path returned');
+      throw new Error('Upload succeeded but no path was returned');
+    }
     
-    // Get public URL - avoid chaining
-    const urlResult = bucket.getPublicUrl(filePath);
-    console.log(`[STORAGE] Generated public URL: ${urlResult.data.publicUrl}`);
-    return urlResult.data.publicUrl;
+    console.log(`[STORAGE] File uploaded successfully to path: ${data.path}`);
+    
+    // Explicitly get public URL
+    const { data: urlData } = bucket.getPublicUrl(filePath);
+    
+    if (!urlData || !urlData.publicUrl) {
+      console.error('[STORAGE] Failed to generate public URL');
+      throw new Error('Failed to generate public URL');
+    }
+    
+    console.log(`[STORAGE] Generated public URL: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
   } catch (error) {
     console.error('[STORAGE] Error in uploadToStorage:', error);
     throw error;
