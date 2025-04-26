@@ -107,5 +107,12 @@
       "supabase": "^2.22.6",
       "tailwindcss": "^3.3.3",
       "typescript": "5.8.3"
+   },
+   "overrides": {
+      "glob": "^10.3.10",
+      "inflight": "^2.0.1",
+      "uuid": "^11.1.0",
+      "node-domexception": "^2.0.1",
+      "lodash.pick": "^4.4.0"
    }
 }

@@ -39,6 +39,45 @@ export function getSupabaseAdmin() {
 }
 
 /**
+ * Creates a bucket with appropriate access policy
+ */
+async function createBucketWithPolicy(
+  bucketName: string, 
+  isPublic: boolean, 
+  fileSizeLimit = 52428800, 
+  allowedMimeTypes?: string[]
+) {
+  try {
+    // Create the bucket - avoid chaining to prevent errors
+    const storage = supabaseAdmin.storage;
+    const { error } = await storage.createBucket(bucketName, {
+      public: isPublic,
+      fileSizeLimit,
+      allowedMimeTypes
+    });
+    
+    if (error) {
+      console.error(`Error creating bucket ${bucketName}:`, error);
+      throw new Error(`Failed to create storage bucket: ${error.message}`);
+    }
+    
+    // If public bucket, set appropriate policies
+    if (isPublic) {
+      // Set bucket policy to allow public access - avoid chaining
+      await storage.updateBucket(bucketName, {
+        public: true,
+        allowedMimeTypes
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error in createBucketWithPolicy for ${bucketName}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Upload a file to Supabase storage and return the public URL
  * Will automatically create the bucket if it doesn't exist
  */
@@ -49,8 +88,12 @@ export async function uploadToStorage(
   contentType?: string
 ): Promise<string> {
   try {
-    // Check if bucket exists, create if it doesn't
-    const { data: bucketExists, error: bucketError } = await supabaseAdmin.storage.getBucket(bucketName);
+    const storage = supabaseAdmin.storage;
+    
+    // Check if bucket exists, create if it doesn't - avoid chaining
+    const bucketResult = await storage.getBucket(bucketName);
+    const bucketExists = bucketResult.data;
+    const bucketError = bucketResult.error;
     
     // If bucket doesn't exist, create with appropriate settings based on bucket name
     if (bucketError || !bucketExists) {
@@ -67,85 +110,84 @@ export async function uploadToStorage(
       await createBucketWithPolicy(bucketName, isPublic, 52428800, mimeTypes);
     }
     
-    // Upload file
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(bucketName)
-      .upload(filePath, fileContent, {
-        contentType,
-        cacheControl: '3600',
-        upsert: false
-      });
+    // Upload file - avoid chaining
+    const bucket = storage.from(bucketName);
+    const uploadResult = await bucket.upload(filePath, fileContent, {
+      contentType,
+      cacheControl: '3600',
+      upsert: false
+    });
       
-    if (uploadError) {
-      console.error('Error uploading file:', uploadError);
-      throw new Error(`File upload failed: ${uploadError.message}`);
+    if (uploadResult.error) {
+      console.error('Error uploading file:', uploadResult.error);
+      throw new Error(`File upload failed: ${uploadResult.error.message}`);
     }
     
-    // Get public URL
-    const { data } = supabaseAdmin.storage.from(bucketName).getPublicUrl(filePath);
-    return data.publicUrl;
+    // Get public URL - avoid chaining
+    const urlResult = bucket.getPublicUrl(filePath);
+    return urlResult.data.publicUrl;
   } catch (error) {
     console.error('Error in uploadToStorage:', error);
     throw error;
   }
 }
 
-/**
- * Creates a bucket with appropriate access policy
- */
-async function createBucketWithPolicy(
-  bucketName: string, 
-  isPublic: boolean, 
-  fileSizeLimit = 52428800, 
-  allowedMimeTypes?: string[]
-) {
-  // Create the bucket
-  const { error } = await supabaseAdmin.storage.createBucket(bucketName, {
-    public: isPublic,
-    fileSizeLimit,
-    allowedMimeTypes
-  });
-  
-  if (error) {
-    console.error(`Error creating bucket ${bucketName}:`, error);
-    throw new Error(`Failed to create storage bucket: ${error.message}`);
+// Create a safe version of ensureStorageBuckets to avoid build time errors
+export async function ensureStorageBuckets() {
+  try {
+    const storage = supabaseAdmin.storage;
+    // Define standard buckets with their settings
+    const buckets = [
+      { name: 'lead-imports', isPublic: false, mimeTypes: ['text/csv', 'application/vnd.ms-excel'] },
+      { name: 'templates', isPublic: false, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
+      { name: 'generated-documents', isPublic: true, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
+    ];
+    
+    // Ensure each bucket exists
+    for (const bucket of buckets) {
+      const bucketResult = await storage.getBucket(bucket.name);
+      if (bucketResult.error || !bucketResult.data) {
+        await createBucketWithPolicy(
+          bucket.name, 
+          bucket.isPublic, 
+          52428800, // 50MB limit
+          bucket.mimeTypes
+        );
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error ensuring storage buckets:', error);
+    return false;
   }
-  
-  // If public bucket, set appropriate policies
-  if (isPublic) {
-    // Set bucket policy to allow public access
-    await supabaseAdmin.storage.updateBucket(bucketName, {
-      public: true,
-      allowedMimeTypes
-    });
-  }
-  
-  return true;
 }
 
 export async function downloadFromStorage(bucketName: string, filePath: string): Promise<Buffer | null> {
   try {
+    const storage = supabaseAdmin.storage;
+    
     // Check if bucket exists, create if it doesn't using the same logic as uploadToStorage
-    const { data: bucketExists, error: bucketError } = await supabaseAdmin.storage.getBucket(bucketName);
+    const bucketResult = await storage.getBucket(bucketName);
+    const bucketExists = bucketResult.data;
+    const bucketError = bucketResult.error;
     
     if (bucketError || !bucketExists) {
       const isPublic = bucketName === 'generated-documents';
       await createBucketWithPolicy(bucketName, isPublic);
     }
   
-    // Download file
-    const { data, error } = await supabaseAdmin
-      .storage
-      .from(bucketName)
-      .download(filePath);
+    // Download file - avoid chaining
+    const bucket = storage.from(bucketName);
+    const downloadResult = await bucket.download(filePath);
       
-    if (error || !data) {
-      console.error('Error downloading file:', error);
+    if (downloadResult.error || !downloadResult.data) {
+      console.error('Error downloading file:', downloadResult.error);
       return null;
     }
     
     // Convert blob to buffer for server-side operations
-    const arrayBuffer = await data.arrayBuffer();
+    const arrayBuffer = await downloadResult.data.arrayBuffer();
     return Buffer.from(arrayBuffer);
   } catch (error) {
     console.error('Error in downloadFromStorage:', error);

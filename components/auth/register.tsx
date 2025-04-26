@@ -28,8 +28,8 @@ export const Register = () => {
       setRegError(null);
       
       try {
-        // Call the new direct API route instead of registerUser action
-        const response = await fetch('/api/auth/register', {
+        // Call the new direct API route with updated path
+        const response = await fetch('/api/auth/register-new', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

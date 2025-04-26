@@ -43,7 +43,7 @@ export async function uploadToStorage(
     let supabase;
     
     if (typeof window === 'undefined') {
-      // Server-side - dynamic import to avoid bundling issues
+      // Server-side - use dynamic import to avoid bundling issues
       const { cookies } = await import('next/headers');
       supabase = await createServerClient(cookieStore || cookies());
     } else {
@@ -51,26 +51,22 @@ export async function uploadToStorage(
       supabase = createBrowserClient();
     }
     
-    const { data, error } = await supabase
-      .storage
-      .from(bucketName)
-      .upload(filePath, fileContent, {
-        contentType,
-        upsert: true,
-      });
+    // Using regular method calls instead of chaining to avoid potential bundling issues
+    const storage = supabase.storage;
+    const bucket = storage.from(bucketName);
+    const { data, error } = await bucket.upload(filePath, fileContent, {
+      contentType,
+      upsert: true,
+    });
       
     if (error) {
       console.error('Error uploading file:', error);
       return null;
     }
     
-    // Return the public URL
-    const { data: urlData } = supabase
-      .storage
-      .from(bucketName)
-      .getPublicUrl(filePath);
-      
-    return urlData.publicUrl;
+    // Return the public URL - avoid chaining
+    const urlResult = bucket.getPublicUrl(filePath);
+    return urlResult.data.publicUrl;
   } catch (error) {
     console.error('Error in uploadToStorage:', error);
     return null;
@@ -79,7 +75,6 @@ export async function uploadToStorage(
 
 /**
  * Helper to upload a DOCX template to Supabase storage (client-side)
- * This function is specifically for uploading document templates
  */
 export async function uploadDocxTemplateToStorage(
   file: File,
@@ -88,26 +83,23 @@ export async function uploadDocxTemplateToStorage(
   try {
     const supabase = createBrowserClient();
     
-    const { data, error } = await supabase
-      .storage
-      .from(StorageBucket.TEMPLATES)
-      .upload(filePath, file, {
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        upsert: true,
-      });
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(StorageBucket.TEMPLATES);
+    
+    const { data, error } = await bucket.upload(filePath, file, {
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      upsert: true,
+    });
       
     if (error) {
       console.error('Error uploading template file:', error);
       return null;
     }
     
-    // Return the public URL
-    const { data: urlData } = supabase
-      .storage
-      .from(StorageBucket.TEMPLATES)
-      .getPublicUrl(filePath);
-      
-    return urlData.publicUrl;
+    // Return the public URL - avoid chaining
+    const urlResult = bucket.getPublicUrl(filePath);
+    return urlResult.data.publicUrl;
   } catch (error) {
     console.error('Error in uploadDocxTemplateToStorage:', error);
     return null;
@@ -135,14 +127,15 @@ export async function uploadOptimizedImage(
       supabase = createBrowserClient();
     }
     
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(StorageBucket.IMAGES);
+    
     // Upload the original image
-    const { data, error } = await supabase
-      .storage
-      .from(StorageBucket.IMAGES)
-      .upload(filePath, file, {
-        contentType: file instanceof File ? file.type : 'image/jpeg',
-        upsert: true,
-      });
+    const { data, error } = await bucket.upload(filePath, file, {
+      contentType: file instanceof File ? file.type : 'image/jpeg',
+      upsert: true,
+    });
       
     if (error) {
       console.error('Error uploading image:', error);
@@ -150,18 +143,15 @@ export async function uploadOptimizedImage(
     }
     
     // Get the URL with transform options
-    const { data: urlData } = supabase
-      .storage
-      .from(StorageBucket.IMAGES)
-      .getPublicUrl(filePath, {
-        transform: {
-          width: options.width,
-          height: options.height,
-          quality: options.quality,
-        }
-      });
+    const urlResult = bucket.getPublicUrl(filePath, {
+      transform: {
+        width: options.width,
+        height: options.height,
+        quality: options.quality,
+      }
+    });
     
-    return urlData.publicUrl;
+    return urlResult.data.publicUrl;
   } catch (error) {
     console.error('Error in uploadOptimizedImage:', error);
     return null;
@@ -210,18 +200,18 @@ export async function getOptimizedImageUrl(
       supabase = createBrowserClient();
     }
     
-    const { data: urlData } = supabase
-      .storage
-      .from(StorageBucket.IMAGES)
-      .getPublicUrl(filePath, {
-        transform: {
-          width: options.width,
-          height: options.height,
-          quality: options.quality
-        }
-      });
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(StorageBucket.IMAGES);
+    const urlResult = bucket.getPublicUrl(filePath, {
+      transform: {
+        width: options.width,
+        height: options.height,
+        quality: options.quality
+      }
+    });
     
-    return urlData.publicUrl;
+    return urlResult.data.publicUrl;
   } catch (error) {
     console.error('Error in getOptimizedImageUrl:', error);
     return null;
@@ -245,25 +235,22 @@ export async function uploadSvg(
       supabase = createBrowserClient();
     }
     
-    const { data, error } = await supabase
-      .storage
-      .from(StorageBucket.ASSETS)
-      .upload(filePath, file, {
-        contentType: 'image/svg+xml',
-        upsert: true,
-      });
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(StorageBucket.ASSETS);
+    
+    const { data, error } = await bucket.upload(filePath, file, {
+      contentType: 'image/svg+xml',
+      upsert: true,
+    });
       
     if (error) {
       console.error('Error uploading SVG:', error);
       return null;
     }
     
-    const { data: urlData } = supabase
-      .storage
-      .from(StorageBucket.ASSETS)
-      .getPublicUrl(filePath);
-      
-    return urlData.publicUrl;
+    const urlResult = bucket.getPublicUrl(filePath);  
+    return urlResult.data.publicUrl;
   } catch (error) {
     console.error('Error in uploadSvg:', error);
     return null;
@@ -283,10 +270,11 @@ export async function downloadFromStorage(
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
-    const { data, error } = await supabase
-      .storage
-      .from(bucketName)
-      .download(filePath);
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(bucketName);
+    
+    const { data, error } = await bucket.download(filePath);
       
     if (error || !data) {
       console.error('Error downloading file:', error);
@@ -312,10 +300,11 @@ export async function listFiles(bucketName: string, folderPath?: string): Promis
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
-    const { data, error } = await supabase
-      .storage
-      .from(bucketName)
-      .list(folderPath || '');
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(bucketName);
+    
+    const { data, error } = await bucket.list(folderPath || '');
       
     if (error) {
       console.error('Error listing files:', error);
@@ -339,10 +328,11 @@ export async function deleteFromStorage(bucketName: string, filePath: string): P
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
-    const { error } = await supabase
-      .storage
-      .from(bucketName)
-      .remove([filePath]);
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(bucketName);
+    
+    const { error } = await bucket.remove([filePath]);
       
     if (error) {
       console.error('Error deleting file:', error);
@@ -370,10 +360,11 @@ export async function createSignedUrl(
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
     
-    const { data, error } = await supabase
-      .storage
-      .from(bucketName)
-      .createSignedUrl(filePath, expiresIn);
+    // Avoid chaining calls
+    const storage = supabase.storage;
+    const bucket = storage.from(bucketName);
+    
+    const { data, error } = await bucket.createSignedUrl(filePath, expiresIn);
       
     if (error) {
       console.error('Error creating signed URL:', error);
@@ -395,26 +386,26 @@ export function useClientStorage() {
   
   return {
     uploadFile: async (bucketName: string, filePath: string, file: File) => {
-      const { data, error } = await supabase
-        .storage
-        .from(bucketName)
-        .upload(filePath, file);
+      // Avoid chaining calls
+      const storage = supabase.storage;
+      const bucket = storage.from(bucketName);
+      
+      const { data, error } = await bucket.upload(filePath, file);
         
       if (error) {
         throw error;
       }
       
-      return supabase
-        .storage
-        .from(bucketName)
-        .getPublicUrl(filePath);
+      const urlResult = bucket.getPublicUrl(filePath);
+      return urlResult;
     },
     
     listFiles: async (bucketName: string, folderPath?: string) => {
-      const { data, error } = await supabase
-        .storage
-        .from(bucketName)
-        .list(folderPath || '');
+      // Avoid chaining calls
+      const storage = supabase.storage;
+      const bucket = storage.from(bucketName);
+      
+      const { data, error } = await bucket.list(folderPath || '');
         
       if (error) {
         throw error;
@@ -424,10 +415,11 @@ export function useClientStorage() {
     },
     
     deleteFile: async (bucketName: string, filePath: string) => {
-      const { error } = await supabase
-        .storage
-        .from(bucketName)
-        .remove([filePath]);
+      // Avoid chaining calls
+      const storage = supabase.storage;
+      const bucket = storage.from(bucketName);
+      
+      const { error } = await bucket.remove([filePath]);
         
       if (error) {
         throw error;
