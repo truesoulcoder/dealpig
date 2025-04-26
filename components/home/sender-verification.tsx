@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Modal, 
   ModalContent, 
@@ -58,10 +58,10 @@ export default function SenderVerificationModal({
       fetchSenders();
       fetchUserEmail();
     }
-  }, [isOpen, campaignId]);
+  }, [isOpen, campaignId, fetchSenders, fetchUserEmail]);
   
   // Fetch user's email for test email recipient
-  const fetchUserEmail = async () => {
+  const fetchUserEmail = useCallback(async () => {
     try {
       // This would need to be implemented - getting the current user's email
       // For now using a placeholder
@@ -69,10 +69,10 @@ export default function SenderVerificationModal({
     } catch (error) {
       console.error("Error fetching user email:", error);
     }
-  };
+  }, []);
   
   // Fetch campaign senders
-  const fetchSenders = async () => {
+  const fetchSenders = useCallback(async () => {
     setLoading(true);
     try {
       // Call API to get senders assigned to this campaign
@@ -98,10 +98,10 @@ export default function SenderVerificationModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId]);
   
   // Send test email from a specific sender
-  const sendTestEmail = async (senderId: string) => {
+  const sendTestEmail = useCallback(async (senderId: string) => {
     // Update local state to show loading
     setSenders(prev => prev.map(sender => 
       sender.id === senderId 
@@ -150,10 +150,10 @@ export default function SenderVerificationModal({
           : sender
       ));
     }
-  };
+  }, [campaignId, userEmail]);
   
   // Send test emails from all senders
-  const sendAllTestEmails = async () => {
+  const sendAllTestEmails = useCallback(async () => {
     setTestingAll(true);
     
     try {
@@ -168,10 +168,10 @@ export default function SenderVerificationModal({
     } finally {
       setTestingAll(false);
     }
-  };
+  }, [senders, sendTestEmail]);
   
   // Toggle verification status for a sender
-  const toggleVerification = async (senderId: string, verified: boolean) => {
+  const toggleVerification = useCallback(async (senderId: string, verified: boolean) => {
     try {
       const response = await fetch(`/api/campaigns/${campaignId}/senders/${senderId}/verify`, {
         method: 'POST',
@@ -201,7 +201,7 @@ export default function SenderVerificationModal({
     } catch (error) {
       console.error("Error updating sender verification:", error);
     }
-  };
+  }, [campaignId, senders, onAllVerified]);
   
   // Check if all senders have been verified
   const allSendersVerified = senders.every(sender => sender.verified);
@@ -310,6 +310,7 @@ export default function SenderVerificationModal({
                           isSelected={sender.verified}
                           onValueChange={(isSelected) => toggleVerification(sender.id, isSelected)}
                           isDisabled={!sender.test_sent}
+                          aria-label={`Verify sender ${sender.name}`}
                         />
                       </TableCell>
                       <TableCell>

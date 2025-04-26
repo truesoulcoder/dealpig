@@ -203,6 +203,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive('bold') ? "solid" : "flat"}
             onPress={() => editor.chain().focus().toggleBold().run()}
             className="min-w-8 h-8"
+            aria-label="Bold text"
           >
             <FaBold size={14} />
           </Button>
@@ -214,6 +215,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive('italic') ? "solid" : "flat"}
             onPress={() => editor.chain().focus().toggleItalic().run()}
             className="min-w-8 h-8"
+            aria-label="Italic text"
           >
             <FaItalic size={14} />
           </Button>
@@ -225,6 +227,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive('underline') ? "solid" : "flat"}
             onPress={() => editor.chain().focus().toggleUnderline().run()}
             className="min-w-8 h-8"
+            aria-label="Underline text"
           >
             <FaUnderline size={14} />
           </Button>
@@ -242,6 +245,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive('bulletList') ? "solid" : "flat"}
             onPress={() => editor.chain().focus().toggleBulletList().run()}
             className="min-w-8 h-8"
+            aria-label="Bullet list"
           >
             <FaListUl size={14} />
           </Button>
@@ -253,6 +257,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive('orderedList') ? "solid" : "flat"}
             onPress={() => editor.chain().focus().toggleOrderedList().run()}
             className="min-w-8 h-8"
+            aria-label="Numbered list"
           >
             <FaListOl size={14} />
           </Button>
@@ -270,6 +275,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive({ textAlign: 'left' }) ? "solid" : "flat"}
             onPress={() => editor.chain().focus().setTextAlign('left').run()}
             className="min-w-8 h-8"
+            aria-label="Align text left"
           >
             <FaAlignLeft size={14} />
           </Button>
@@ -281,6 +287,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive({ textAlign: 'center' }) ? "solid" : "flat"}
             onPress={() => editor.chain().focus().setTextAlign('center').run()}
             className="min-w-8 h-8"
+            aria-label="Align text center"
           >
             <FaAlignCenter size={14} />
           </Button>
@@ -292,6 +299,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive({ textAlign: 'right' }) ? "solid" : "flat"}
             onPress={() => editor.chain().focus().setTextAlign('right').run()}
             className="min-w-8 h-8"
+            aria-label="Align text right"
           >
             <FaAlignRight size={14} />
           </Button>
@@ -303,6 +311,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             variant={editor.isActive({ textAlign: 'justify' }) ? "solid" : "flat"}
             onPress={() => editor.chain().focus().setTextAlign('justify').run()}
             className="min-w-8 h-8"
+            aria-label="Justify text"
           >
             <FaAlignJustify size={14} />
           </Button>
@@ -319,6 +328,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
           variant={editor.isActive('link') ? "solid" : "flat"}
           onPress={handleLinkInsert}
           className="min-w-8 h-8"
+          aria-label="Insert link"
         >
           <FaLink size={14} />
         </Button>
@@ -336,6 +346,7 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
             }
           }}
           className="min-w-8 h-8 ml-1"
+          aria-label="Insert image"
         >
           <FaImage size={14} />
         </Button>
@@ -547,15 +558,15 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
             <Select
               label="Template"
               placeholder="Select a template"
-              value={selectedTemplate}
-              onChange={(value) => handleTemplateChange(value)}
+              selectedKeys={[selectedTemplate]}
+              onChange={(value) => handleTemplateChange(value.toString())}
               className="w-full"
               aria-label="Template selector"
               data-testid="template-selector"
             >
-              <SelectItem key="default" value="default">Default Template</SelectItem>
+              <SelectItem key="default">Default Template</SelectItem>
               {templates.map((template) => (
-                <SelectItem key={template.id} value={template.id || ''}>
+                <SelectItem key={template.id || ''}>
                   {template.name}
                 </SelectItem>
               ))}
