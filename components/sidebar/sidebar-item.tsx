@@ -1,7 +1,7 @@
-import NextLink from "next/link";
 import React from "react";
 import { useSidebarContext } from "../layout/layout-context";
 import clsx from "clsx";
+import NavLink from "../ui/NavLink";
 
 interface Props {
   title: string;
@@ -18,10 +18,13 @@ export const SidebarItem = ({ icon, title, isActive, href = "" }: Props) => {
       setCollapsed();
     }
   };
+  
   return (
-    <NextLink
+    <NavLink
       href={href}
       className="text-default-900 active:bg-none max-w-full"
+      onClick={handleClick}
+      prefetch={true}
     >
       <div
         className={clsx(
@@ -30,11 +33,10 @@ export const SidebarItem = ({ icon, title, isActive, href = "" }: Props) => {
             : "hover:bg-default-100",
           "flex gap-2 w-full min-h-[44px] h-full items-center px-3.5 rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.98]"
         )}
-        onPress={handleClick}
       >
         {icon}
         <span className={clsx(isActive ? "text-primary-500" : "text-default-900")}>{title}</span>
       </div>
-    </NextLink>
+    </NavLink>
   );
 };

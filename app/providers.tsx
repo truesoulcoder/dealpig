@@ -2,8 +2,9 @@
 import * as React from "react";
 import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { ThemeProviderProps } from "next-themes/dist/types";
+import type { ThemeProviderProps } from "next-themes";
 import { TRPCProvider } from "./providers/trpc-provider";
+import { NavigationProvider } from "./providers/navigation-provider";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -43,9 +44,11 @@ export function Providers({ children, themeProps }: ProvidersProps) {
       enableColorScheme={true}
       disableTransitionOnChange
       {...themeProps}>
-      <HeroUIProvider theme={theme}>
+      <HeroUIProvider>
         <TRPCProvider>
-          {children}
+          <NavigationProvider>
+            {children}
+          </NavigationProvider>
         </TRPCProvider>
       </HeroUIProvider>
     </NextThemesProvider>

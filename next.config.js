@@ -17,7 +17,11 @@ const nextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '20mb'
-    }
+    },
+    // Optimize navigation reliability with optimistic navigation
+    optimizeCss: true,
+    optimisticClientCache: true,
+    scrollRestoration: true,
   },
   
   // ESLint configuration - disable accessibility warnings
@@ -26,6 +30,9 @@ const nextConfig = {
     ignoreDuringBuilds: true,
     dirs: ['pages', 'components', 'app', 'utils', 'lib']
   },
+  
+  // Enhance client-side navigation
+  swcMinify: true,
 };
 
 module.exports = withBundleAnalyzer(nextConfig);
