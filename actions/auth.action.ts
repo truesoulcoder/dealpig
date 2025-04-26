@@ -79,7 +79,9 @@ export async function saveToken(email: string, oauthToken: string, refreshToken:
 // Add a new user registration function
 export async function registerUser(email: string, password: string, name: string) {
   try {
-    // Use supabaseAdmin for creating users
+    console.log("Starting user registration process for:", email);
+    
+    // Use supabaseAdmin for creating users - fixed method call
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -88,9 +90,12 @@ export async function registerUser(email: string, password: string, name: string
     });
 
     if (userError) {
+      console.error("User creation error:", userError);
       return { success: false, message: userError.message };
     }
 
+    console.log("User created successfully, creating profile");
+    
     // Create the user profile in the profiles table
     const { error: profileError } = await supabaseAdmin.from('profiles').insert({
       id: userData.user.id,
