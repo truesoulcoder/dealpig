@@ -19,6 +19,9 @@ import { uploadToStorage, supabaseAdmin } from '@/lib/supabaseAdmin';
 // Bucket name for lead imports
 const LEADS_BUCKET = 'lead-imports';
 
+// Maximum file size 50MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
 interface CsvLead {
   property_address: string;
   property_city: string;
@@ -317,19 +320,70 @@ export async function uploadCsv(formData: FormData): Promise<IngestResult> {
         errors: ['Invalid file type']
       };
     }
+    
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return {
+        success: false,
+        message: 'File size exceeds the 10MB limit',
+        totalRows: 0,
+        insertedLeads: 0,
+        insertedContacts: 0,
+        errors: ['File too large']
+      };
+    }
 
     // Read file content
-    const fileContent = await file.text();
+    let fileContent;
+    try {
+      fileContent = await file.text();
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
+        totalRows: 0,
+        insertedLeads: 0,
+        insertedContacts: 0,
+        errors: ['File reading error']
+      };
+    }
+    
+    // If file is empty or invalid
+    if (!fileContent || fileContent.trim().length === 0) {
+      return {
+        success: false,
+        message: 'The uploaded file is empty',
+        totalRows: 0,
+        insertedLeads: 0,
+        insertedContacts: 0,
+        errors: ['Empty file']
+      };
+    }
     
     // Convert file to buffer for storage
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     
-    return ingestLeadsFromCsvCore(fileContent, file.name, fileBuffer);
+    try {
+      // Set a longer timeout for processing large files
+      const result = await ingestLeadsFromCsvCore(fileContent, file.name, fileBuffer);
+      return result;
+    } catch (error) {
+      console.error('Error in CSV processing:', error);
+      // Provide detailed error information
+      return {
+        success: false,
+        message: `Error processing CSV: ${error instanceof Error ? error.message : String(error)}`,
+        totalRows: 0,
+        insertedLeads: 0,
+        insertedContacts: 0,
+        errors: [error instanceof Error ? error.stack || error.message : String(error)]
+      };
+    }
   } catch (error) {
-    console.error('Error uploading CSV:', error);
+    console.error('Unexpected error uploading CSV:', error);
     return {
       success: false,
-      message: `Error uploading file: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
       totalRows: 0,
       insertedLeads: 0,
       insertedContacts: 0,
