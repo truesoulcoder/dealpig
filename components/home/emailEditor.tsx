@@ -72,7 +72,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose max-w-none focus:outline-none p-4 min-h-[300px]',
+        class: 'prose prose-sm sm:prose max-w-none focus:outline-none p-4 min-h-[300px] text-gray-900',
         placeholder,
       },
     },
@@ -358,7 +358,7 @@ const EmailEditor = ({ initialContent = '', onChange, placeholder = 'Write your 
         </Tooltip>
       </div>
 
-      <EditorContent editor={editor} className="bg-white min-h-[400px]" />
+      <EditorContent editor={editor} className="bg-white min-h-[400px] text-gray-900" />
     </div>
   );
 };

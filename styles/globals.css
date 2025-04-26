@@ -58,11 +58,13 @@ svg.active .svg-elem-1{
   100% { stroke: #86c384; }
 }
 
-/* Sparkle animation from the SVG style tag */
+/* Sparkle animation for SVG elements */
 @keyframes sparkle {
-  0%, 100% { fill: #FFD700; filter: drop-shadow(0 0 1px #FFD700); }
+  0% { fill: #FFD700; filter: drop-shadow(0 0 1px #FFD700); }
   50% { fill: #fffacd; filter: drop-shadow(0 0 4px #ffffff); }
+  100% { fill: #FFD700; filter: drop-shadow(0 0 1px #FFD700); }
 }
+
 .sparkle {
   animation: sparkle 1.5s infinite;
 }
@@ -72,15 +74,7 @@ svg.active .svg-elem-1{
   display: inline-block;
 }
 
-.logo-animation-container svg {
-  animation: activateSvg 3s ease forwards;
-  animation-iteration-count: infinite;
-}
-
-@keyframes activateSvg {
-  0% { opacity: 0; }
-  10% { opacity: 1; class: ''; }
-  45% { class: 'active'; }
-  90% { opacity: 1; }
-  100% { opacity: 0; class: ''; }
+/* Force animation restart by using opacity trick */
+.logo-animation-container {
+  animation: none !important;
 }

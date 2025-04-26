@@ -1,16 +1,12 @@
 import React, { useEffect, useState } from "react";
 
 const AnimatedLogo = () => {
-  const [isAnimating, setIsAnimating] = useState(true);
+  const [key, setKey] = useState(0); // Add key to force remounting
 
+  // Restart animation periodically
   useEffect(() => {
-    // Start animation when component mounts
-    setIsAnimating(true);
-    
-    // Optionally restart animation periodically
     const animationInterval = setInterval(() => {
-      setIsAnimating(false);
-      setTimeout(() => setIsAnimating(true), 100);
+      setKey(prevKey => prevKey + 1);
     }, 15000); // Restart every 15 seconds
     
     return () => clearInterval(animationInterval);
@@ -19,11 +15,12 @@ const AnimatedLogo = () => {
   return (
     <div className="flex items-center">
       <svg
+        key={key}
         width="180"
         height="80" 
         viewBox="0 0 180 80"
         xmlns="http://www.w3.org/2000/svg"
-        className="logo-svg"
+        className="logo-animation-container"
       >
         <style>
           {`
@@ -32,7 +29,7 @@ const AnimatedLogo = () => {
             60% { stroke-dashoffset: 0; }
             100% { stroke-dashoffset: 0; }
           }
-          
+
           @keyframes fillIn {
             0%, 60% { fill-opacity: 0; }
             100% { fill-opacity: 1; }
@@ -44,26 +41,21 @@ const AnimatedLogo = () => {
             100% { fill: #3b6939; }
           }
           
-          .logo-svg {
-            display: block;
-            overflow: visible;
-          }
-          
           .animated-path {
             stroke: #3b6939;
             stroke-width: 1.5;
             stroke-dasharray: 1000;
-            stroke-dashoffset: ${isAnimating ? '1000' : '0'};
-            fill-opacity: ${isAnimating ? '0' : '1'};
-            animation: ${isAnimating ? 'drawPath 2.5s ease forwards, fillIn 2.5s ease forwards, colorShift 8s infinite 2.5s' : 'none'};
+            stroke-dashoffset: 1000;
+            fill-opacity: 0;
+            animation: drawPath 2.5s ease forwards, fillIn 2.5s ease forwards, colorShift 8s infinite 2.5s;
           }
           
           .animated-text {
             stroke: #3b6939;
             stroke-width: 0.5;
             fill: #3b6939;
-            opacity: ${isAnimating ? '0' : '1'};
-            animation: ${isAnimating ? 'fillIn 1s ease 2s forwards' : 'none'};
+            opacity: 0;
+            animation: fillIn 1s ease 2s forwards;
           }
           `}
         </style>
@@ -121,6 +113,11 @@ const AnimatedLogo = () => {
           className="animated-text"
           d="M144,18 h3 v13 h7 v4 h-10 Z" 
         />
+        
+        {/* Add sparkles */}
+        <circle className="sparkle" cx="68" cy="16" r="1" />
+        <circle className="sparkle" cx="64" cy="14" r="0.8" />
+        <circle className="sparkle" cx="60" cy="17" r="0.6" />
       </svg>
     </div>
   );
