@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Card, CardBody, CardHeader, CardFooter, Button, Chip, Tooltip, Progress } from "@heroui/react";
+import { Card, CardBody, CardHeader, CardFooter, Button, Chip, Tooltip, Progress } from "@nextui-org/react";
 import { FaPlay, FaPause, FaStop, FaEdit, FaChartLine } from "react-icons/fa";
 import { startCampaign, pauseCampaign, completeCampaign } from '@/lib/database';
 import { useRouter } from 'next/navigation';

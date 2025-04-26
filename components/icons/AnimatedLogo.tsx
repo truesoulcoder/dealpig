@@ -7,7 +7,7 @@ const AnimatedLogo = () => {
   useEffect(() => {
     const animationInterval = setInterval(() => {
       setKey(prevKey => prevKey + 1);
-    }, 15000); // Restart every 15 seconds
+    }, 30000); // Extend interval to 30 seconds for slower animation cycle
     
     return () => clearInterval(animationInterval);
   }, []);
@@ -26,18 +26,18 @@ const AnimatedLogo = () => {
           {`
           @keyframes drawPath {
             0% { stroke-dashoffset: 1000; }
-            60% { stroke-dashoffset: 0; }
+            80% { stroke-dashoffset: 0; } /* Extend to 80% to ensure complete drawing */
             100% { stroke-dashoffset: 0; }
           }
 
           @keyframes fillIn {
-            0%, 60% { fill-opacity: 0; }
+            0%, 80% { fill-opacity: 0; } /* Start fill after path is fully drawn */
             100% { fill-opacity: 1; }
           }
           
           @keyframes colorShift {
-            0%, 70% { fill: #3b6939; }
-            85% { fill: #4a8a47; }
+            0%, 80% { fill: #3b6939; }
+            90% { fill: #4a8a47; }
             100% { fill: #3b6939; }
           }
           
@@ -47,7 +47,7 @@ const AnimatedLogo = () => {
             stroke-dasharray: 1000;
             stroke-dashoffset: 1000;
             fill-opacity: 0;
-            animation: drawPath 2.5s ease forwards, fillIn 2.5s ease forwards, colorShift 8s infinite 2.5s;
+            animation: drawPath 4s ease forwards, fillIn 4s ease forwards, colorShift 10s infinite 4s; /* Slowed down animations */
           }
           
           .animated-text {
@@ -55,7 +55,7 @@ const AnimatedLogo = () => {
             stroke-width: 0.5;
             fill: #3b6939;
             opacity: 0;
-            animation: fillIn 1s ease 2s forwards;
+            animation: fillIn 2s ease 3.5s forwards; /* Show text after paths are drawn */
           }
           `}
         </style>

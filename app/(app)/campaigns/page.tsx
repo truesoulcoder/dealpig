@@ -1,11 +1,32 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardBody, Button, Spinner } from "@heroui/react";
+import { useState, useEffect, Suspense } from 'react';
+import { Card, CardBody, Button, Spinner } from "@nextui-org/react"; // Fix import from heroui to nextui
 import { FaPlus } from "react-icons/fa";
 import { useRouter } from 'next/navigation';
-import CampaignCard from '@/components/home/campaign-card';
+import dynamic from 'next/dynamic';
 import { getCampaigns } from '@/actions/campaign.action';
+
+// Dynamically import the CampaignCard component with no SSR to prevent hydration issues
+const CampaignCard = dynamic(() => import('@/components/home/campaign-card'), {
+  ssr: false,
+  loading: () => (
+    <Card className="w-full h-48">
+      <CardBody className="flex items-center justify-center">
+        <Spinner size="lg" color="primary" />
+      </CardBody>
+    </Card>
+  ),
+});
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="flex justify-center items-center h-64">
+      <Spinner size="lg" color="primary" />
+    </div>
+  );
+}
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -60,36 +81,36 @@ export default function CampaignsPage() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Spinner size="lg" color="primary" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {campaigns && campaigns.length > 0 ? (
-            campaigns.map(campaign => (
-              <CampaignCard 
-                key={campaign.id} 
-                campaign={campaign} 
-                onStatusChange={handleCampaignStatusChange} 
-              />
-            ))
-          ) : (
-            <Card className="col-span-1 md:col-span-2 xl:col-span-3">
-              <CardBody className="text-center py-12">
-                <p className="text-gray-500 mb-4">No campaigns found.</p>
-                <Button 
-                  color="primary" 
-                  onPress={handleCreateCampaign}
-                  startContent={<FaPlus />}
-                >
-                  Create Your First Campaign
-                </Button>
-              </CardBody>
-            </Card>
-          )}
-        </div>
-      )}
+      <Suspense fallback={<LoadingFallback />}>
+        {loading ? (
+          <LoadingFallback />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {campaigns && campaigns.length > 0 ? (
+              campaigns.map(campaign => (
+                <CampaignCard 
+                  key={campaign.id} 
+                  campaign={campaign} 
+                  onStatusChange={handleCampaignStatusChange} 
+                />
+              ))
+            ) : (
+              <Card className="col-span-1 md:col-span-2 xl:col-span-3">
+                <CardBody className="text-center py-12">
+                  <p className="text-gray-500 mb-4">No campaigns found.</p>
+                  <Button 
+                    color="primary" 
+                    onPress={handleCreateCampaign}
+                    startContent={<FaPlus />}
+                  >
+                    Create Your First Campaign
+                  </Button>
+                </CardBody>
+              </Card>
+            )}
+          </div>
+        )}
+      </Suspense>
     </div>
   );
 }

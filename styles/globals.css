@@ -66,7 +66,7 @@ svg.active .svg-elem-1{
 }
 
 .sparkle {
-  animation: sparkle 1.5s infinite;
+  animation: sparkle 2.5s infinite;
 }
 
 /* Animation loop trigger class */
