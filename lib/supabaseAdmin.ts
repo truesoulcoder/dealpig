@@ -27,95 +27,11 @@ if (!supabaseUrl.startsWith('http')) {
 // Create a Supabase client with the service role key for server-side operations
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
-    persistSession: false,
     autoRefreshToken: false,
-  },
-  // Adding custom S3 endpoint for storage
-  global: {
-    headers: {
-      'X-Supabase-Storage-S3-Endpoint': storageS3Endpoint,
-    },
-  },
+    persistSession: false,
+    detectSessionInUrl: false
+  }
 });
-
-/**
- * Creates a storage bucket with appropriate policies
- * @param bucketName Name of the bucket to create
- * @param isPublic Whether the bucket should be public (true) or private (false)
- * @param fileSizeLimit Maximum file size in bytes (default is 52428800 = 50MB)
- * @param mimeTypes Array of allowed MIME types (optional)
- */
-export async function createBucketWithPolicy(
-  bucketName: string,
-  isPublic: boolean,
-  fileSizeLimit: number = 52428800, // 50MB
-  mimeTypes?: string[]
-): Promise<boolean> {
-  try {
-    console.log(`Creating bucket: ${bucketName}, public: ${isPublic}`);
-    
-    // Create bucket with specified settings
-    const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
-      public: isPublic,
-      fileSizeLimit: fileSizeLimit,
-      allowedMimeTypes: mimeTypes,
-    });
-    
-    if (createError) {
-      console.error(`Failed to create bucket ${bucketName}:`, createError);
-      return false;
-    }
-    
-    // Set appropriate policies based on whether the bucket is public or private
-    if (isPublic) {
-      // For public buckets, allow anyone to download files
-      const { error: policyError } = await supabaseAdmin
-        .storage
-        .from(bucketName)
-        .createSignedUrl('policy.txt', 60); // This is a hack to ensure bucket exists before setting policies
-        
-      if (!policyError) {
-        console.log(`Successfully created public bucket: ${bucketName}`);
-      } else {
-        console.error(`Error setting policy for ${bucketName}:`, policyError);
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.error(`Error creating bucket ${bucketName}:`, error);
-    return false;
-  }
-}
-
-/**
- * Creates storage buckets if they don't exist, with appropriate policies
- * This should be called during app initialization or before first storage operation
- */
-export async function ensureStorageBuckets(): Promise<void> {
-  const requiredBuckets = [
-    { name: 'templates', isPublic: false, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
-    { name: 'generated-documents', isPublic: true, mimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'] },
-    { name: 'lead-imports', isPublic: false, mimeTypes: ['text/csv', 'application/vnd.ms-excel'] }
-  ];
-  
-  for (const bucket of requiredBuckets) {
-    // Check if bucket exists
-    const { data: existingBucket, error: getBucketError } = await supabaseAdmin
-      .storage
-      .getBucket(bucket.name);
-      
-    // If bucket doesn't exist or there was an error retrieving it, create it
-    if (getBucketError || !existingBucket) {
-      await createBucketWithPolicy(
-        bucket.name,
-        bucket.isPublic,
-        52428800, // 50MB limit
-        bucket.mimeTypes
-      );
-    }
-  }
-}
 
 // Export as standalone function for server components
 export function getSupabaseAdmin() {

@@ -81,16 +81,8 @@ export async function registerUser(email: string, password: string, name: string
   try {
     console.log("===== REGISTRATION DEBUGGING =====");
     console.log("1. Starting user registration for:", email);
-    console.log("2. Checking Supabase admin client availability:", !!supabaseAdmin);
-
-    // Debug Supabase URL and key availability
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    console.log("3. Supabase URL is set:", !!supabaseUrl);
-    console.log("4. Supabase service role key is set:", !!supabaseServiceRoleKey);
     
-    // Use direct createUser call instead of admin.createUser
-    console.log("5. Attempting to create user with direct API");
+    // Use updated supabaseAdmin client
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -99,27 +91,46 @@ export async function registerUser(email: string, password: string, name: string
     });
 
     if (userError) {
-      console.error("6. ERROR creating user:", userError);
-      // If we hit an error, dump detailed error info for debugging
-      console.error("Error details:", JSON.stringify({
+      console.error("ERROR creating user:", userError);
+      // Log detailed error info for debugging
+      console.error("Error details:", {
         message: userError.message,
         status: userError.status,
-        name: userError.name,
-        details: userError?.details,
-        hint: userError?.hint,
-        code: userError?.code
-      }, null, 2));
+        name: userError.name
+      });
       return { success: false, message: userError.message };
     }
 
-    console.log("6. User created successfully:", userData.user.id);
+    console.log("User created successfully:", userData.user.id);
+    
+    // Only try to create profile if user creation succeeded
+    try {
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: userData.user.id,
+          full_name: name,
+          email: email,
+        });
+
+      if (profileError) {
+        // Log profile creation error but don't fail the registration
+        console.error('Error creating profile:', profileError.message);
+        console.log("Continuing with registration despite profile error");
+      } else {
+        console.log("Profile created successfully");
+      }
+    } catch (profileErr) {
+      // Log profile creation exception but don't fail the registration
+      console.error("Exception during profile creation:", profileErr);
+      console.log("Continuing with registration despite profile error");
+    }
 
     return { success: true, message: 'User registered successfully', userId: userData.user.id };
   } catch (error: any) {
     // Detailed error logging
     console.error("REGISTRATION FAILED WITH EXCEPTION:", error);
     console.error("Error details:", error?.message);
-    console.error("Stack trace:", error?.stack);
     
     return { success: false, message: `Registration error: ${error?.message || 'Unknown error'}` };
   }
