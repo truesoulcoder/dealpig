@@ -1506,3 +1506,88 @@ export async function saveClientSecret(clientId: string, clientSecret: string): 
     return false;
   }
 }
+
+/**
+ * Get all OAuth tokens from the database
+ * @param userId Optional user ID to filter tokens by
+ */
+export async function getAllOAuthTokens(userId?: string): Promise<any[]> {
+  try {
+    let query = supabase.from('oauth_tokens').select('*');
+    
+    if (userId) {
+      // If a user ID is provided, filter by user ID
+      query = query.eq('user_id', userId);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error getting OAuth tokens:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in getAllOAuthTokens:', error);
+    return [];
+  }
+}
+
+/**
+ * Update token refresh attempt status and track failures
+ * @param tokenId The ID of the token
+ * @param success Whether the refresh attempt was successful
+ * @param errorMessage Optional error message if the attempt failed
+ */
+export async function updateTokenRefreshAttempt(
+  tokenId: string, 
+  success: boolean,
+  errorMessage?: string
+): Promise<boolean> {
+  try {
+    // First get the current token to check its consecutive failures
+    const { data: currentToken, error: getError } = await supabase
+      .from('oauth_tokens')
+      .select('consecutive_refresh_failures')
+      .eq('id', tokenId)
+      .single();
+    
+    if (getError) {
+      console.error('Error getting current token status:', getError);
+      return false;
+    }
+    
+    // Calculate the new failure count
+    let consecutiveFailures = currentToken?.consecutive_refresh_failures || 0;
+    
+    if (success) {
+      // Reset failure count on success
+      consecutiveFailures = 0;
+    } else {
+      // Increment failure count on failure
+      consecutiveFailures += 1;
+    }
+    
+    // Update the token record
+    const { error } = await supabase
+      .from('oauth_tokens')
+      .update({
+        consecutive_refresh_failures: consecutiveFailures,
+        last_refresh_attempt: new Date().toISOString(),
+        last_refresh_error: success ? null : errorMessage,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', tokenId);
+    
+    if (error) {
+      console.error('Error updating token refresh attempt:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in updateTokenRefreshAttempt:', error);
+    return false;
+  }
+}

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
-  initializeBackgroundJobs,
-  cleanupBackgroundJobs,
   triggerCampaignProcessorManually,
   triggerDailyStatsResetManually
 } from '@/lib/cronJobs';
-import logger from '@/lib/logger';
+import { refreshAllTokens } from '@/lib/tokenRefresher';
+import { monitorEmailResponses } from '@/lib/gmailMonitor';
+import getLogger from '@/lib/logger';
 
 // Simple security check using a shared secret
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -15,6 +15,9 @@ const CRON_SECRET = process.env.CRON_SECRET;
  * Can be triggered by external cron job services
  */
 export async function POST(request: NextRequest) {
+  // Get the logger instance
+  const logger = await getLogger();
+  
   try {
     // Validate the request with a simple security check
     const authHeader = request.headers.get('authorization');
@@ -23,39 +26,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Parse the request to determine which job to run
-    const body = await request.json().catch(() => ({ job: 'all' }));
-    const jobType = body?.job || 'all';
-    
+    // Get job type from query parameter
+    const jobType = request.nextUrl.searchParams.get('job') || '';
     let result;
     
     // Run the requested job
     switch (jobType) {
-      case 'initialize':
-        await initializeBackgroundJobs();
-        result = { message: 'Background jobs initialized successfully' };
+      case 'token-refresh':
+        // Handle token refresh job
+        await logger.info('Running token refresh job', 'cron');
+        result = await refreshAllTokens();
         break;
-      case 'cleanup':
-        cleanupBackgroundJobs();
-        result = { message: 'Background jobs cleaned up successfully' };
+      case 'email-monitor':  
+        // Handle email monitoring job
+        await logger.info('Running email monitoring job', 'cron');
+        result = await monitorEmailResponses();
         break;
       case 'campaign-processor':
+        // This is now manual only
         result = await triggerCampaignProcessorManually();
         break;
       case 'reset-daily-stats':
         result = await triggerDailyStatsResetManually();
         break;
-      case 'all':
       default:
-        // Initialize all background jobs if they're not already running
-        await initializeBackgroundJobs();
-        // Also trigger campaign processor manually
-        await triggerCampaignProcessorManually();
-        result = { message: 'All jobs triggered successfully' };
-        break;
+        return NextResponse.json({ 
+          error: 'Invalid job type specified'
+        }, { status: 400 });
     }
     
-    logger.info(`Cron job ${jobType} executed successfully`, 'api:cron');
+    await logger.info(`Cron job ${jobType} executed successfully`, 'api:cron');
     
     return NextResponse.json({
       success: true,
@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       result
     });
   } catch (error) {
-    logger.error(`Error running cron job: ${error instanceof Error ? error.message : String(error)}`, 'api:cron');
+    const logger = await getLogger();
+    await logger.error(`Error running cron job: ${error instanceof Error ? error.message : String(error)}`, 'api:cron');
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'

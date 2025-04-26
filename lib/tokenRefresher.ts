@@ -2,7 +2,7 @@
 
 import { refreshTokenIfNeeded } from './oauthCredentials';
 import { getAllOAuthTokens, updateTokenRefreshAttempt } from './database';
-import logger from './logger';
+import getLogger from './logger';
 
 interface TokenRefreshResult {
   success: boolean;
@@ -27,8 +27,9 @@ const MAX_REFRESH_FAILURES = 3;
  * This should be run on a schedule (e.g., every hour)
  */
 export async function refreshAllTokens(): Promise<TokenRefreshResult> {
+  const logger = await getLogger();
   try {
-    logger.info('Starting token refresh process...', 'tokenRefresher');
+    await logger.info('Starting token refresh process...', 'tokenRefresher');
     
     // Get all OAuth tokens from the database
     const tokens = await getAllOAuthTokens();
@@ -98,7 +99,8 @@ export async function refreshAllTokens(): Promise<TokenRefreshResult> {
           });
         }
       } catch (error) {
-        logger.error(`Error refreshing token for ${token.email}:`, error, 'tokenRefresher');
+        const errorLogger = await getLogger();
+        await errorLogger.error(`Error refreshing token for ${token.email}:`, error, 'tokenRefresher');
         
         results.push({
           email: token.email,
@@ -117,7 +119,7 @@ export async function refreshAllTokens(): Promise<TokenRefreshResult> {
       }
     }
     
-    logger.info(`Token refresh completed: ${refreshed} refreshed, ${failed} failed`, 'tokenRefresher');
+    await logger.info(`Token refresh completed: ${refreshed} refreshed, ${failed} failed`, 'tokenRefresher');
     
     return {
       success: failed === 0,
@@ -127,7 +129,8 @@ export async function refreshAllTokens(): Promise<TokenRefreshResult> {
       details: results
     };
   } catch (error) {
-    logger.error('Error in refreshAllTokens:', error, 'tokenRefresher');
+    const logger = await getLogger();
+    await logger.error('Error in refreshAllTokens:', error, 'tokenRefresher');
     return {
       success: false,
       message: `Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -142,6 +145,7 @@ export async function refreshAllTokens(): Promise<TokenRefreshResult> {
  * Useful for checking before starting important operations
  */
 export async function validateUserTokens(userId: string): Promise<boolean> {
+  const logger = await getLogger();
   try {
     // Get all tokens for this user
     const tokens = await getAllOAuthTokens(userId);
@@ -161,7 +165,8 @@ export async function validateUserTokens(userId: string): Promise<boolean> {
     
     return true;
   } catch (error) {
-    logger.error(`Error validating tokens for user ${userId}:`, error, 'tokenRefresher');
+    const logger = await getLogger();
+    await logger.error(`Error validating tokens for user ${userId}:`, error, 'tokenRefresher');
     return false;
   }
 }
@@ -171,11 +176,12 @@ export async function validateUserTokens(userId: string): Promise<boolean> {
  * Useful after receiving an authentication error from the API
  */
 export async function forceRefreshToken(email: string): Promise<boolean> {
+  const logger = await getLogger();
   try {
     const refreshed = await refreshTokenIfNeeded(email, 0, true);
     return Boolean(refreshed);
   } catch (error) {
-    logger.error(`Failed to force refresh token for ${email}:`, error, 'tokenRefresher');
+    await logger.error(`Failed to force refresh token for ${email}:`, error, 'tokenRefresher');
     return false;
   }
 }
@@ -188,6 +194,7 @@ export async function withFreshToken<T>(
   email: string, 
   apiCall: () => Promise<T>
 ): Promise<T> {
+  const logger = await getLogger();
   try {
     // First try to refresh the token if needed
     await refreshTokenIfNeeded(email, PROACTIVE_REFRESH_THRESHOLD_SECONDS);
@@ -202,7 +209,7 @@ export async function withFreshToken<T>(
          error.message.includes('401') || 
          error.message.includes('403'))) {
       
-      logger.warn(`Auth error detected, forcing token refresh for ${email}`, 'tokenRefresher');
+      await logger.warn(`Auth error detected, forcing token refresh for ${email}`, 'tokenRefresher');
       
       // Force refresh and retry
       const refreshed = await forceRefreshToken(email);

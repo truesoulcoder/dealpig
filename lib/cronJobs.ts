@@ -1,97 +1,73 @@
-import { startMonitoring } from './systemMonitor';
+"use server";
+
 import { initializeHealthChecks } from './healthMonitor';
 import { processCampaigns } from './campaignScheduler';
 import { resetDailySenderStats } from './database';
-import logger from './logger';
+import getLogger from './logger';
 
 // Store interval IDs for cleanup
-let monitoringIntervalId: NodeJS.Timeout | null = null;
-let campaignProcessorIntervalId: NodeJS.Timeout | null = null;
 let midnightResetIntervalId: NodeJS.Timeout | null = null;
 
 /**
  * Initialize all background jobs
  */
 export async function initializeBackgroundJobs(): Promise<void> {
+  const logger = await getLogger();
   try {
     // Initialize health check tables in database
     await initializeHealthChecks();
     
-    // Start service monitoring (check every 5 minutes)
-    monitoringIntervalId = startMonitoring(5 * 60 * 1000);
-    
-    // Start campaign processor (runs every 15 minutes)
-    campaignProcessorIntervalId = startCampaignProcessor(15 * 60 * 1000);
-    
     // Set up midnight stats reset job
     midnightResetIntervalId = setupMidnightReset();
     
-    logger.info('Background jobs initialized successfully', 'cron');
+    await logger.info('Background jobs initialized successfully', 'cron');
   } catch (error) {
-    logger.error(`Failed to initialize background jobs: ${error instanceof Error ? error.message : String(error)}`, 'cron');
+    const logger = await getLogger();
+    await logger.error(`Failed to initialize background jobs: ${error instanceof Error ? error.message : String(error)}`, 'cron');
   }
 }
 
 /**
  * Clean up background jobs
  */
-export function cleanupBackgroundJobs(): void {
+export async function cleanupBackgroundJobs(): Promise<void> {
+  const logger = await getLogger();
   try {
-    // Stop monitoring if it's running
-    if (monitoringIntervalId) {
-      clearInterval(monitoringIntervalId);
-      monitoringIntervalId = null;
-    }
-    
-    // Stop campaign processor if it's running
-    if (campaignProcessorIntervalId) {
-      clearInterval(campaignProcessorIntervalId);
-      campaignProcessorIntervalId = null;
-    }
-    
     // Stop midnight reset job if it's running
     if (midnightResetIntervalId) {
       clearInterval(midnightResetIntervalId);
       midnightResetIntervalId = null;
     }
     
-    logger.info('Background jobs cleaned up successfully', 'cron');
+    await logger.info('Background jobs cleaned up successfully', 'cron');
   } catch (error) {
-    logger.error(`Failed to clean up background jobs: ${error instanceof Error ? error.message : String(error)}`, 'cron');
+    const logger = await getLogger();
+    await logger.error(`Failed to clean up background jobs: ${error instanceof Error ? error.message : String(error)}`, 'cron');
   }
-}
-
-/**
- * Start the autonomous campaign processor that runs on a schedule
- * This continuously checks for active campaigns and processes leads using our round-robin distribution algorithm
- */
-function startCampaignProcessor(intervalMs: number): NodeJS.Timeout {
-  // Run once immediately when the server starts
-  runCampaignProcessor();
-  
-  // Then set up recurring interval
-  return setInterval(runCampaignProcessor, intervalMs);
 }
 
 /**
  * The main campaign processor function
  * This processes all active campaigns according to their configuration
  * It uses our round-robin lead distribution algorithm to assign leads to senders
+ * This function is now ONLY triggered manually by users, not automatically
  */
 async function runCampaignProcessor(): Promise<void> {
-  logger.info('Starting autonomous campaign processing cycle', 'campaigns');
+  const logger = await getLogger();
+  await logger.info('Starting manual campaign processing cycle', 'campaigns');
   
   try {
     // Process all campaigns using our lead distribution system
     const result = await processCampaigns();
     
     if (result.success) {
-      logger.info(`Campaign processing complete. ${result.processed} leads processed across campaigns.`, 'campaigns');
+      await logger.info(`Campaign processing complete. ${result.processed} leads processed across campaigns.`, 'campaigns');
     } else {
-      logger.error(`Campaign processing failed: ${result.message}`, 'campaigns');
+      await logger.error(`Campaign processing failed: ${result.message}`, 'campaigns');
     }
   } catch (error) {
-    logger.error(`Unexpected error in campaign processor: ${error instanceof Error ? error.message : String(error)}`, 'campaigns');
+    const logger = await getLogger();
+    await logger.error(`Unexpected error in campaign processor: ${error instanceof Error ? error.message : String(error)}`, 'campaigns');
   }
 }
 
@@ -120,25 +96,30 @@ function setupMidnightReset(): NodeJS.Timeout {
  * Reset daily stats for all senders
  */
 async function resetDailyStats(): Promise<void> {
-  logger.info('Resetting daily sender stats', 'cron');
+  const logger = await getLogger();
+  await logger.info('Resetting daily sender stats', 'cron');
   
   try {
     await resetDailySenderStats();
-    logger.info('Daily sender stats reset successfully', 'cron');
+    await logger.info('Daily sender stats reset successfully', 'cron');
   } catch (error) {
-    logger.error(`Failed to reset daily sender stats: ${error instanceof Error ? error.message : String(error)}`, 'cron');
+    const logger = await getLogger();
+    await logger.error(`Failed to reset daily sender stats: ${error instanceof Error ? error.message : String(error)}`, 'cron');
   }
 }
 
 /**
- * Export functions that allow API endpoints to manually trigger jobs for testing/debugging
+ * Export function that allows API endpoints to manually trigger campaign processing
+ * This is now the ONLY way to trigger campaign processing (user-controlled)
  */
 export async function triggerCampaignProcessorManually(): Promise<any> {
-  logger.info('Campaign processor manually triggered', 'cron');
+  const logger = await getLogger();
+  await logger.info('Campaign processor manually triggered by user', 'cron');
   return runCampaignProcessor();
 }
 
 export async function triggerDailyStatsResetManually(): Promise<any> {
-  logger.info('Daily stats reset manually triggered', 'cron');
+  const logger = await getLogger();
+  await logger.info('Daily stats reset manually triggered', 'cron');
   return resetDailyStats();
 }
