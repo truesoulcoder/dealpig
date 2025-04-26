@@ -1,14 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Try to get the environment variables from all possible sources
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Client-side Supabase initialization - only use the public URL and anon key
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
+// Log availability without exposing actual values
+console.log(`Client: Supabase URL available: ${Boolean(supabaseUrl)}`);
+console.log(`Client: Supabase anon key available: ${Boolean(supabaseAnonKey)}`);
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase client environment variables');
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Create the Supabase client with the anon key (never use service role key on client)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Export as named export too for components that import it as supabaseClient
 export const supabaseClient = supabase;

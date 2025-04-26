@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// Simplified middleware to fix "No fetch event listeners found" error
-
+// Helper function to create Supabase client
 export const createClient = (request: NextRequest) => {
   // Create an unmodified response
   let response = NextResponse.next({
@@ -26,38 +25,48 @@ export const createClient = (request: NextRequest) => {
       supabaseAnonKey,
       {
         cookies: {
-          get(name) {
+          get(name: string) {
             return request.cookies.get(name)?.value;
           },
-          set(name, value, options) {
+          set(name: string, value: string, options: any) {
+            // Set cookie in request
             request.cookies.set({
-              name,
-              value,
+              name: name,
+              value: value,
               ...options,
             });
+            
+            // Create new response
             response = NextResponse.next({
               request: {
                 headers: request.headers,
               },
             });
+            
+            // Set cookie in response
             response.cookies.set({
-              name,
-              value,
+              name: name,
+              value: value,
               ...options,
             });
           },
-          remove(name, options) {
+          remove(name: string, options: any) {
+            // Remove cookie from request
             request.cookies.delete({
-              name,
+              name: name,
               ...options,
             });
+            
+            // Create new response
             response = NextResponse.next({
               request: {
                 headers: request.headers,
               },
             });
+            
+            // Remove cookie from response
             response.cookies.delete({
-              name,
+              name: name,
               ...options,
             });
           },
@@ -72,7 +81,8 @@ export const createClient = (request: NextRequest) => {
   }
 };
 
-export async function middleware(request: NextRequest) {
+// The middleware function that Next.js will call
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Initialize Supabase client for middleware
@@ -90,6 +100,7 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+// Keep the config export
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)",
