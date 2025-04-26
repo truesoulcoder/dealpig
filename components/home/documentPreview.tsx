@@ -95,16 +95,16 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
           </Button>
         </DropdownTrigger>
         <DropdownMenu aria-label="Text styles">
-          <DropdownItem onPress={() => editor.chain().focus().setParagraph().run()}>
+          <DropdownItem key="paragraph" onPress={() => editor.chain().focus().setParagraph().run()}>
             Normal text
           </DropdownItem>
-          <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+          <DropdownItem key="h1" onPress={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
             Heading 1
           </DropdownItem>
-          <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+          <DropdownItem key="h2" onPress={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
             Heading 2
           </DropdownItem>
-          <DropdownItem onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+          <DropdownItem key="h3" onPress={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
             Heading 3
           </DropdownItem>
         </DropdownMenu>
@@ -153,7 +153,12 @@ const EditorToolbar = ({ editor }: { editor: TiptapEditor | null }) => {
           {FONT_SIZES.map((size) => (
             <DropdownItem 
               key={size.value}
-              onPress={() => editor.chain().focus().setStyle({ fontSize: size.value }).run()}
+              onPress={() => {
+                // Apply font size directly as inline CSS
+                editor.chain().focus().command(({ commands }) => {
+                  return commands.updateAttributes('textStyle', { fontSize: size.value });
+                }).run();
+              }}
             >
               <span style={{ fontSize: size.value }}>{size.label}</span>
             </DropdownItem>
@@ -528,7 +533,7 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
     return (
       <Card>
         <CardBody className="flex items-center justify-center min-h-[400px]">
-          <Spinner size="lg" color="blue-500" />
+          <Spinner size="lg" color="primary" />
         </CardBody>
       </Card>
     );
@@ -540,8 +545,8 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
         <div className="flex justify-between items-center w-full">
           <h2 className="text-xl font-semibold" data-testid="document-preview-title">Document Preview</h2>
           <Tabs 
-            value={viewMode} 
-            onValueChange={(value) => setViewMode(value as "edit" | "preview")}
+            selectedKey={viewMode} 
+            onSelectionChange={(key) => setViewMode(key.toString() as "edit" | "preview")}
             className="w-auto"
             data-testid="view-mode-tabs"
             variant="solid"
@@ -549,8 +554,8 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
             size="sm"
             radius="full"
           >
-            <Tab value="edit" title="Edit" data-testid="edit-tab" />
-            <Tab value="preview" title="Preview" data-testid="preview-tab" />
+            <Tab key="edit" title="Edit" data-testid="edit-tab" />
+            <Tab key="preview" title="Preview" data-testid="preview-tab" />
           </Tabs>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full">
@@ -564,12 +569,17 @@ export default function DocumentPreview({ documentData, onApprove }: DocumentPre
               aria-label="Template selector"
               data-testid="template-selector"
             >
-              <SelectItem key="default">Default Template</SelectItem>
-              {templates.map((template) => (
-                <SelectItem key={template.id || ''}>
-                  {template.name}
-                </SelectItem>
-              ))}
+              {[
+                <SelectItem key="default" textValue="Default Template">Default Template</SelectItem>,
+                ...templates.map((template) => (
+                  <SelectItem 
+                    key={template.id || `template-${template.name}`} 
+                    textValue={template.name || 'Unnamed Template'}
+                  >
+                    {template.name || 'Unnamed Template'}
+                  </SelectItem>
+                ))
+              ]}
             </Select>
           </div>
           <div className="w-full sm:w-1/3">
