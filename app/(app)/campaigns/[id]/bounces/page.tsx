@@ -245,34 +245,36 @@ function CampaignBounceContent() {
           ) : (
             // Desktop view - table
             <div className="rounded-md border">
-              <Table aria-label="Bounced emails">
-                <Table.Header>
-                  <Table.Column>Email</Table.Column>
-                  <Table.Column>Bounce Type</Table.Column>
-                  <Table.Column>Reason</Table.Column>
-                  <Table.Column>Code</Table.Column>
-                  <Table.Column align="right">Date</Table.Column>
-                </Table.Header>
-                <Table.Body>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bounce Type</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
                   {bounces.map((bounce) => (
-                    <Table.Row key={bounce.id}>
-                      <Table.Cell className="font-medium">{bounce.email}</Table.Cell>
-                      <Table.Cell>
+                    <tr key={bounce.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{bounce.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <Chip color={bounce.bounce_type === 'hard' ? 'danger' : 'warning'}>
                           {bounce.bounce_type}
                         </Chip>
-                      </Table.Cell>
-                      <Table.Cell className="max-w-xs truncate">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
                         {bounce.description || '-'}
-                      </Table.Cell>
-                      <Table.Cell>{bounce.bounce_code || '-'}</Table.Cell>
-                      <Table.Cell className="text-right text-gray-500">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bounce.bounce_code || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
                         {format(new Date(bounce.timestamp), 'MMM d, yyyy HH:mm')}
-                      </Table.Cell>
-                    </Table.Row>
+                      </td>
+                    </tr>
                   ))}
-                </Table.Body>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardBody>

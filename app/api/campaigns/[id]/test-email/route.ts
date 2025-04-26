@@ -131,28 +131,26 @@ export async function POST(
     `;
 
     // Generate test attachment if LOI template exists
-    let testAttachment = null;
+    let attachmentPath: string | undefined = undefined;
     if (loiTemplate) {
-      // In a real implementation, this would generate a test document
-      // For now, we'll simulate success without an actual attachment
-      testAttachment = {
-        filename: "test-letter-of-intent.pdf",
-        content: "simulated content for test",
-        contentType: "application/pdf"
-      };
+      // In a real implementation, this would generate and save a test document
+      // For now, we'll just use a placeholder value
+      attachmentPath = "/test-letter-of-intent.pdf";
     }
 
-    // Send the test email
-    await sendEmail({
+    // Send the test email - using the correct parameter structure
+    const emailResult = await sendEmail({
       to: recipientEmail,
-      from: {
-        email: sender.email,
-        name: sender.name
-      },
       subject: emailSubject,
-      html: emailContent,
-      attachment: testAttachment
+      body: emailContent,
+      senderEmail: sender.email,
+      attachmentPath: attachmentPath,
+      trackingId: `test-${campaignId}-${senderId}`
     });
+
+    if (!emailResult.success) {
+      throw new Error(emailResult.message);
+    }
 
     // Update the database to record that the test email was sent
     await supabaseAdmin

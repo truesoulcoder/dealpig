@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
+import { supabaseAdmin } from './supabaseAdmin';
 
 // Security headers based on OWASP recommendations
 export const securityHeaders = {
@@ -61,4 +63,33 @@ export function securityMiddleware(request: NextRequest) {
   
   // Apply security headers
   return applySecurityHeaders(response);
+}
+
+/**
+ * Validates the current user session from cookies
+ * @returns The user session if valid, null otherwise
+ */
+export async function validateSession() {
+  try {
+    // Get auth token from cookie
+    const cookieStore = cookies();
+    const authToken = (await cookieStore).get('auth_token')?.value;
+    
+    if (!authToken) {
+      return null;
+    }
+    
+    // Verify the token with Supabase
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(authToken);
+    
+    if (error || !user) {
+      console.error("Session validation error:", error);
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error("Error validating session:", error);
+    return null;
+  }
 }

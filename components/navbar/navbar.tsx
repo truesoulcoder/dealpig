@@ -31,11 +31,11 @@ export const NavbarWrapper = ({ children }: Props) => {
         // If campaigns exist, select the first active one by default
         if (campaignsData && campaignsData.length > 0) {
           const activeCampaign = campaignsData.find(c => c.status === 'ACTIVE');
-          if (activeCampaign) {
+          if (activeCampaign && activeCampaign.id) {
             setSelectedCampaign(activeCampaign.id);
             setIsActive(true);
           } else {
-            setSelectedCampaign(campaignsData[0].id);
+            setSelectedCampaign(campaignsData[0].id || "");
             setIsActive(false);
           }
         }
@@ -149,7 +149,7 @@ export const NavbarWrapper = ({ children }: Props) => {
               isDisabled={loading || campaigns.length === 0}
             >
               {campaigns.map((campaign) => (
-                <SelectItem key={campaign.id} value={campaign.id}>
+                <SelectItem key={campaign.id}>
                   {campaign.name}
                 </SelectItem>
               ))}
