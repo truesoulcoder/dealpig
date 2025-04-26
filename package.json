@@ -11,7 +11,8 @@
       "deploy": "node scripts/deploy.js",
       "deploy:prod": "node scripts/deploy.js production",
       "deploy:staging": "node scripts/deploy.js staging",
-      "deploy:dev": "node scripts/deploy.js development"
+      "deploy:dev": "node scripts/deploy.js development",
+      "test:api": "node scripts/tests/test-register-api.js"
    },
    "dependencies": {
       "@heroicons/react": "^2.2.0",
