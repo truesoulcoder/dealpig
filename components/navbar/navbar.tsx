@@ -1,23 +1,118 @@
-import { Input, Link, Navbar, NavbarContent } from "@heroui/react";
-import React from "react";
-import { FeedbackIcon } from "../icons/navbar/feedback-icon";
-import { GithubIcon } from "../icons/navbar/github-icon";
-import { SupportIcon } from "../icons/navbar/support-icon";
+import { Input, Link, Navbar, NavbarContent, Select, SelectItem, Switch, Tooltip } from "@heroui/react";
+import React, { useEffect, useState } from "react";
 import { SearchIcon } from "../icons/searchicon";
 import { BurguerButton } from "./burguer-button";
-import { NotificationsDropdown } from "./notifications-dropdown";
 import { UserDropdown } from "./user-dropdown";
+import { getCampaigns } from "@/actions/campaign.action";
+import SenderVerificationModal from "../home/sender-verification";
 
 interface Props {
   children: React.ReactNode;
 }
 
 export const NavbarWrapper = ({ children }: Props) => {
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  
+  // State for verification modal
+  const [verificationModalOpen, setVerificationModalOpen] = useState<boolean>(false);
+  const [campaignToActivate, setCampaignToActivate] = useState<{id: string, name: string} | null>(null);
+
+  // Fetch campaigns on component mount
+  useEffect(() => {
+    async function loadCampaigns() {
+      try {
+        setLoading(true);
+        const campaignsData = await getCampaigns();
+        setCampaigns(campaignsData || []);
+        
+        // If campaigns exist, select the first active one by default
+        if (campaignsData && campaignsData.length > 0) {
+          const activeCampaign = campaignsData.find(c => c.status === 'ACTIVE');
+          if (activeCampaign) {
+            setSelectedCampaign(activeCampaign.id);
+            setIsActive(true);
+          } else {
+            setSelectedCampaign(campaignsData[0].id);
+            setIsActive(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadCampaigns();
+  }, []);
+
+  // Handle campaign status change
+  const handleCampaignStatusChange = async (newActiveState: boolean) => {
+    if (!selectedCampaign) return;
+    
+    // If trying to activate, show verification modal first
+    if (newActiveState) {
+      const campaign = campaigns.find(c => c.id === selectedCampaign);
+      if (campaign) {
+        setCampaignToActivate({id: campaign.id, name: campaign.name});
+        setVerificationModalOpen(true);
+        return;
+      }
+    } 
+    
+    // If deactivating, proceed immediately
+    if (!newActiveState) {
+      await updateCampaignStatus(selectedCampaign, false);
+    }
+  };
+  
+  // Actually update the campaign status
+  const updateCampaignStatus = async (campaignId: string, isActive: boolean) => {
+    setIsActive(isActive);
+    try {
+      // Call your API to update campaign status
+      const response = await fetch(`/api/campaigns/${campaignId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: isActive ? 'ACTIVE' : 'PAUSED' }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update campaign status');
+      }
+      
+      // Update campaigns list if successful
+      const updatedCampaigns = campaigns.map(campaign => 
+        campaign.id === campaignId 
+          ? { ...campaign, status: isActive ? 'ACTIVE' : 'PAUSED' } 
+          : campaign
+      );
+      setCampaigns(updatedCampaigns);
+    } catch (error) {
+      console.error('Error updating campaign status:', error);
+      // Revert UI state if API call fails
+      setIsActive(!isActive);
+      alert('Failed to update campaign status. Please try again.');
+    }
+  };
+  
+  // Handle successful verification and campaign activation
+  const handleAllSendersVerified = () => {
+    if (campaignToActivate) {
+      updateCampaignStatus(campaignToActivate.id, true);
+    }
+  };
+
   return (
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
       <Navbar
         isBordered
-        className="w-full"
+        className="w-full sticky top-0 z-40"
         classNames={{
           wrapper: "w-full max-w-full",
         }}
@@ -29,40 +124,73 @@ export const NavbarWrapper = ({ children }: Props) => {
           <Input
             startContent={<SearchIcon />}
             isClearable
-            className="w-full"
+            className="w-full max-w-xs"
             classNames={{
               input: "w-full",
               mainWrapper: "w-full",
             }}
             placeholder="Search..."
           />
+          
+          {/* Campaign selector */}
+          <div className="flex items-center gap-2 ml-4">
+            <Select 
+              size="sm"
+              placeholder="Select campaign"
+              className="min-w-[200px]"
+              selectedKeys={selectedCampaign ? [selectedCampaign] : []}
+              onChange={(e) => {
+                const newCampaignId = e.target.value;
+                setSelectedCampaign(newCampaignId);
+                // Update active state based on selected campaign
+                const campaign = campaigns.find(c => c.id === newCampaignId);
+                setIsActive(campaign?.status === 'ACTIVE');
+              }}
+              isDisabled={loading || campaigns.length === 0}
+            >
+              {campaigns.map((campaign) => (
+                <SelectItem key={campaign.id} value={campaign.id}>
+                  {campaign.name}
+                </SelectItem>
+              ))}
+            </Select>
+            
+            <Tooltip content={isActive ? "Pause Campaign" : "Activate Campaign"}>
+              <Switch
+                size="sm"
+                isSelected={isActive}
+                onChange={() => handleCampaignStatusChange(!isActive)}
+                isDisabled={!selectedCampaign || loading}
+                aria-label="Campaign status toggle"
+                color="success"
+              />
+            </Tooltip>
+          </div>
         </NavbarContent>
         <NavbarContent
           justify="end"
           className="w-fit data-[justify=end]:flex-grow-0"
         >
-          <div className="flex items-center gap-2 max-md:hidden">
-            <FeedbackIcon />
-            <span>Feedback?</span>
-          </div>
-
-          <NotificationsDropdown />
-
-          <div className="max-md:hidden">
-            <SupportIcon />
-          </div>
-
-          <Link
-            href="https://github.com/Siumauricio/nextui-dashboard-template"
-            target={"_blank"}
-          >
-            <GithubIcon />
-          </Link>
           <NavbarContent>
             <UserDropdown />
           </NavbarContent>
         </NavbarContent>
       </Navbar>
+      
+      {/* Sender verification modal */}
+      {campaignToActivate && (
+        <SenderVerificationModal
+          isOpen={verificationModalOpen}
+          onClose={() => {
+            setVerificationModalOpen(false);
+            setCampaignToActivate(null);
+          }}
+          campaignId={campaignToActivate.id}
+          campaignName={campaignToActivate.name}
+          onAllVerified={handleAllSendersVerified}
+        />
+      )}
+      
       {children}
     </div>
   );

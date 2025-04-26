@@ -7,18 +7,83 @@ import {
   Navbar,
   NavbarItem,
 } from "@heroui/react";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { DarkModeSwitch } from "./darkmodeswitch";
 import { useRouter } from "next/navigation";
 import { deleteAuthCookie } from "@/actions/auth.action";
+import Link from "next/link";
 
 export const UserDropdown = () => {
   const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string>("user@example.com");
+
+  // Get user info on component mount
+  useEffect(() => {
+    async function getUserInfo() {
+      try {
+        // This is a placeholder - you'll need to implement a proper API endpoint
+        const response = await fetch('/api/user/me', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.email) {
+            setUserEmail(data.email);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+      }
+    }
+    
+    getUserInfo();
+  }, []);
 
   const handleLogout = useCallback(async () => {
-    await deleteAuthCookie();
-    router.replace("/login");
-  }, [router]);
+    try {
+      await deleteAuthCookie();
+      // Force a page reload to ensure all state is cleared
+      window.location.href = '/login';
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  }, []);
+
+  // Handle navigation based on dropdown action key
+  const handleAction = useCallback((actionKey: React.Key) => {
+    switch (actionKey) {
+      case 'profile':
+        // No navigation for profile info display
+        break;
+      case 'settings':
+        router.push('/settings');
+        break;
+      case 'team_settings':
+        router.push('/team-settings');
+        break;
+      case 'analytics':
+        router.push('/analytics');
+        break;
+      case 'system':
+        router.push('/system');
+        break;
+      case 'configurations':
+        router.push('/configurations');
+        break;
+      case 'help_and_feedback':
+        router.push('/help-and-feedback');
+        break;
+      case 'logout':
+        handleLogout();
+        break;
+      default:
+        break;
+    }
+  }, [router, handleLogout]);
 
   return (
     <Dropdown>
@@ -34,12 +99,12 @@ export const UserDropdown = () => {
       </NavbarItem>
       <DropdownMenu
         aria-label='User menu actions'
-        onAction={(actionKey) => console.log({ actionKey })}>
+        onAction={handleAction}>
         <DropdownItem
           key='profile'
           className='flex flex-col justify-start w-full items-start'>
           <p>Signed in as</p>
-          <p>zoey@example.com</p>
+          <p>{userEmail}</p>
         </DropdownItem>
         <DropdownItem key='settings'>My Settings</DropdownItem>
         <DropdownItem key='team_settings'>Team Settings</DropdownItem>
@@ -50,8 +115,7 @@ export const UserDropdown = () => {
         <DropdownItem
           key='logout'
           color='danger'
-          className='text-danger'
-          onPress={handleLogout}>
+          className='text-danger'>
           Log Out
         </DropdownItem>
         <DropdownItem key='switch'>
