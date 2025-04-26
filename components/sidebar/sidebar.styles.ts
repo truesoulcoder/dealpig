@@ -8,34 +8,18 @@ export const SidebarWrapper = tv({
       true: "translate-x-0 ml-0 pt-20 [display:inherit]",
     },
   },
-  // ""
-  //   "@md": {
-  //     marginLeft: "0",
-  //     display: "flex",
-  //     position: "static",
-  //     height: "100vh",
-  //     transform: "translateX(0)",
-  //   },
-  //   variants: {
-  //     collapsed: {
-  //       true: {
-  //         display: "inherit",
-  //         marginLeft: "0 ",
-  //         transform: "translateX(0)",
-  //       },
-  //     },
-  //   },
 });
+
 export const Overlay = tv({
   base: "bg-[rgb(15_23_42/0.3)] fixed inset-0 z-[201] opacity-80 transition-opacity md:hidden md:z-auto md:opacity-100",
 });
 
 export const Header = tv({
-  base: "flex gap-8 items-center px-6",
+  base: "flex justify-center items-center py-2 px-3 mb-4 w-full",
 });
 
 export const Body = tv({
-  base: "flex flex-col gap-6 mt-9 px-2",
+  base: "flex flex-col gap-6 mt-2 px-2",
 });
 
 export const Footer = tv({

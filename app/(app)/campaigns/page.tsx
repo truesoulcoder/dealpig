@@ -1,34 +1,33 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { Card, CardBody, CardHeader, Button, Spinner, Chip } from "@heroui/react";
+import { useState, useEffect } from 'react';
+import { Card, CardBody, Button, Spinner } from "@heroui/react";
 import { FaPlus } from "react-icons/fa";
 import { useRouter } from 'next/navigation';
 import CampaignCard from '@/components/home/campaign-card';
 import { getCampaigns } from '@/actions/campaign.action';
 
-// Component that uses useRouter wrapped in Suspense
-function CampaignsContent() {
+export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   // Load campaign data
   useEffect(() => {
-    loadCampaigns();
-  }, []);
-
-  const loadCampaigns = async () => {
-    try {
-      setLoading(true);
-      const allCampaigns = await getCampaigns();
-      setCampaigns(allCampaigns);
-    } catch (error) {
-      console.error('Error loading campaign data:', error);
-    } finally {
-      setLoading(false);
+    async function fetchCampaigns() {
+      try {
+        setLoading(true);
+        const allCampaigns = await getCampaigns();
+        setCampaigns(allCampaigns);
+      } catch (error) {
+        console.error('Error loading campaign data:', error);
+      } finally {
+        setLoading(false);
+      }
     }
-  };
+
+    fetchCampaigns();
+  }, []);
 
   // Handle campaign creation
   const handleCreateCampaign = () => {
@@ -37,7 +36,15 @@ function CampaignsContent() {
 
   // Handle campaign status change
   const handleCampaignStatusChange = async () => {
-    await loadCampaigns();
+    try {
+      setLoading(true);
+      const allCampaigns = await getCampaigns();
+      setCampaigns(allCampaigns);
+    } catch (error) {
+      console.error('Error reloading campaign data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,11 +62,11 @@ function CampaignsContent() {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <Spinner size="lg" />
+          <Spinner size="lg" color="primary" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {campaigns.length > 0 ? (
+          {campaigns && campaigns.length > 0 ? (
             campaigns.map(campaign => (
               <CampaignCard 
                 key={campaign.id} 
@@ -84,29 +91,5 @@ function CampaignsContent() {
         </div>
       )}
     </div>
-  );
-}
-
-// Fallback component for Suspense
-function CampaignsFallback() {
-  return (
-    <div className="container p-4 mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Campaigns</h1>
-        <div className="w-40 h-10 bg-gray-200 rounded animate-pulse"></div>
-      </div>
-      <div className="flex justify-center items-center h-64">
-        <Spinner size="lg" />
-      </div>
-    </div>
-  );
-}
-
-// Main component with Suspense boundary
-export default function CampaignsPage() {
-  return (
-    <Suspense fallback={<CampaignsFallback />}>
-      <CampaignsContent />
-    </Suspense>
   );
 }
