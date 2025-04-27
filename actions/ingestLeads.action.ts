@@ -1,6 +1,5 @@
 "use server";
 
-// No import needed here - fs is not used
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 import { 
@@ -14,10 +13,8 @@ import {
   LeadSource,
   Campaign
 } from '@/lib/database';
-import { uploadToStorage, getSupabaseAdmin } from '@/lib/supabaseAdmin';
-
-// Bucket name for lead imports
-const LEADS_BUCKET = 'lead-imports';
+import { uploadToStorage, StorageBucket } from '@/utils/supabase/storage';
+import { cookies } from 'next/headers';
 
 // Maximum file size 50MB to match Supabase storage bucket limit
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -99,10 +96,34 @@ export async function ingestLeadsFromCsvCore(
     
     // Upload the original CSV file to Supabase storage for reference
     let fileUrl: string | null = null;
+    
+    // Only attempt file upload if we have a buffer
     if (fileBuffer) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const storagePath = `${baseFileName}_${timestamp}.csv`;
-      fileUrl = await uploadToStorage(LEADS_BUCKET, storagePath, fileBuffer, 'text/csv');
+      try {
+        // Create a unique filename with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const storagePath = `${baseFileName}_${timestamp}.csv`;
+        
+        console.log(`Uploading CSV file to storage: ${storagePath}, size: ${fileBuffer.length} bytes`);
+        
+        // Use the existing uploadToStorage function from utils/supabase/storage.ts
+        fileUrl = await uploadToStorage(
+          StorageBucket.LEAD_IMPORTS,
+          storagePath, 
+          fileBuffer, 
+          'text/csv',
+          cookies()
+        );
+        
+        if (fileUrl) {
+          console.log(`CSV file uploaded successfully, URL: ${fileUrl}`);
+        } else {
+          console.warn('Failed to upload CSV file, but continuing with lead import');
+        }
+      } catch (uploadError) {
+        console.error('Error uploading CSV file:', uploadError);
+        // Continue with lead processing even if file upload fails
+      }
     }
     
     // Create a lead source record using the filename as the name

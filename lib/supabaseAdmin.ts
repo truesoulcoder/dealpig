@@ -25,7 +25,7 @@ if (!supabaseUrl.startsWith('http')) {
 }
 
 // Create a Supabase client with the service role key for server-side operations
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+const supabaseAdmin = createClient(supabaseUrl as string, supabaseServiceRoleKey as string, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -43,7 +43,7 @@ export async function getSupabaseAdmin() {
 
 /**
  * Upload a file to Supabase storage and return the public URL
- * Direct implementation with minimal steps to ensure upload works
+ * Optimized for Vercel serverless environment
  */
 export async function uploadToStorage(
   bucketName: string, 
@@ -52,61 +52,93 @@ export async function uploadToStorage(
   contentType?: string
 ): Promise<string> {
   try {
-    console.log(`[STORAGE] Direct upload to bucket: ${bucketName}, file: ${filePath}`);
-    console.log(`[STORAGE] Content type: ${contentType || 'not specified'}, Content size: ${
-      typeof fileContent === 'string' ? fileContent.length : fileContent.byteLength
-    } bytes`);
+    // Log key info (will appear in Vercel logs)
+    console.log(`Uploading file to ${bucketName}: ${filePath} (${typeof fileContent === 'string' ? fileContent.length : fileContent.byteLength} bytes)`);
     
-    // Create a fresh Supabase admin client with explicit auth settings
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    // Create a fresh Supabase client for this upload
+    // This ensures we don't have stale connections in serverless environment
+    const client = createClient(supabaseUrl as string, supabaseServiceRoleKey as string, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
         detectSessionInUrl: false
-      },
-      // Add global error handler
-      global: {
-        fetch: (url, options) => {
-          console.log(`[FETCH] ${options?.method || 'GET'} ${url}`);
-          return fetch(url, options);
-        }
       }
     });
     
-    // Get direct reference to the bucket
-    const bucket = supabase.storage.from(bucketName);
+    // Create a Promise with timeout to handle potential hanging requests
+    const uploadWithTimeout = async () => {
+      return new Promise<string>((resolve, reject) => {
+        // Set a 25-second timeout (Vercel functions have a 30s limit)
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Upload timed out after 25 seconds'));
+        }, 25000);
+        
+        const executeUpload = async () => {
+          try {
+            // Get bucket reference
+            const bucket = client.storage.from(bucketName);
+            
+            // First verify the bucket exists
+            const { data: buckets, error: bucketsError } = await client.storage.listBuckets();
+            
+            if (bucketsError) {
+              console.error('Error listing buckets:', bucketsError);
+              reject(new Error(`Failed to list buckets: ${bucketsError.message}`));
+              return;
+            }
+            
+            const bucketExists = buckets.some(b => b.name === bucketName);
+            if (!bucketExists) {
+              console.error(`Bucket ${bucketName} does not exist`);
+              reject(new Error(`Bucket ${bucketName} does not exist`));
+              return;
+            }
+            
+            console.log(`Bucket ${bucketName} found, proceeding with upload`);
+            
+            // Execute the upload with maximum compatibility options
+            const { data, error } = await bucket.upload(filePath, fileContent, {
+              contentType: contentType || 'text/plain',
+              cacheControl: '3600',
+              upsert: true
+            });
+            
+            if (error) {
+              console.error('Error uploading file:', error);
+              reject(new Error(`Upload failed: ${error.message}`));
+              return;
+            }
+            
+            console.log('Upload successful:', data);
+            
+            // Get public URL
+            const { data: urlData } = bucket.getPublicUrl(filePath);
+            
+            if (!urlData || !urlData.publicUrl) {
+              reject(new Error('Failed to generate public URL'));
+              return;
+            }
+            
+            // Complete successfully
+            resolve(urlData.publicUrl);
+          } catch (err) {
+            console.error('Unexpected error during upload:', err);
+            reject(err);
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        };
+        
+        // Start the upload
+        executeUpload();
+      });
+    };
     
-    console.log(`[STORAGE] Executing upload to ${bucketName}/${filePath}`);
-    const { data, error } = await bucket.upload(filePath, fileContent, {
-      contentType: contentType || 'text/plain',
-      cacheControl: '3600',
-      upsert: true // Always use upsert to avoid conflicts
-    });
-      
-    if (error) {
-      console.error('[STORAGE] Error uploading file:', error);
-      throw new Error(`File upload failed: ${error.message}`);
-    }
+    // Execute the upload with timeout
+    return await uploadWithTimeout();
     
-    if (!data || !data.path) {
-      console.error('[STORAGE] Upload succeeded but no path returned');
-      throw new Error('Upload succeeded but no path was returned');
-    }
-    
-    console.log(`[STORAGE] File uploaded successfully to path: ${data.path}`);
-    
-    // Explicitly get public URL
-    const { data: urlData } = bucket.getPublicUrl(filePath);
-    
-    if (!urlData || !urlData.publicUrl) {
-      console.error('[STORAGE] Failed to generate public URL');
-      throw new Error('Failed to generate public URL');
-    }
-    
-    console.log(`[STORAGE] Generated public URL: ${urlData.publicUrl}`);
-    return urlData.publicUrl;
   } catch (error) {
-    console.error('[STORAGE] Error in uploadToStorage:', error);
+    console.error('Error in uploadToStorage:', error);
     throw error;
   }
 }
