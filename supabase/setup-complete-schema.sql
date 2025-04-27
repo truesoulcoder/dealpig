@@ -1,6 +1,7 @@
 -- =========================================================
 -- COMPLETE SUPABASE SETUP SCRIPT FOR DEALPIG APPLICATION
 -- Creates all tables, roles, and policies from scratch
+-- Added support for dynamic lead tables (April 2025)
 -- =========================================================
 
 -- Enable necessary extensions
@@ -23,7 +24,9 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Leads table
+-- Leads table (core table for standardized lead data)
+-- NOTE: This is now the normalized leads table. Raw lead data is stored in dynamic
+-- tables named {source}_leads which are created at import time with custom columns.
 CREATE TABLE IF NOT EXISTS leads (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     property_address VARCHAR,
@@ -53,57 +56,12 @@ CREATE TABLE IF NOT EXISTS leads (
     assessed_total NUMERIC,
     last_contacted_at TIMESTAMPTZ,
     notes TEXT,
-    -- Contact fields
-    contact1name TEXT,
-    contact1firstname TEXT,
-    contact1lastname TEXT,
-    contact1phone_1 TEXT,
-    contact1phone_2 TEXT,
-    contact1phone_3 TEXT,
-    contact1email_1 TEXT,
-    contact1email_2 TEXT,
-    contact1email_3 TEXT,
-    contact2name TEXT,
-    contact2firstname TEXT,
-    contact2lastname TEXT,
-    contact2phone_1 TEXT,
-    contact2phone_2 TEXT,
-    contact2phone_3 TEXT,
-    contact2email_1 TEXT,
-    contact2email_2 TEXT,
-    contact2email_3 TEXT,
-    contact3name TEXT,
-    contact3firstname TEXT,
-    contact3lastname TEXT,
-    contact3phone_1 TEXT,
-    contact3phone_2 TEXT,
-    contact3phone_3 TEXT,
-    contact3email_1 TEXT,
-    contact3email_2 TEXT,
-    contact3email_3 TEXT,
-    contact4name TEXT,
-    contact4firstname TEXT,
-    contact4lastname TEXT,
-    contact4phone_1 TEXT,
-    contact4phone_2 TEXT,
-    contact4phone_3 TEXT,
-    contact4email_1 TEXT,
-    contact4email_2 TEXT,
-    contact4email_3 TEXT,
-    contact5name TEXT,
-    contact5firstname TEXT,
-    contact5lastname TEXT,
-    contact5phone_1 TEXT,
-    contact5phone_2 TEXT,
-    contact5phone_3 TEXT,
-    contact5email_1 TEXT,
-    contact5email_2 TEXT,
-    contact5email_3 TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    source_record_id UUID -- Reference to the record ID in the dynamic source table
 );
 
--- Contacts table (for normalized contact data)
+-- Contacts table (for normalized contact data from leads)
 CREATE TABLE IF NOT EXISTS contacts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR NOT NULL,
@@ -114,7 +72,7 @@ CREATE TABLE IF NOT EXISTS contacts (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Lead Sources table
+-- Lead Sources table (updated to support dynamic tables)
 CREATE TABLE IF NOT EXISTS lead_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR NOT NULL,
@@ -122,9 +80,26 @@ CREATE TABLE IF NOT EXISTS lead_sources (
     last_imported TIMESTAMPTZ NOT NULL,
     record_count INTEGER NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    metadata JSONB, -- Stores tableName and columnMap information
+    storage_path VARCHAR, -- Path to the original CSV file in storage
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- The metadata JSONB field in lead_sources should contain:
+-- {
+--   "tableName": "source_name_leads",
+--   "columnMap": {
+--     "sourceColumn1": "standardField1",
+--     "sourceColumn2": "standardField2",
+--     ...
+--   },
+--   "importConfig": {
+--     "skipHeader": true,
+--     "delimiter": ",", 
+--     ...
+--   }
+-- }
 
 -- Senders table
 CREATE TABLE IF NOT EXISTS senders (
@@ -135,6 +110,9 @@ CREATE TABLE IF NOT EXISTS senders (
     daily_quota INTEGER DEFAULT 50,
     emails_sent INTEGER DEFAULT 0,
     last_sent_at TIMESTAMPTZ,
+    oauth_token TEXT,
+    refresh_token TEXT,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -247,6 +225,7 @@ ALTER TABLE leads ADD CONSTRAINT fk_lead_source
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_source_id ON leads(source_id);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at);
+CREATE INDEX IF NOT EXISTS idx_leads_source_record_id ON leads(source_record_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_lead_id ON contacts(lead_id);
 CREATE INDEX IF NOT EXISTS idx_emails_lead_id ON emails(lead_id);
 CREATE INDEX IF NOT EXISTS idx_emails_sender_id ON emails(sender_id);
@@ -255,6 +234,76 @@ CREATE INDEX IF NOT EXISTS idx_emails_tracking_id ON emails(tracking_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_leads_campaign_id ON campaign_leads(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_leads_status ON campaign_leads(status);
 CREATE INDEX IF NOT EXISTS idx_campaign_senders_campaign_id ON campaign_senders(campaign_id);
+
+-- Step 3: Create functions for dynamic table management
+-- Function to create a new dynamic lead table
+CREATE OR REPLACE FUNCTION create_dynamic_lead_table(table_name text, column_definitions text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  full_table_name text;
+BEGIN
+  -- Create a sanitized table name
+  full_table_name := table_name || '_leads';
+  
+  -- Create the table with the provided columns
+  EXECUTE format('
+    CREATE TABLE IF NOT EXISTS public.%I (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      %s,
+      processed BOOLEAN DEFAULT FALSE, -- Flag to track if this record has been normalized
+      normalized_lead_id UUID, -- Reference to the ID in the leads table once normalized
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )', full_table_name, column_definitions);
+    
+  -- Enable RLS on the new table
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', full_table_name);
+  
+  -- Create policies for the new table
+  EXECUTE format('
+    CREATE POLICY "Enable read access for authenticated users on %I" 
+    ON public.%I FOR SELECT 
+    USING (auth.role() IN (''authenticated'', ''service_role''))', full_table_name, full_table_name);
+    
+  EXECUTE format('
+    CREATE POLICY "Enable insert for authenticated users on %I" 
+    ON public.%I FOR INSERT 
+    WITH CHECK (auth.role() IN (''authenticated'', ''service_role''))', full_table_name, full_table_name);
+    
+  EXECUTE format('
+    CREATE POLICY "Enable update for authenticated users on %I" 
+    ON public.%I FOR UPDATE 
+    USING (auth.role() IN (''authenticated'', ''service_role''))', full_table_name, full_table_name);
+    
+  EXECUTE format('
+    CREATE POLICY "Enable delete for authenticated users on %I" 
+    ON public.%I FOR DELETE 
+    USING (auth.role() IN (''authenticated'', ''service_role''))', full_table_name, full_table_name);
+  
+  RETURN TRUE;
+END;
+$$;
+
+-- Function to execute SQL (admin operations)
+CREATE OR REPLACE FUNCTION execute_sql(sql text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result json;
+BEGIN
+  EXECUTE sql;
+  RETURN json_build_object('success', true);
+EXCEPTION WHEN OTHERS THEN
+  RETURN json_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
 
 -- Step 3: Set up storage buckets for the application
 DO $$
@@ -578,22 +627,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Verify setup with a summary report
-DO $$
-DECLARE
-  table_count INTEGER;
-  policy_count INTEGER;
-BEGIN
-  SELECT COUNT(*) INTO table_count FROM pg_tables WHERE schemaname = 'public';
-  SELECT COUNT(*) INTO policy_count FROM pg_policies WHERE schemaname = 'public';
-  
-  RAISE NOTICE '==== SETUP SUMMARY ====';
-  RAISE NOTICE 'Tables created: %', table_count;
-  RAISE NOTICE 'Policies created: %', policy_count;
-  RAISE NOTICE '=====================';
-END;
-$$;
-
+-- Function to get table column information
 CREATE OR REPLACE FUNCTION public.get_table_columns()
 RETURNS SETOF information_schema.columns
 LANGUAGE plpgsql
@@ -611,8 +645,127 @@ BEGIN
 END;
 $$;
 
+-- Function to list all dynamic lead tables
+CREATE OR REPLACE FUNCTION public.list_dynamic_lead_tables()
+RETURNS TABLE(
+  table_name text,
+  record_count bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  tbl text;
+BEGIN
+  FOR tbl IN 
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_name LIKE '%_leads'
+    AND table_name != 'leads'
+    ORDER BY table_name
+  LOOP
+    EXECUTE format('SELECT %L, COUNT(*) FROM public.%I', tbl, tbl) INTO table_name, record_count;
+    RETURN NEXT;
+  END LOOP;
+END;
+$$;
+
+-- Function to query data from a dynamic lead table
+CREATE OR REPLACE FUNCTION public.query_dynamic_lead_table(
+  table_name text,
+  query_conditions text DEFAULT '',
+  page_number integer DEFAULT 1,
+  page_size integer DEFAULT 50,
+  sort_field text DEFAULT 'created_at',
+  sort_direction text DEFAULT 'DESC'
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result json;
+  total_count integer;
+  query_text text;
+  count_query_text text;
+BEGIN
+  -- Add "_leads" suffix if not already present
+  IF table_name NOT LIKE '%_leads' THEN
+    table_name := table_name || '_leads';
+  END IF;
+  
+  -- First get total count
+  count_query_text := format('SELECT COUNT(*) FROM public.%I', table_name);
+  IF query_conditions != '' THEN
+    count_query_text := count_query_text || ' WHERE ' || query_conditions;
+  END IF;
+  
+  EXECUTE count_query_text INTO total_count;
+  
+  -- Build main query with pagination and sorting
+  query_text := format('SELECT * FROM public.%I', table_name);
+  IF query_conditions != '' THEN
+    query_text := query_text || ' WHERE ' || query_conditions;
+  END IF;
+  
+  query_text := query_text || format(' ORDER BY %I %s', sort_field, sort_direction);
+  query_text := query_text || format(' LIMIT %s OFFSET %s', 
+                               page_size, 
+                               (page_number - 1) * page_size);
+                               
+  -- Execute query and return results with pagination info
+  EXECUTE format('
+    SELECT json_build_object(
+      ''data'', COALESCE(json_agg(t.*), ''[]''::json),
+      ''pagination'', json_build_object(
+        ''total'', %s,
+        ''page'', %s,
+        ''pageSize'', %s,
+        ''pageCount'', CEIL(%s::float / %s)
+      )
+    ) FROM (%s) t', 
+    total_count, page_number, page_size, total_count, page_size, query_text
+  ) INTO result;
+  
+  RETURN result;
+EXCEPTION WHEN OTHERS THEN
+  RETURN json_build_object('error', SQLERRM);
+END;
+$$;
+
 -- Grant execution permission to authenticated users
 GRANT EXECUTE ON FUNCTION public.get_table_columns() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_table_columns() TO service_role;
+GRANT EXECUTE ON FUNCTION public.list_dynamic_lead_tables() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.list_dynamic_lead_tables() TO service_role;
+GRANT EXECUTE ON FUNCTION public.create_dynamic_lead_table(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_dynamic_lead_table(text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.execute_sql(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.query_dynamic_lead_table(text, text, integer, integer, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.query_dynamic_lead_table(text, text, integer, integer, text, text) TO service_role;
 
-COMMENT ON FUNCTION public.get_table_columns IS 'Returns information about all columns in the public schema tables, useful for schema introspection and application development';
+COMMENT ON FUNCTION public.get_table_columns IS 'Returns information about all columns in the public schema tables';
+COMMENT ON FUNCTION public.list_dynamic_lead_tables IS 'Lists all dynamically created lead tables with their record count';
+COMMENT ON FUNCTION public.create_dynamic_lead_table IS 'Creates a new dynamic lead table with the specified columns';
+COMMENT ON FUNCTION public.execute_sql IS 'Executes SQL commands with service role privileges (admin only)';
+COMMENT ON FUNCTION public.query_dynamic_lead_table IS 'Queries a dynamic lead table with pagination and filtering';
+
+-- Verify setup with a summary report
+DO $$
+DECLARE
+  table_count INTEGER;
+  policy_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO table_count FROM pg_tables WHERE schemaname = 'public';
+  SELECT COUNT(*) INTO policy_count FROM pg_policies WHERE schemaname = 'public';
+  
+  RAISE NOTICE '==== SETUP SUMMARY ====';
+  RAISE NOTICE 'Tables created: %', table_count;
+  RAISE NOTICE 'Policies created: %', policy_count;
+  RAISE NOTICE 'Dynamic lead table support: ENABLED';
+  RAISE NOTICE '=====================';
+END;
+$$;

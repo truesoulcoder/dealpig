@@ -7,7 +7,7 @@ import { Suspense } from 'react';
 // This helps avoid issues with server-side rendering of components that 
 // use browser-specific APIs or libraries like Recharts
 const CampaignDashboard = dynamic(
-  () => import('@/components/home/campaign-dashboard'),
+  () => import('@/components/campaigns/campaign-dashboard'),
   { ssr: false }
 );
 

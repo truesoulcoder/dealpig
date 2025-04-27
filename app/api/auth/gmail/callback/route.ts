@@ -1,98 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
-
-// Local implementation of saveGmailCredentials to avoid "use server" issues
-async function saveGmailCredentials(
-  senderId: string, 
-  accessToken: string, 
-  refreshToken: string,
-  profileData: { email: string; picture?: string; name?: string }
-): Promise<void> {
-  try {
-    // Update the sender with OAuth tokens and profile info
-    const { error } = await supabaseAdmin
-      .from('senders')
-      .update({
-        oauth_token: accessToken,
-        refresh_token: refreshToken,
-        profile_picture: profileData.picture || null,
-        last_token_refresh: new Date().toISOString()
-      })
-      .eq('id', senderId);
-
-    if (error) {
-      console.error('Error saving Gmail credentials:', error);
-      throw new Error('Failed to save Gmail credentials');
-    }
-  } catch (error) {
-    console.error('Save Gmail credentials error:', error);
-    throw error;
-  }
-}
+import { getTokens, getUserInfo } from '@/lib/gmail';
+import { updateSenderTokens } from '@/lib/database';
+import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    // Extract the authorization code from the URL parameters
+    // Get the authorization code from the query parameters
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
-    const stateParam = searchParams.get('state');
     
     if (!code) {
-      return NextResponse.redirect('/accounts?error=No_authorization_code');
-    }
-    
-    if (!stateParam) {
-      return NextResponse.redirect('/accounts?error=Missing_state_parameter');
-    }
-    
-    // Decode state parameter to get the sender ID
-    const state = JSON.parse(Buffer.from(stateParam, 'base64').toString());
-    const { senderId } = state;
-    
-    if (!senderId) {
-      return NextResponse.redirect('/accounts?error=Invalid_state_parameter');
+      const error = searchParams.get('error') || 'Missing authorization code';
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent(error)}`);
     }
     
     // Exchange the code for access and refresh tokens
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        code,
-        client_id: process.env.GMAIL_CLIENT_ID || '',
-        client_secret: process.env.GMAIL_CLIENT_SECRET || '',
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`,
-        grant_type: 'authorization_code',
-      }),
-    });
+    const tokens = await getTokens(code);
     
-    const tokenData = await tokenResponse.json();
-    
-    if (!tokenResponse.ok) {
-      console.error('Token error:', tokenData);
-      return NextResponse.redirect(`/accounts?error=${encodeURIComponent(tokenData.error || 'Token_exchange_failed')}`);
+    if (!tokens || !tokens.access_token) {
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to obtain access token')}`);
     }
     
-    const { access_token, refresh_token } = tokenData;
+    // Get pending sender ID from cookie - await the cookies() function
+    const cookieStore = await cookies();
+    const pendingSenderId = cookieStore.get('pending-sender-id')?.value;
     
-    // Get user profile info
-    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-      },
-    });
+    if (!pendingSenderId) {
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('No pending sender found')}`);
+    }
     
-    const profileData = await userInfoResponse.json();
-    
-    // Save tokens and profile info to the database
-    await saveGmailCredentials(senderId, access_token, refresh_token, profileData);
-    
-    // Redirect back to the accounts page with success message
-    return NextResponse.redirect(`/accounts?success=Gmail_authorization_successful`);
+    // Verify that the authorized email matches the one we're expecting
+    // This prevents users from authenticating with a different Gmail account
+    try {
+      const userInfo = await getUserInfo(tokens.access_token);
+      const primaryEmail = userInfo.emailAddresses?.find(email => email.metadata?.primary)?.value;
+      
+      if (!primaryEmail) {
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Could not retrieve email from Google account')}`);
+      }
+      
+      // Store the tokens in the database for the sender
+      await updateSenderTokens(pendingSenderId, {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token || '',
+      });
+      
+      // Clear the pending sender ID cookie
+      cookieStore.delete('pending-sender-id');
+      
+      // Redirect back to the accounts page with success message
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?success=true`);
+    } catch (error) {
+      console.error('Error verifying user email:', error);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to verify email')}`);
+    }
   } catch (error) {
-    console.error('Gmail OAuth callback error:', error);
-    return NextResponse.redirect('/accounts?error=Authorization_failed');
+    console.error('Error completing Gmail OAuth:', error);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to complete Gmail authentication')}`);
   }
 }

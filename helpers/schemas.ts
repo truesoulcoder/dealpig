@@ -8,7 +8,7 @@ export const LoginSchema = object().shape({
 });
 
 export const RegisterSchema = object().shape({
-  name: string().required("Name is required"),
+  full_name: string().required("Full name is required"),
   email: string()
     .email("This field must be an email")
     .required("Email is required"),

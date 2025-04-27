@@ -1,241 +1,451 @@
-"use server";
+'use server';
 
-import { cookies } from "next/headers";
-import { supabase } from '@/lib/supabaseClient';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { Lead, LoginFormType } from '@/helpers/types';
+import { supabase } from '@/lib/supabase';
+import { LoginFormType, RegisterFormType, Profile } from '@/helpers/types';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-// Get the current user session
-export async function getSession() {
+/**
+ * Authenticate a user with email and password
+ */
+export async function loginUser(formData: LoginFormType) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("userAuth")?.value;
-    
-    if (!token) {
-      return null;
-    }
-    
-    // Use the token to get the session
-    const { data, error } = await supabaseAdmin.auth.getUser(token);
-    
-    if (error || !data.user) {
-      console.error("Session error:", error);
-      return null;
-    }
-    
-    // Return session object with user data
-    return {
-      user: data.user
-    };
-  } catch (error) {
-    console.error("Error getting session:", error);
-    return null;
-  }
-}
-
-export const createAuthCookie = async (session: any) => {
-  if (!session || !session.access_token) {
-    throw new Error("No valid session provided for authentication");
-  }
-  
-  const cookieStore = await cookies();
-  cookieStore.set("userAuth", session.access_token, { 
-    secure: true,
-    httpOnly: true,
-    sameSite: "strict",
-    maxAge: session.expires_in || 3600 // Use session expiry or default to 1 hour
-  });
-};
-
-export const deleteAuthCookie = async () => {
-  const cookieStore = await cookies();
-  cookieStore.delete("userAuth");
-};
-
-// Login user authentication function
-export async function loginUser(credentials: LoginFormType) {
-  try {
-    // Using supabase client for auth operations 
-    // (we don't need admin privileges for this)
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password,
+      email: formData.email,
+      password: formData.password,
     });
 
     if (error) {
-      return { success: false, message: 'Invalid credentials' };
+      return {
+        success: false,
+        message: error.message,
+      };
     }
 
-    // If login is successful, create the auth cookie
-    await createAuthCookie(data.session);
+    // Store session in cookies
+    const cookieStore = cookies();
+    const { session } = data;
+    
+    if (session) {
+      cookieStore.set('sb-access-token', session.access_token, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      cookieStore.set('sb-refresh-token', session.refresh_token, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      // Set user ID in a non-HTTP-only cookie for client-side access
+      cookieStore.set('user-id', session.user.id, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      // Ensure profile exists in the profiles table
+      await ensureProfile(session.user.id, {
+        email: session.user.email,
+        full_name: session.user.user_metadata?.full_name,
+      });
+    }
 
-    return { success: true, message: 'Login successful', user: data.user };
+    return {
+      success: true,
+    };
   } catch (error) {
     console.error('Login error:', error);
-    return { success: false, message: 'Unexpected server error' };
-  }
-}
-
-// Fetch all leads from the database using admin client
-export async function fetchLeads(): Promise<Lead[]> {
-  // Using supabaseAdmin for database queries in server actions
-  const { data, error } = await supabaseAdmin.from('leads').select('*');
-
-  if (error) {
-    console.error('Error fetching leads:', error.message);
-    throw new Error('Failed to fetch leads');
-  }
-
-  return data || [];
-}
-
-// Save OAuth tokens to the database using admin client
-export async function saveToken(email: string, oauthToken: string, refreshToken: string): Promise<void> {
-  // Using supabaseAdmin for database operations in server actions
-  const { error } = await supabaseAdmin.from('tokens').insert({
-    email,
-    oauth_token: oauthToken,
-    refresh_token: refreshToken,
-  });
-
-  if (error) {
-    console.error('Error saving token:', error.message);
-    throw new Error('Failed to save token');
-  }
-}
-
-// Add a new user registration function
-export async function registerUser(email: string, password: string, name: string) {
-  try {
-    console.log("===== REGISTRATION DEBUGGING =====");
-    console.log("1. Starting user registration for:", email);
-    
-    // Use updated supabaseAdmin client
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: name }
-    });
-
-    if (userError) {
-      console.error("ERROR creating user:", userError);
-      // Log detailed error info for debugging
-      console.error("Error details:", {
-        message: userError.message,
-        status: userError.status,
-        name: userError.name
-      });
-      return { success: false, message: userError.message };
-    }
-
-    console.log("User created successfully:", userData.user.id);
-    
-    // Only try to create profile if user creation succeeded
-    try {
-      const { error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          id: userData.user.id,
-          full_name: name,
-          email: email,
-        });
-
-      if (profileError) {
-        // Log profile creation error but don't fail the registration
-        console.error('Error creating profile:', profileError.message);
-        console.log("Continuing with registration despite profile error");
-      } else {
-        console.log("Profile created successfully");
-      }
-    } catch (profileErr) {
-      // Log profile creation exception but don't fail the registration
-      console.error("Exception during profile creation:", profileErr);
-      console.log("Continuing with registration despite profile error");
-    }
-
-    return { success: true, message: 'User registered successfully', userId: userData.user.id };
-  } catch (error: any) {
-    // Detailed error logging
-    console.error("REGISTRATION FAILED WITH EXCEPTION:", error);
-    console.error("Error details:", error?.message);
-    
-    return { success: false, message: `Registration error: ${error?.message || 'Unknown error'}` };
+    return {
+      success: false,
+      message: 'An unexpected error occurred during login.',
+    };
   }
 }
 
 /**
- * Initiate Google OAuth login flow
- * Generates an OAuth URL for Google authentication
+ * Register a new user with email and password
  */
-export async function loginWithGoogle() {
+export async function registerUser(formData: RegisterFormType) {
   try {
-    // Supabase provides built-in OAuth providers
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+    const { data, error } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
-        scopes: 'email profile',
-      }
+        data: {
+          full_name: formData.full_name,
+        },
+      },
     });
 
     if (error) {
-      console.error('Google OAuth initialization error:', error);
-      return { error: error.message };
+      return {
+        success: false,
+        message: error.message,
+      };
     }
 
-    if (!data.url) {
-      return { error: 'Failed to generate Google login URL' };
+    // Store session in cookies if auto-sign-in is enabled
+    const { session, user } = data;
+    
+    if (session) {
+      const cookieStore = cookies();
+      
+      cookieStore.set('sb-access-token', session.access_token, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      cookieStore.set('sb-refresh-token', session.refresh_token, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      // Set user ID in a non-HTTP-only cookie for client-side access
+      cookieStore.set('user-id', session.user.id, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      // Create profile in the profiles table
+      await createProfile(session.user.id, {
+        email: formData.email,
+        full_name: formData.full_name,
+      });
+
+      return {
+        success: true,
+        requiresEmailVerification: false,
+      };
+    } else if (user) {
+      // Email confirmation is required before signing in
+      return {
+        success: true,
+        requiresEmailVerification: true,
+        message: 'Registration successful! Please check your email to verify your account.',
+      };
     }
 
-    return { redirectUrl: data.url };
+    return {
+      success: false,
+      message: 'An unexpected error occurred during registration.',
+    };
   } catch (error) {
-    console.error('Google login error:', error);
-    return { error: 'Unexpected error during Google login initialization' };
+    console.error('Registration error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred during registration.',
+    };
   }
 }
 
-// Generate OAuth URL for Gmail access
-export async function getGmailAuthUrl(senderId: string): Promise<string> {
-  // OAuth 2.0 configuration
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`;
-  const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.profile';
-  
-  // Store the sender ID in the state parameter for retrieval after authorization
-  const state = Buffer.from(JSON.stringify({ senderId })).toString('base64');
-  
-  // Generate and return the authorization URL
-  const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${state}`;
-  
-  return authUrl;
+/**
+ * Sign out the current user
+ */
+export async function logoutUser() {
+  try {
+    // Sign out from Supabase Auth
+    await supabase.auth.signOut();
+    
+    // Clear cookies
+    const cookieStore = cookies();
+    cookieStore.delete('sb-access-token');
+    cookieStore.delete('sb-refresh-token');
+    cookieStore.delete('user-id');
+    
+    redirect('/login');
+  } catch (error) {
+    console.error('Logout error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred during logout.',
+    };
+  }
 }
 
-// Save Gmail OAuth tokens and profile info for a sender
-export async function saveGmailCredentials(
-  senderId: string, 
-  accessToken: string, 
-  refreshToken: string,
-  profileData: { email: string; picture?: string; name?: string }
-): Promise<void> {
+/**
+ * Initiate Google OAuth login
+ */
+export async function loginWithGoogle() {
   try {
-    // Update the sender with OAuth tokens and profile info
-    const { error } = await supabaseAdmin
-      .from('senders')
-      .update({
-        oauth_token: accessToken,
-        refresh_token: refreshToken,
-        profile_picture: profileData.picture || null,
-        last_token_refresh: new Date().toISOString()
-      })
-      .eq('id', senderId);
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
 
     if (error) {
-      console.error('Error saving Gmail credentials:', error);
-      throw new Error('Failed to save Gmail credentials');
+      return {
+        error: error.message,
+      };
+    }
+
+    return {
+      redirectUrl: data.url,
+    };
+  } catch (error) {
+    console.error('Google login error:', error);
+    return {
+      error: 'Failed to initiate Google login',
+    };
+  }
+}
+
+/**
+ * Get the current authenticated user
+ */
+export async function getCurrentUser() {
+  try {
+    const cookieStore = cookies();
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const refreshToken = cookieStore.get('sb-refresh-token')?.value;
+    
+    if (!accessToken || !refreshToken) {
+      return null;
+    }
+    
+    // Set session manually from cookies
+    const { data: { user }, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    
+    if (error || !user) {
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('Get current user error:', error);
+    return null;
+  }
+}
+
+/**
+ * Handle OAuth callback
+ */
+export async function handleAuthCallback(code: string) {
+  try {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (error) {
+      return {
+        error: error.message,
+      };
+    }
+    
+    // Store session in cookies
+    const { session } = data;
+    
+    if (session) {
+      const cookieStore = cookies();
+      
+      cookieStore.set('sb-access-token', session.access_token, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      cookieStore.set('sb-refresh-token', session.refresh_token, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      // Set user ID in a non-HTTP-only cookie for client-side access
+      cookieStore.set('user-id', session.user.id, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        path: '/',
+        httpOnly: false, 
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+      
+      // Ensure profile exists in the profiles table for OAuth users
+      await ensureProfile(session.user.id, {
+        email: session.user.email,
+        full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+      });
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Auth callback error:', error);
+    return {
+      error: 'Failed to process authentication',
+    };
+  }
+}
+
+/**
+ * Request a password reset email
+ * For security, this always returns success regardless of whether the email exists
+ */
+export async function requestPasswordReset(email: string) {
+  try {
+    // Security: Always return success even if email doesn't exist
+    // This prevents email enumeration attacks
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // First check if the email actually exists - but don't reveal this to the user
+    const { data: userExists } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .single();
+    
+    // Only send an email if the user actually exists
+    if (userExists) {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+      });
+      
+      if (error) {
+        console.error('Password reset request error:', error);
+        // Still return success to prevent email enumeration
+      }
+    } else {
+      // Log attempt for security monitoring, but don't reveal to user
+      console.log(`Password reset requested for non-existent email: ${normalizedEmail}`);
+    }
+
+    // Always return success to prevent email enumeration attacks
+    return {
+      success: true,
+      message: 'If your email exists in our system, you will receive password reset instructions shortly.',
+    };
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    // Still return success for security reasons
+    return {
+      success: true,
+      message: 'If your email exists in our system, you will receive password reset instructions shortly.',
+    };
+  }
+}
+
+/**
+ * Update a user's password after they've clicked the reset link in their email
+ */
+export async function resetPassword(password: string) {
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Your password has been successfully updated',
+    };
+  } catch (error) {
+    console.error('Password update error:', error);
+    return {
+      success: false,
+      message: 'An unexpected error occurred. Please try again.',
+    };
+  }
+}
+
+// Helper function to create a profile in the profiles table
+async function createProfile(userId: string, profileData: { email: string; full_name?: string }) {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
+        email: profileData.email,
+        full_name: profileData.full_name || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      
+    if (error) {
+      console.error('Error creating profile:', error);
     }
   } catch (error) {
-    console.error('Save Gmail credentials error:', error);
-    throw error;
+    console.error('Profile creation error:', error);
+  }
+}
+
+// Helper function to ensure a profile exists in the profiles table
+async function ensureProfile(userId: string, profileData: { email?: string; full_name?: string }) {
+  try {
+    // Check if profile exists
+    const { data: existingProfile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+      
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is the error code for "no rows returned"
+      console.error('Error fetching profile:', fetchError);
+      return;
+    }
+    
+    if (!existingProfile) {
+      // Create new profile
+      await createProfile(userId, { 
+        email: profileData.email || '',
+        full_name: profileData.full_name
+      });
+    } else {
+      // Update existing profile with latest data from auth if needed
+      const updates: Partial<Profile> = { updated_at: new Date().toISOString() };
+      
+      // Only update fields that are provided and different from existing data
+      if (profileData.full_name && profileData.full_name !== existingProfile.full_name) {
+        updates.full_name = profileData.full_name;
+      }
+      
+      if (profileData.email && profileData.email !== existingProfile.email) {
+        updates.email = profileData.email;
+      }
+      
+      if (Object.keys(updates).length > 1) { // More than just updated_at
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId);
+          
+        if (updateError) {
+          console.error('Error updating profile:', updateError);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Ensure profile error:', error);
   }
 }

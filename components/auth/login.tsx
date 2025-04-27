@@ -155,6 +155,11 @@ export const Login = () => {
                 autoComplete="current-password"
                 size="lg"
               />
+              <div className="flex justify-end">
+                <Link href="/forgot-password" className="text-sm text-primary-600 hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {authError && (

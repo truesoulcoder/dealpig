@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardBody, CardHeader, CardFooter, Button, Divider } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { FaArrowLeft, FaUpload, FaDownload, FaFileAlt } from "react-icons/fa";
@@ -17,6 +17,7 @@ export default function ImportLeadsPage() {
     insertedContacts?: number;
     errors?: string[];
   } | null>(null);
+  const [requestHistory, setRequestHistory] = useState<string[]>([]);
   const router = useRouter();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,60 +27,35 @@ export default function ImportLeadsPage() {
     }
   };
 
+  // Simplified submit handler to prevent multiple requests
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!file) return;
+    if (!file || isUploading) return; // Prevent duplicate submissions
+    
+    // Set loading state
+    setIsUploading(true);
+    setUploadResult(null);
     
     try {
-      setIsUploading(true);
-      setUploadResult(null);
-      
+      // Simple FormData creation
       const formData = new FormData();
       formData.append("file", file);
       
       console.log(`Starting upload for file: ${file.name} (${Math.round(file.size / 1024)} KB)`);
       
-      // Set a longer timeout for the fetch request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      // Direct server action call with no timeout or extra wrappers
+      const result = await uploadCsv(formData);
+      console.log('Upload result:', result);
       
-      try {
-        const result = await uploadCsv(formData);
-        clearTimeout(timeoutId);
-        
-        setUploadResult(result);
-        
-        if (result.success) {
-          console.log('CSV import successful:', result);
-        } else {
-          console.error('CSV import failed:', result);
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        console.error('Error during CSV upload fetch:', fetchError);
-        
-        // Handle network errors or timeout
-        if (fetchError instanceof DOMException && fetchError.name === 'AbortError') {
-          setUploadResult({
-            success: false,
-            message: "The request timed out. The file might be too large or the server is busy. Try a smaller file or try again later.",
-            errors: ["Request timeout"]
-          });
-        } else {
-          setUploadResult({
-            success: false,
-            message: fetchError instanceof Error ? fetchError.message : "Network error occurred",
-            errors: [fetchError instanceof Error ? fetchError.message : "Unknown network error"]
-          });
-        }
-      }
+      // Set the result based on the server response
+      setUploadResult(result);
     } catch (error) {
-      console.error("Error uploading CSV:", error);
+      console.error("Upload error:", error);
       setUploadResult({
         success: false,
-        message: error instanceof Error ? error.message : "An unknown error occurred",
-        errors: [error instanceof Error ? error.message : "Unknown error"]
+        message: error instanceof Error ? error.message : "Upload failed",
+        errors: [String(error)]
       });
     } finally {
       setIsUploading(false);
@@ -105,6 +81,38 @@ export default function ImportLeadsPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  // Log requests for debugging
+  useEffect(() => {
+    const timestamp = new Date().toISOString();
+    setRequestHistory(prev => [...prev, `Page loaded/rendered at ${timestamp}`]);
+    
+    // Set up fetch interceptor
+    const originalFetch = window.fetch;
+    window.fetch = async function(input, init) {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input instanceof Request ? input.url : 'unknown';
+      const method = init?.method || 'GET';
+      
+      const requestTimestamp = new Date().toISOString();
+      setRequestHistory(prev => [...prev, `${requestTimestamp}: ${method} request to ${url}`]);
+      
+      try {
+        const response = await originalFetch.apply(this, [input, init]);
+        const responseTimestamp = new Date().toISOString();
+        setRequestHistory(prev => [...prev, `${responseTimestamp}: ${response.status} response from ${url}`]);
+        return response;
+      } catch (error) {
+        const errorTimestamp = new Date().toISOString();
+        setRequestHistory(prev => [...prev, `${errorTimestamp}: Error on ${url}: ${error.message}`]);
+        throw error;
+      }
+    };
+    
+    return () => {
+      // Restore original fetch when component unmounts
+      window.fetch = originalFetch;
+    };
+  }, []);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -132,7 +140,11 @@ export default function ImportLeadsPage() {
             </CardHeader>
             <Divider />
             <CardBody>
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form 
+                onSubmit={handleSubmit} 
+                className="space-y-6"
+                id="csv-import-form" 
+              >
                 <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50">
                   <FaFileAlt className="text-gray-400 text-5xl mb-4" />
                   <p className="mb-4 text-center text-gray-600">

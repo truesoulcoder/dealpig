@@ -1,40 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteSender } from '@/lib/database';
-import { getServerSession } from 'next-auth';
+import { deleteSender, getSenderById } from '../../../../lib/database';
+import { cookies } from 'next/headers';
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession();
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const senderId = params.id;
     
     if (!senderId) {
       return NextResponse.json(
-        { success: false, message: 'Sender ID is required' },
+        { error: 'Sender ID is required' },
         { status: 400 }
       );
     }
-
-    // Delete the sender from the database
-    const success = await deleteSender(senderId);
     
-    if (!success) {
+    // Check user authentication - await the cookies() function
+    const cookieStore = await cookies();
+    const userId = cookieStore.get('user-id')?.value;
+    
+    if (!userId) {
       return NextResponse.json(
-        { success: false, message: 'Failed to delete sender' },
-        { status: 500 }
+        { error: 'User not authenticated' },
+        { status: 401 }
       );
     }
-
+    
+    // Get sender details to verify ownership
+    const sender = await getSenderById(senderId);
+    
+    if (!sender) {
+      return NextResponse.json(
+        { error: 'Sender not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check if this sender belongs to the current user
+    // This check can be expanded based on your permission model
+    // For now, we'll assume any authenticated user can delete any sender
+    
+    // Delete the sender
+    await deleteSender(senderId);
+    
     return NextResponse.json(
       { success: true, message: 'Sender deleted successfully' },
       { status: 200 }
@@ -42,7 +51,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting sender:', error);
     return NextResponse.json(
-      { success: false, message: `Error: ${error instanceof Error ? error.message : String(error)}` },
+      { error: 'Failed to delete sender' },
       { status: 500 }
     );
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { loginUser } from "@/actions/auth.action";
+import { loginUser, registerUser } from "@/actions/auth.action";
 import { RegisterSchema } from "@/helpers/schemas";
 import { RegisterFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
@@ -14,9 +14,10 @@ export const Register = () => {
   const router = useRouter();
   const [regError, setRegError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
 
   const initialValues: RegisterFormType = {
-    name: "",
+    full_name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -28,35 +29,19 @@ export const Register = () => {
       setRegError(null);
       
       try {
-        // Call the new direct API route with updated path
-        const response = await fetch('/api/auth/register-new', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: values.email,
-            password: values.password,
-            name: values.name
-          })
-        });
+        // Use our server action for registration
+        const result = await registerUser(values);
         
-        const registrationResult = await response.json();
-        
-        if (registrationResult?.success) {
-          // If registration is successful, automatically log the user in
-          const loginResult = await loginUser({
-            email: values.email,
-            password: values.password
-          });
-          
-          if (loginResult?.success) {
-            // Redirect to dashboard
-            router.replace("/");
+        if (result?.success) {
+          if (result.requiresEmailVerification) {
+            // If email verification is required, show message
+            setVerificationRequired(true);
           } else {
-            // If login fails after successful registration, redirect to login page
-            router.replace("/login");
+            // If auto-login is enabled, redirect to dashboard
+            router.replace("/");
           }
         } else {
-          setRegError(registrationResult?.message || "Registration failed. Please try again.");
+          setRegError(result?.message || "Registration failed. Please try again.");
         }
       } catch (error) {
         console.error("Registration error:", error);
@@ -67,6 +52,43 @@ export const Register = () => {
     },
     [router]
   );
+
+  if (verificationRequired) {
+    return (
+      <div className="flex flex-col items-center max-w-md w-full mx-auto">
+        <div className="mb-8 text-center">
+          <Image 
+            src="/dealpig.svg" 
+            alt="DealPig Logo" 
+            width={316}
+            height={90}
+            className="mx-auto mb-4" 
+            priority
+          />
+          <h1 className="text-2xl font-bold">Email Verification Required</h1>
+          <div className="mt-6 p-4 border border-blue-200 bg-blue-50 rounded-md text-left">
+            <p className="text-gray-700 mb-4">
+              We've sent a verification email to your inbox. Please check your email and click the verification link to activate your account.
+            </p>
+            <p className="text-gray-700">
+              Once verified, you'll be able to log in to your new account.
+            </p>
+          </div>
+          <div className="mt-6">
+            <Button
+              variant="flat"
+              color="default"
+              className="w-full"
+              size="lg"
+              onClick={() => router.push('/login')}
+            >
+              Return to Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center max-w-md w-full mx-auto">
@@ -93,10 +115,10 @@ export const Register = () => {
               <Input
                 variant="bordered"
                 label="Full Name"
-                value={values.name}
-                isInvalid={!!errors.name && !!touched.name}
-                errorMessage={errors.name}
-                onChange={handleChange("name")}
+                value={values.full_name}
+                isInvalid={!!errors.full_name && !!touched.full_name}
+                errorMessage={errors.full_name}
+                onChange={handleChange("full_name")}
                 isDisabled={isLoading}
                 size="lg"
               />

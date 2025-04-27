@@ -1,714 +1,429 @@
-import { supabase } from './supabaseClient';
-import { v4 as uuidv4 } from 'uuid';
+import { supabase, createAdminClient } from './supabase';
+import { UUID, Sender, Lead, Campaign, Template, CampaignSender, CampaignLead, Email } from '@/helpers/types';
 
-// Type definitions based on our database schema
-export interface Lead {
-  id?: string;
-  property_address: string;
-  property_city: string;
-  property_state: string;
-  property_zip: string;
-  wholesale_value?: number;
-  market_value?: number;
-  days_on_market?: number;
-  mls_status?: string;
-  mls_list_date?: string;
-  mls_list_price?: number;
-  status?: string;
-  source_id?: string;
-  owner_type?: string;
-  property_type?: string;
-  beds?: string;
-  baths?: string;
-  square_footage?: string;
-  year_built?: string;
-  assessed_total?: number;
-  contact1name?: string;
-  contact1phone_1?: string;
-  contact1email_1?: string;
-  contact2name?: string;
-  contact2phone_1?: string;
-  contact2email_1?: string;
-  contact3name?: string;
-  contact3phone_1?: string;
-  contact3email_1?: string;
-  created_at?: string;
-  updated_at?: string;
-  contacts?: Contact[];
-}
+// ==========================================
+// USER AND AUTH RELATED FUNCTIONS
+// ==========================================
 
-export interface Contact {
-  id?: string;
-  name: string;
-  email: string;
-  lead_id: string;
-  is_primary?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface LeadSource {
-  id?: string;
-  name: string;
-  file_name: string;
-  file_url?: string; // Added file_url to support storage URLs
-  last_imported: string;
-  record_count: number;
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface Sender {
-  id?: string;
-  name: string;
-  email: string;
-  title: string;
-  daily_quota?: number;
-  emails_sent?: number;
-  last_sent_at?: string;
-  created_at?: string;
-  updated_at?: string;
-  profile_picture?: string;
-  verified_email?: string;
-  oauth_token?: string;
-}
-
-export interface Email {
-  id?: string;
-  lead_id: string;
-  sender_id: string;
-  subject: string;
-  body: string;
-  loi_path?: string;
-  status?: string;
-  opened_at?: string;
-  replied_at?: string;
-  bounced_at?: string;
-  bounce_reason?: string;
-  sent_at?: string;
-  tracking_id?: string;
-  message_id?: string;    // Gmail message ID for tracking replies
-  campaignId?: string;    // Campaign ID for associating emails with campaigns
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface Template {
-  id?: string;
-  name: string;
-  subject?: string;
-  content: string;
-  type?: string;
-  path?: string;      // Added path to support storage file path
-  file_url?: string;  // Added file_url to support public URLs
-  created_at?: string;
-  updated_at?: string;
-}
-
-// Campaign-related interfaces
-export interface Campaign {
-  id?: string;
-  name: string;
-  description?: string;
-  status?: string;
-  email_template_id?: string;
-  loi_template_id?: string;
-  leads_per_day?: number;
-  start_time?: string;
-  end_time?: string;
-  min_interval_minutes?: number;
-  max_interval_minutes?: number;
-  attachment_type?: string;
-  total_leads?: number;
-  leads_worked?: number;
-  company_logo_path?: string;
-  email_subject?: string;
-  email_body?: string;
-  created_at?: string;
-  updated_at?: string;
-  tracking_enabled?: boolean;
-}
-
-export interface CampaignSender {
-  id?: string;
-  campaign_id: string;
-  sender_id: string;
-  emails_sent_today?: number;
-  total_emails_sent?: number;
-  last_sent_at?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface CampaignLead {
-  id?: string;
-  campaign_id: string;
-  lead_id: string;
-  status?: string;
-  processed_at?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-// Database Operations
-
-// Lead operations
-export async function createLead(lead: Lead): Promise<Lead | null> {
-  const now = new Date().toISOString();
-  const newLead = {
-    ...lead,
-    status: lead.status || 'NEW',
-    created_at: now,
-    updated_at: now
-  };
-
+/**
+ * Get user profile by ID
+ */
+export async function getUserProfile(userId: UUID) {
   const { data, error } = await supabase
-    .from('leads')
-    .insert([newLead])
-    .select();
-
-  if (error || !data || data.length === 0) {
-    console.error('Error creating lead:', error);
-    return null;
-  }
-
-  return data[0] as Lead;
-}
-
-// Add insertLead as an alias for createLead to match what the tests are expecting
-export const insertLead = createLead;
-
-export async function getLeadById(id: string): Promise<Lead | null> {
-  const { data, error } = await supabase
-    .from('leads')
-    .select(`
-      *,
-      contacts (*)
-    `)
-    .eq('id', id)
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
     .single();
-
-  if (error) {
-    console.error('Error fetching lead:', error);
-    return null;
-  }
-
-  return data as Lead;
+  
+  if (error) throw error;
+  return data;
 }
 
-export async function getLeads(status?: string, search?: string, limit = 100, offset = 0): Promise<Lead[]> {
-  try {
-    // First, fetch the leads
-    let query = supabase.from('leads').select('*');
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    if (search) {
-      query = query.or(`
-        property_address.ilike.%${search}%,
-        property_city.ilike.%${search}%,
-        property_state.ilike.%${search}%,
-        property_zip.ilike.%${search}%
-      `);
-    }
-
-    const { data: leadsData, error: leadsError } = await query
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (leadsError) {
-      console.error('Error fetching leads:', leadsError);
-      return []; // Return empty array on error
-    }
-
-    // Now fetch all contacts for these leads in a single query
-    if (leadsData && leadsData.length > 0) {
-      const leadIds = leadsData.map(lead => lead.id);
-      
-      const { data: contactsData, error: contactsError } = await supabase
-        .from('contacts')
-        .select('*')
-        .in('lead_id', leadIds)
-        .order('is_primary', { ascending: false });
-
-      if (contactsError) {
-        console.error('Error fetching contacts:', contactsError);
-        // Return leads without contacts
-        return leadsData as Lead[];
-      }
-
-      // Group contacts by lead_id
-      const contactsByLeadId: Record<string, Contact[]> = {};
-      contactsData?.forEach(contact => {
-        if (!contactsByLeadId[contact.lead_id]) {
-          contactsByLeadId[contact.lead_id] = [];
-        }
-        contactsByLeadId[contact.lead_id].push(contact as Contact);
-      });
-
-      // Attach contacts to their leads
-      const leadsWithContacts = leadsData.map(lead => {
-        return {
-          ...lead,
-          contacts: contactsByLeadId[lead.id || ''] || []
-        };
-      });
-
-      return leadsWithContacts as Lead[];
-    }
-
-    return leadsData as Lead[];
-  } catch (error) {
-    console.error('Error in getLeads:', error);
-    return [];
-  }
-}
-
-export async function updateLead(id: string, updates: Partial<Lead>): Promise<Lead | null> {
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(userId: UUID, updates: any) {
   const { data, error } = await supabase
-    .from('leads')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select();
-
-  if (error) {
-    console.error('Error updating lead:', error);
-    return null;
-  }
-
-  return data[0] as Lead;
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId);
+  
+  if (error) throw error;
+  return data;
 }
 
-export async function updateLeadStatus(id: string, status: string): Promise<boolean> {
+// ==========================================
+// SENDER RELATED FUNCTIONS
+// ==========================================
+
+/**
+ * Fetch all email senders for the current user
+ */
+export async function getSenders(userId?: UUID): Promise<Sender[]> {
+  try {
+    const { data, error } = await supabase
+      .from('senders')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching senders:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get a single sender by ID
+ */
+export async function getSenderById(senderId: UUID): Promise<Sender | null> {
+  try {
+    const { data, error } = await supabase
+      .from('senders')
+      .select('*')
+      .eq('id', senderId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching sender:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new sender
+ */
+export async function createSender(senderData: {
+  name: string;
+  email: string;
+  title?: string;
+  daily_quota: number;
+  user_id?: string;
+}): Promise<UUID> {
+  try {
+    const { data, error } = await supabase
+      .from('senders')
+      .insert({
+        name: senderData.name,
+        email: senderData.email.toLowerCase(),
+        title: senderData.title || '',
+        daily_quota: senderData.daily_quota || 100,
+        emails_sent: 0,
+        user_id: senderData.user_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    
+    if (error) throw error;
+    return data.id;
+  } catch (error) {
+    console.error('Error creating sender:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update an existing sender's OAuth tokens
+ */
+export async function updateSenderTokens(
+  senderId: UUID, 
+  tokens: { 
+    access_token: string; 
+    refresh_token: string;
+  }
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('senders')
+      .update({
+        oauth_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', senderId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error updating sender tokens:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a sender by ID
+ */
+export async function deleteSender(senderId: UUID): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('senders')
+      .delete()
+      .eq('id', senderId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting sender:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update sender's email count after sending an email
+ */
+export async function incrementSenderEmailCount(senderId: UUID): Promise<void> {
+  try {
+    // First get the current emails_sent count
+    const { data: sender, error: fetchError } = await supabase
+      .from('senders')
+      .select('emails_sent')
+      .eq('id', senderId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    // Then increment it by one
+    const { error: updateError } = await supabase
+      .from('senders')
+      .update({ 
+        emails_sent: (sender.emails_sent || 0) + 1,
+        last_sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', senderId);
+    
+    if (updateError) throw updateError;
+  } catch (error) {
+    console.error('Error updating sender email count:', error);
+    throw error;
+  }
+}
+
+// ==========================================
+// LEAD RELATED FUNCTIONS
+// ==========================================
+
+/**
+ * Get all leads with optional filtering
+ */
+export async function getLeads(filters?: {
+  status?: string;
+  sourceId?: UUID;
+}): Promise<Lead[]> {
+  try {
+    let query = supabase.from('leads').select('*');
+    
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    
+    if (filters?.sourceId) {
+      query = query.eq('source_id', filters.sourceId);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching leads:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get lead by ID
+ */
+export async function getLeadById(leadId: UUID): Promise<Lead | null> {
+  try {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching lead:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new lead
+ */
+export async function createLead(leadData: Partial<Lead>): Promise<UUID> {
+  try {
+    const { data, error } = await supabase
+      .from('leads')
+      .insert({
+        ...leadData,
+        status: leadData.status || 'NEW',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id')
+      .single();
+    
+    if (error) throw error;
+    return data.id;
+  } catch (error) {
+    console.error('Error creating lead:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update a lead
+ */
+export async function updateLead(leadId: UUID, updates: Partial<Lead>): Promise<void> {
   try {
     const { error } = await supabase
       .from('leads')
-      .update({ 
-        status, 
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error updating lead status:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in updateLeadStatus:', error);
-    return false;
-  }
-}
-
-export async function deleteLead(id: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('leads')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting lead:', error);
-    return false;
-  }
-
-  return true;
-}
-
-// Contact operations
-export async function createContact(contact: Contact): Promise<Contact | null> {
-  const now = new Date().toISOString();
-  const newContact = {
-    ...contact,
-    created_at: now,
-    updated_at: now
-  };
-
-  const { data, error } = await supabase
-    .from('contacts')
-    .insert([newContact])
-    .select();
-
-  if (error || !data || data.length === 0) {
-    console.error('Error creating contact:', error);
-    return null;
-  }
-
-  return data[0] as Contact;
-}
-
-export async function getContactsByLeadId(leadId: string): Promise<Contact[]> {
-  const { data, error } = await supabase
-    .from('contacts')
-    .select('*')
-    .eq('lead_id', leadId)
-    .order('is_primary', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching contacts:', error);
-    return [];
-  }
-
-  return data as Contact[];
-}
-
-// Email operations
-export async function createEmail(email: Email): Promise<Email | null> {
-  const now = new Date().toISOString();
-  const trackingId = uuidv4();
-  
-  const newEmail = {
-    ...email,
-    status: email.status || 'PENDING',
-    tracking_id: email.tracking_id || trackingId,
-    created_at: now,
-    updated_at: now
-  };
-
-  const { data, error } = await supabase
-    .from('emails')
-    .insert([newEmail])
-    .select();
-
-  if (error || !data || data.length === 0) {
-    console.error('Error creating email record:', error);
-    return null;
-  }
-
-  return data[0] as Email;
-}
-
-export async function updateEmailStatus(id: string, status: string, additionalData?: Partial<Email>): Promise<Email | null> {
-  const updates = {
-    status,
-    updated_at: new Date().toISOString(),
-    ...additionalData
-  };
-
-  // Add timestamp for specific statuses
-  if (status === 'SENT') {
-    updates.sent_at = new Date().toISOString();
-  } else if (status === 'OPENED') {
-    updates.opened_at = new Date().toISOString();
-  } else if (status === 'REPLIED') {
-    updates.replied_at = new Date().toISOString();
-  } else if (status === 'BOUNCED') {
-    updates.bounced_at = new Date().toISOString();
-  }
-
-  const { data, error } = await supabase
-    .from('emails')
-    .update(updates)
-    .eq('id', id)
-    .select();
-
-  if (error || !data || data.length === 0) {
-    console.error('Error updating email status:', error);
-    return null;
-  }
-
-  return data[0] as Email;
-}
-
-export async function getEmailsByLeadId(leadId: string): Promise<Email[]> {
-  const { data, error } = await supabase
-    .from('emails')
-    .select(`
-      *,
-      senders:sender_id (name, email, title)
-    `)
-    .eq('lead_id', leadId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching emails:', error);
-    return [];
-  }
-
-  return data as unknown as Email[];
-}
-
-/**
- * Get emails by message ID (needed for Gmail reply tracking)
- * @param messageId The Gmail message ID to search for
- * @returns Array of matching Email records
- */
-export async function getEmailsByMessageId(messageId: string): Promise<Email[]> {
-  try {
-    const { data, error } = await supabase
-      .from('emails')
-      .select('*')
-      .eq('message_id', messageId);
-      
-    if (error) {
-      console.error('Error fetching emails by message ID:', error);
-      return [];
-    }
-    
-    return data as Email[];
-  } catch (error) {
-    console.error('Error in getEmailsByMessageId:', error);
-    return [];
-  }
-}
-
-/**
- * Get all active senders that need email monitoring
- * @returns Array of active senders with validated OAuth tokens
- */
-export async function getAllActiveSenders(): Promise<Sender[]> {
-  try {
-    // Join senders with oauth_tokens to only get senders with valid tokens
-    const { data, error } = await supabase
-      .from('senders')
-      .select(`
-        *,
-        oauth_tokens:oauth_tokens!inner (*)
-      `)
-      .neq('oauth_tokens.refresh_token', null);
-      
-    if (error) {
-      console.error('Error fetching active senders:', error);
-      return [];
-    }
-    
-    return data.map(item => ({
-      ...item,
-      oauth_token: item.oauth_tokens?.refresh_token
-    })) as Sender[];
-  } catch (error) {
-    console.error('Error in getAllActiveSenders:', error);
-    return [];
-  }
-}
-
-// Template operations
-export async function getTemplates(type?: string): Promise<Template[]> {
-  let query = supabase.from('templates').select('*');
-  
-  if (type) {
-    query = query.eq('type', type);
-  }
-  
-  const { data, error } = await query.order('name');
-
-  if (error) {
-    console.error('Error fetching templates:', error);
-    return [];
-  }
-
-  return data as Template[];
-}
-
-export async function getTemplateById(id: string): Promise<Template | null> {
-  const { data, error } = await supabase
-    .from('templates')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching template:', error);
-    return null;
-  }
-
-  return data as Template;
-}
-
-// Template save operation
-export async function saveTemplate(template: Template): Promise<Template | null> {
-  const now = new Date().toISOString();
-  
-  try {
-    // If ID exists, update existing template
-    if (template.id) {
-      const { data, error } = await supabase
-        .from('templates')
-        .update({
-          ...template,
-          updated_at: now
-        })
-        .eq('id', template.id)
-        .select();
-      
-      if (error) {
-        console.error('Error updating template:', error);
-        return null;
-      }
-      
-      return data[0] as Template;
-    } 
-    // Otherwise create new template
-    else {
-      const { data, error } = await supabase
-        .from('templates')
-        .insert([{
-          ...template,
-          created_at: now,
-          updated_at: now
-        }])
-        .select();
-      
-      if (error) {
-        console.error('Error creating template:', error);
-        return null;
-      }
-      
-      return data[0] as Template;
-    }
-  } catch (error) {
-    console.error('Error in saveTemplate:', error);
-    return null;
-  }
-}
-
-// Sender operations
-export async function getSenders(): Promise<Sender[]> {
-  const { data, error } = await supabase
-    .from('senders')
-    .select('*')
-    .order('name');
-
-  if (error) {
-    console.error('Error fetching senders:', error);
-    return [];
-  }
-
-  return data as Sender[];
-}
-
-export async function getSenderById(id: string): Promise<Sender | null> {
-  const { data, error } = await supabase
-    .from('senders')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching sender by ID:', error);
-    return null;
-  }
-
-  return data as Sender;
-}
-
-export async function getSenderByEmail(email: string): Promise<Sender | null> {
-  const { data, error } = await supabase
-    .from('senders')
-    .select('*')
-    .eq('email', email)
-    .single();
-
-  if (error) {
-    console.error('Error fetching sender:', error);
-    return null;
-  }
-
-  return data as Sender;
-}
-
-export async function createSender(sender: Sender): Promise<Sender | null> {
-  try {
-    const now = new Date().toISOString();
-    const newSender = {
-      ...sender,
-      created_at: now,
-      updated_at: now,
-      emails_sent: 0,
-      daily_quota: sender.daily_quota || 100
-    };
-
-    const { data, error } = await supabase
-      .from('senders')
-      .insert([newSender])
-      .select();
-
-    if (error) {
-      console.error('Error creating sender:', error);
-      return null;
-    }
-
-    return data[0] as Sender;
-  } catch (error) {
-    console.error('Error in createSender:', error);
-    return null;
-  }
-}
-
-export async function updateSenderProfile(id: string, updates: Partial<Sender>): Promise<Sender | null> {
-  try {
-    const { data, error } = await supabase
-      .from('senders')
       .update({
         ...updates,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
-      .select();
-
-    if (error) {
-      console.error('Error updating sender:', error);
-      return null;
-    }
-
-    return data[0] as Sender;
+      .eq('id', leadId);
+    
+    if (error) throw error;
   } catch (error) {
-    console.error('Error in updateSenderProfile:', error);
-    return null;
+    console.error('Error updating lead:', error);
+    throw error;
   }
 }
 
-export async function deleteSender(id: string): Promise<boolean> {
+/**
+ * Delete a lead
+ */
+export async function deleteLead(leadId: UUID): Promise<void> {
   try {
-    // First delete any OAuth tokens for this sender
-    await supabase
-      .from('oauth_tokens')
-      .delete()
-      .eq('sender_id', id);
-      
-    // Then delete the sender record
     const { error } = await supabase
-      .from('senders')
+      .from('leads')
       .delete()
-      .eq('id', id);
-      
-    if (error) {
-      console.error('Error deleting sender:', error);
-      return false;
+      .eq('id', leadId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get emails for a specific lead
+ */
+export async function getEmailsByLeadId(leadId: UUID): Promise<Email[]> {
+  try {
+    const { data, error } = await supabase
+      .from('emails')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching lead emails:', error);
+    throw error;
+  }
+}
+
+// ==========================================
+// TEMPLATE RELATED FUNCTIONS
+// ==========================================
+
+/**
+ * Get all templates
+ */
+export async function getTemplates(type?: string): Promise<Template[]> {
+  try {
+    let query = supabase.from('templates').select('*');
+    
+    if (type) {
+      query = query.eq('type', type);
     }
     
-    return true;
+    const { data, error } = await query.order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error('Error in deleteSender:', error);
-    return false;
+    console.error('Error fetching templates:', error);
+    throw error;
   }
 }
-export async function createLeadSource(source: LeadSource): Promise<LeadSource | null> {
-  const now = new Date().toISOString();
-  const newSource = {
-    ...source,
-    created_at: now,
-    updated_at: now,
-    is_active: source.is_active ?? true
-  };
 
-  const { data, error } = await supabase
-    .from('lead_sources')
-    .insert([newSource])
-    .select();
-
-  if (error) {
-    console.error('Error creating lead source:', error);
-    return null;
+/**
+ * Get template by ID
+ */
+export async function getTemplateById(templateId: UUID): Promise<Template | null> {
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .eq('id', templateId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    throw error;
   }
-
-  return data[0] as LeadSource;
 }
 
-// Campaign operations
+/**
+ * Create a template
+ */
+export async function createTemplate(templateData: Partial<Template>): Promise<UUID> {
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .insert({
+        ...templateData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id')
+      .single();
+    
+    if (error) throw error;
+    return data.id;
+  } catch (error) {
+    console.error('Error creating template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update a template
+ */
+export async function updateTemplate(templateId: UUID, updates: Partial<Template>): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('templates')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', templateId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error updating template:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a template
+ */
+export async function deleteTemplate(templateId: UUID): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('templates')
+      .delete()
+      .eq('id', templateId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error deleting template:', error);
+    throw error;
+  }
+}
+
+// ==========================================
+// CAMPAIGN RELATED FUNCTIONS
+// ==========================================
+
+/**
+ * Get all campaigns
+ */
 export async function getCampaigns(status?: string): Promise<Campaign[]> {
   try {
     let query = supabase.from('campaigns').select('*');
@@ -719,875 +434,708 @@ export async function getCampaigns(status?: string): Promise<Campaign[]> {
     
     const { data, error } = await query.order('created_at', { ascending: false });
     
-    if (error) {
-      console.error('Error getting campaigns:', error);
-      return [];
-    }
-    
-    return data as Campaign[];
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error('Error in getCampaigns:', error);
-    return [];
+    console.error('Error fetching campaigns:', error);
+    throw error;
   }
 }
 
-export async function getCampaignById(id: string): Promise<Campaign | null> {
+/**
+ * Get a campaign by ID
+ */
+export async function getCampaignById(campaignId: UUID): Promise<Campaign | null> {
   try {
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
-      .eq('id', id)
+      .eq('id', campaignId)
       .single();
     
-    if (error || !data) {
-      console.error('Error getting campaign:', error);
-      return null;
-    }
-    
-    return data as Campaign;
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
   } catch (error) {
-    console.error('Error in getCampaignById:', error);
-    return null;
+    console.error('Error fetching campaign:', error);
+    throw error;
   }
 }
 
-export async function createCampaign(campaign: Campaign): Promise<Campaign | null> {
+/**
+ * Create a new campaign
+ */
+export async function createCampaign(campaignData: Partial<Campaign>): Promise<UUID> {
   try {
-    const now = new Date().toISOString();
-    
-    const newCampaign = {
-      ...campaign,
-      created_at: now,
-      updated_at: now,
-      status: campaign.status || 'DRAFT',
-      leads_worked: 0
-    };
-    
     const { data, error } = await supabase
       .from('campaigns')
-      .insert([newCampaign])
-      .select();
+      .insert({
+        ...campaignData,
+        status: campaignData.status || 'DRAFT',
+        leads_per_day: campaignData.leads_per_day || 10,
+        start_time: campaignData.start_time || '09:00',
+        end_time: campaignData.end_time || '17:00',
+        min_interval_minutes: campaignData.min_interval_minutes || 15,
+        max_interval_minutes: campaignData.max_interval_minutes || 45,
+        attachment_type: campaignData.attachment_type || 'PDF',
+        tracking_enabled: campaignData.tracking_enabled !== false,
+        total_leads: campaignData.total_leads || 0,
+        leads_worked: campaignData.leads_worked || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
     
-    if (error || !data || data.length === 0) {
-      console.error('Error creating campaign:', error);
-      return null;
-    }
-    
-    return data[0] as Campaign;
+    if (error) throw error;
+    return data.id;
   } catch (error) {
-    console.error('Error in createCampaign:', error);
-    return null;
+    console.error('Error creating campaign:', error);
+    throw error;
   }
 }
 
-export async function updateCampaignStatus(id: string, status: string): Promise<boolean> {
+/**
+ * Update campaign details
+ */
+export async function updateCampaign(campaignId: UUID, updates: Partial<Campaign>): Promise<void> {
   try {
     const { error } = await supabase
       .from('campaigns')
       .update({
-        status,
+        ...updates,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id);
+      .eq('id', campaignId);
     
-    if (error) {
-      console.error('Error updating campaign status:', error);
-      return false;
-    }
-    
-    return true;
+    if (error) throw error;
   } catch (error) {
-    console.error('Error in updateCampaignStatus:', error);
-    return false;
+    console.error('Error updating campaign:', error);
+    throw error;
   }
 }
 
-export async function updateCampaignProgress(id: string, additionalLeadsWorked: number): Promise<boolean> {
+/**
+ * Delete a campaign
+ */
+export async function deleteCampaign(campaignId: UUID): Promise<void> {
   try {
-    // First get the current campaign to get the current leads_worked
-    const campaign = await getCampaignById(id);
-    if (!campaign) return false;
-    
-    const currentLeadsWorked = campaign.leads_worked || 0;
-    const newLeadsWorked = currentLeadsWorked + additionalLeadsWorked;
-    
-    // Update the campaign with the new leads_worked count
     const { error } = await supabase
       .from('campaigns')
-      .update({
-        leads_worked: newLeadsWorked,
-        updated_at: new Date().toISOString(),
-        // If all leads have been worked, update the status to COMPLETED
-        ...(newLeadsWorked >= (campaign.total_leads || 0) ? { status: 'COMPLETED' } : {})
-      })
-      .eq('id', id);
+      .delete()
+      .eq('id', campaignId);
     
-    if (error) {
-      console.error('Error updating campaign progress:', error);
-      return false;
-    }
-    
-    return true;
+    if (error) throw error;
   } catch (error) {
-    console.error('Error in updateCampaignProgress:', error);
-    return false;
+    console.error('Error deleting campaign:', error);
+    throw error;
   }
 }
 
-export async function getCampaignSenders(campaignId: string): Promise<any[]> {
+/**
+ * Add senders to a campaign
+ */
+export async function addSendersToCampaign(campaignId: UUID, senderIds: UUID[]): Promise<void> {
   try {
-    const { data, error } = await supabase
-      .from('campaign_senders')
-      .select(`
-        *,
-        sender:sender_id (*)
-      `)
-      .eq('campaign_id', campaignId);
-    
-    if (error || !data) {
-      console.error('Error getting campaign senders:', error);
-      return [];
-    }
-    
-    // Transform the data to include sender details
-    return data.map(item => ({
-      id: item.sender_id,
-      campaign_id: item.campaign_id,
-      emails_sent_today: item.emails_sent_today || 0,
-      total_emails_sent: item.total_emails_sent || 0,
-      last_sent_at: item.last_sent_at,
-      ...item.sender
-    }));
-  } catch (error) {
-    console.error('Error in getCampaignSenders:', error);
-    return [];
-  }
-}
-
-export async function addSendersToCampaign(campaignId: string, senderIds: string[]): Promise<boolean> {
-  try {
-    const now = new Date().toISOString();
-    
     const campaignSenders = senderIds.map(senderId => ({
       campaign_id: campaignId,
       sender_id: senderId,
       emails_sent_today: 0,
       total_emails_sent: 0,
-      created_at: now,
-      updated_at: now
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }));
     
     const { error } = await supabase
       .from('campaign_senders')
       .insert(campaignSenders);
     
-    if (error) {
-      console.error('Error adding senders to campaign:', error);
-      return false;
-    }
-    
-    return true;
+    if (error) throw error;
   } catch (error) {
-    console.error('Error in addSendersToCampaign:', error);
-    return false;
+    console.error('Error adding senders to campaign:', error);
+    throw error;
   }
 }
 
-export async function updateCampaignSenderStats(senderId: string, stats: any): Promise<boolean> {
+/**
+ * Remove a sender from a campaign
+ */
+export async function removeSenderFromCampaign(campaignId: UUID, senderId: UUID): Promise<void> {
   try {
     const { error } = await supabase
       .from('campaign_senders')
-      .update({
-        ...stats,
-        updated_at: new Date().toISOString()
-      })
-      .eq('sender_id', senderId);
+      .delete()
+      .match({ campaign_id: campaignId, sender_id: senderId });
     
-    if (error) {
-      console.error('Error updating sender stats:', error);
-      return false;
-    }
-    
-    return true;
+    if (error) throw error;
   } catch (error) {
-    console.error('Error in updateCampaignSenderStats:', error);
-    return false;
+    console.error('Error removing sender from campaign:', error);
+    throw error;
   }
 }
 
-export async function resetDailySenderStats(): Promise<boolean> {
+/**
+ * Get senders for a campaign
+ */
+export async function getCampaignSenders(campaignId: UUID): Promise<CampaignSender[]> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('campaign_senders')
-      .update({
-        emails_sent_today: 0,
-        updated_at: new Date().toISOString()
-      });
-    
-    if (error) {
-      console.error('Error resetting daily sender stats:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in resetDailySenderStats:', error);
-    return false;
-  }
-}
-
-export async function getCampaignLeads(campaignId: string, status?: string): Promise<any[]> {
-  try {
-    let query = supabase
-      .from('campaign_leads')
       .select(`
         *,
-        lead:lead_id (*)
+        sender:sender_id(*)
       `)
       .eq('campaign_id', campaignId);
     
-    if (status) {
-      query = query.eq('status', status);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error || !data) {
-      console.error('Error getting campaign leads:', error);
-      return [];
-    }
-    
-    // Transform the data to include lead details
-    return data.map(item => ({
-      id: item.lead_id,
-      campaign_lead_id: item.id,
-      campaign_id: item.campaign_id,
-      status: item.status,
-      ...item.lead
-    }));
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error('Error in getCampaignLeads:', error);
-    return [];
+    console.error('Error fetching campaign senders:', error);
+    throw error;
   }
 }
 
-export async function addLeadsToCampaign(campaignId: string, leadIds: string[]): Promise<boolean> {
+/**
+ * Add leads to a campaign
+ */
+export async function addLeadsToCampaign(campaignId: UUID, leadIds: UUID[]): Promise<void> {
   try {
-    const now = new Date().toISOString();
-    
     const campaignLeads = leadIds.map(leadId => ({
       campaign_id: campaignId,
       lead_id: leadId,
       status: 'PENDING',
-      created_at: now,
-      updated_at: now
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }));
     
     const { error } = await supabase
       .from('campaign_leads')
       .insert(campaignLeads);
     
-    if (error) {
-      console.error('Error adding leads to campaign:', error);
-      return false;
-    }
+    if (error) throw error;
     
-    // Update the campaign's total_leads count
+    // Update the total_leads count in the campaign
     const { error: updateError } = await supabase
       .from('campaigns')
-      .update({
+      .update({ 
         total_leads: leadIds.length,
-        updated_at: now
+        updated_at: new Date().toISOString()
       })
       .eq('id', campaignId);
     
-    if (updateError) {
-      console.error('Error updating campaign total_leads:', updateError);
-    }
-    
-    return true;
+    if (updateError) throw updateError;
   } catch (error) {
-    console.error('Error in addLeadsToCampaign:', error);
-    return false;
+    console.error('Error adding leads to campaign:', error);
+    throw error;
   }
 }
 
 /**
- * Update campaign lead status with assigned sender
- * Extends the basic updateCampaignLeadStatus function to include sender assignment
+ * Get leads for a campaign
  */
-export async function updateCampaignLeadStatus(
-  campaignId: string,
-  leadId: string,
-  status: string,
-  senderId?: string
-): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('campaign_leads')
-      .update({
-        status,
-        assigned_sender_id: senderId,
-        updated_at: new Date().toISOString(),
-        ...(status === 'PROCESSED' ? { processed_at: new Date().toISOString() } : {})
-      })
-      .eq('campaign_id', campaignId)
-      .eq('lead_id', leadId);
-    
-    if (error) {
-      console.error('Error updating campaign lead status:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in updateCampaignLeadStatus:', error);
-    return false;
-  }
-}
-
-/**
- * Get unassigned leads for a campaign
- * Returns leads that are in PENDING status (not yet assigned to any sender)
- */
-export async function getCampaignUnassignedLeads(
-  campaignId: string,
-  limit: number = 10
-): Promise<any[]> {
+export async function getCampaignLeads(campaignId: UUID): Promise<CampaignLead[]> {
   try {
     const { data, error } = await supabase
       .from('campaign_leads')
       .select(`
         *,
-        lead:lead_id (*)
+        lead:lead_id(*)
       `)
-      .eq('campaign_id', campaignId)
-      .eq('status', 'PENDING')
-      .is('assigned_sender_id', null)
-      .limit(limit);
+      .eq('campaign_id', campaignId);
     
-    if (error || !data) {
-      console.error('Error getting unassigned campaign leads:', error);
-      return [];
-    }
-    
-    // Transform the data to include lead details
-    return data.map(item => ({
-      id: item.lead_id,
-      campaign_lead_id: item.id,
-      campaign_id: item.campaign_id,
-      status: item.status,
-      ...item.lead
-    }));
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error('Error in getCampaignUnassignedLeads:', error);
-    return [];
+    console.error('Error fetching campaign leads:', error);
+    throw error;
   }
 }
 
 /**
- * Mark a lead as worked by a sender with specific results
- * This updates the lead status and records the outcome in campaign_lead_results
+ * Change campaign status (start/pause/complete)
  */
-export async function markLeadAsWorked(
-  campaignId: string,
-  leadId: string,
-  senderId: string,
-  workResult: {
-    status: 'CONTACTED' | 'BOUNCED' | 'FAILED' | 'SKIPPED';
-    emailSent?: boolean;
-    emailOpened?: boolean;
-    emailClicked?: boolean;
-    emailReplied?: boolean;
-    notes?: string;
-  }
-): Promise<boolean> {
+export async function updateCampaignStatus(campaignId: UUID, status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED'): Promise<void> {
   try {
-    const now = new Date().toISOString();
-    
-    // 1. Update the campaign_leads status to PROCESSED
-    const { error: updateError } = await supabase
-      .from('campaign_leads')
-      .update({
-        status: 'PROCESSED',
-        processed_at: now,
-        updated_at: now
-      })
-      .eq('campaign_id', campaignId)
-      .eq('lead_id', leadId);
-    
-    if (updateError) {
-      console.error('Error updating campaign lead as processed:', updateError);
-      return false;
-    }
-    
-    // 2. Record the result details in campaign_lead_results
-    const { error: resultError } = await supabase
-      .from('campaign_lead_results')
-      .insert([{
-        campaign_id: campaignId,
-        lead_id: leadId,
-        sender_id: senderId,
-        result_status: workResult.status,
-        email_sent: workResult.emailSent || false,
-        email_opened: workResult.emailOpened || false,
-        email_clicked: workResult.emailClicked || false,
-        email_replied: workResult.emailReplied || false,
-        notes: workResult.notes || '',
-        created_at: now
-      }]);
-    
-    if (resultError) {
-      console.error('Error recording campaign lead result:', resultError);
-      return false;
-    }
-    
-    // 3. Increment the campaign's leads_worked count by 1
-    await updateCampaignProgress(campaignId, 1);
-    
-    return true;
-  } catch (error) {
-    console.error('Error in markLeadAsWorked:', error);
-    return false;
-  }
-}
-
-/**
- * Update campaign statistics
- */
-export async function updateCampaignStats(
-  campaignId: string,
-  stats: {
-    leadsWorked?: number;
-    emailsSent?: number;
-    emailsOpened?: number;
-    emailsClicked?: number;
-    emailsReplied?: number;
-    emailsBounced?: number;
-  }
-): Promise<boolean> {
-  try {
-    // Get current campaign stats
-    const { data: campaign, error: getError } = await supabase
+    const { error } = await supabase
       .from('campaigns')
-      .select('stats')
-      .eq('id', campaignId)
-      .single();
-    
-    if (getError) {
-      console.error('Error getting campaign stats:', getError);
-      return false;
-    }
-    
-    // Initialize or update stats object
-    const currentStats = campaign.stats || {
-      leadsWorked: 0,
-      emailsSent: 0,
-      emailsOpened: 0,
-      emailsClicked: 0,
-      emailsReplied: 0,
-      emailsBounced: 0
-    };
-    
-    const newStats = {
-      leadsWorked: (currentStats.leadsWorked || 0) + (stats.leadsWorked || 0),
-      emailsSent: (currentStats.emailsSent || 0) + (stats.emailsSent || 0),
-      emailsOpened: (currentStats.emailsOpened || 0) + (stats.emailsOpened || 0),
-      emailsClicked: (currentStats.emailsClicked || 0) + (stats.emailsClicked || 0),
-      emailsReplied: (currentStats.emailsReplied || 0) + (stats.emailsReplied || 0),
-      emailsBounced: (currentStats.emailsBounced || 0) + (stats.emailsBounced || 0)
-    };
-    
-    // Update campaign with new stats
-    const { error: updateError } = await supabase
-      .from('campaigns')
-      .update({
-        stats: newStats,
+      .update({ 
+        status,
         updated_at: new Date().toISOString()
       })
       .eq('id', campaignId);
     
-    if (updateError) {
-      console.error('Error updating campaign stats:', updateError);
-      return false;
-    }
-    
-    return true;
+    if (error) throw error;
   } catch (error) {
-    console.error('Error in updateCampaignStats:', error);
-    return false;
+    console.error(`Error updating campaign status to ${status}:`, error);
+    throw error;
   }
 }
 
+// Convenience functions for campaign status changes
+export const startCampaign = (campaignId: UUID) => updateCampaignStatus(campaignId, 'ACTIVE');
+export const pauseCampaign = (campaignId: UUID) => updateCampaignStatus(campaignId, 'PAUSED');
+export const completeCampaign = (campaignId: UUID) => updateCampaignStatus(campaignId, 'COMPLETED');
+
+// ==========================================
+// EMAIL RELATED FUNCTIONS
+// ==========================================
+
 /**
- * Update sender statistics for a campaign
+ * Create a new email record
  */
-export async function updateSenderStats(
-  senderId: string,
-  stats: {
-    leadsWorked?: number;
-    emailsSent?: number;
-    emailsOpened?: number;
-    emailsClicked?: number;
-    emailsReplied?: number;
-    emailsBounced?: number;
-  }
-): Promise<boolean> {
+export async function createEmail(emailData: Partial<Email>): Promise<UUID> {
   try {
-    // Get current sender stats from campaign_senders
-    const { data: senderEntries, error: getError } = await supabase
-      .from('campaign_senders')
-      .select('*')
-      .eq('sender_id', senderId);
-    
-    if (getError) {
-      console.error('Error getting sender stats:', getError);
-      return false;
-    }
-    
-    // For each campaign this sender is part of, update their stats
-    for (const entry of senderEntries) {
-      // Update campaign-specific stats
-      const currentEmailsSent = entry.total_emails_sent || 0;
-      const currentEmailsSentToday = entry.emails_sent_today || 0;
-      
-      const { error: updateError } = await supabase
-        .from('campaign_senders')
-        .update({
-          total_emails_sent: currentEmailsSent + (stats.emailsSent || 0),
-          emails_sent_today: currentEmailsSentToday + (stats.emailsSent || 0),
-          last_sent_at: stats.emailsSent ? new Date().toISOString() : entry.last_sent_at,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', entry.id);
-      
-      if (updateError) {
-        console.error('Error updating sender stats for campaign:', updateError);
-        // Continue with other campaigns even if one fails
-      }
-    }
-    
-    // Update global sender stats
-    const { data: sender, error: senderGetError } = await supabase
-      .from('senders')
-      .select('emails_sent, last_sent_at')
-      .eq('id', senderId)
-      .single();
-    
-    if (senderGetError) {
-      console.error('Error getting sender:', senderGetError);
-      return false;
-    }
-    
-    const currentEmailsSent = sender.emails_sent || 0;
-    
-    const { error: senderUpdateError } = await supabase
-      .from('senders')
-      .update({
-        emails_sent: currentEmailsSent + (stats.emailsSent || 0),
-        last_sent_at: stats.emailsSent ? new Date().toISOString() : sender.last_sent_at,
+    const { data, error } = await supabase
+      .from('emails')
+      .insert({
+        ...emailData,
+        status: emailData.status || 'PENDING',
+        tracking_id: emailData.tracking_id || crypto.randomUUID(),
+        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      .eq('id', senderId);
+      .select('id')
+      .single();
     
-    if (senderUpdateError) {
-      console.error('Error updating global sender stats:', senderUpdateError);
-      return false;
-    }
+    if (error) throw error;
+    return data.id;
+  } catch (error) {
+    console.error('Error creating email:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update email status
+ */
+export async function updateEmailStatus(
+  emailId: UUID, 
+  status: 'PENDING' | 'SENT' | 'OPENED' | 'REPLIED' | 'BOUNCED',
+  additionalData?: {
+    opened_at?: string;
+    replied_at?: string;
+    bounced_at?: string;
+    bounce_reason?: string;
+    sent_at?: string;
+  }
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('emails')
+      .update({
+        status,
+        ...additionalData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', emailId);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error updating email status:', error);
+    throw error;
+  }
+}
+
+/**
+ * Track email event (open, click, etc.)
+ */
+export async function trackEmailEvent(
+  emailId: UUID,
+  event: {
+    event_type: string;
+    recipient_email: string;
+    campaign_id?: UUID;
+    metadata?: any;
+    user_agent?: string;
+    ip_address?: string;
+  }
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('email_events')
+      .insert({
+        email_id: emailId,
+        event_type: event.event_type,
+        recipient_email: event.recipient_email,
+        campaign_id: event.campaign_id,
+        metadata: event.metadata,
+        user_agent: event.user_agent,
+        ip_address: event.ip_address,
+        created_at: new Date().toISOString()
+      });
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error tracking email event:', error);
+    throw error;
+  }
+}
+
+/**
+ * Find email by tracking ID
+ */
+export async function getEmailByTrackingId(trackingId: UUID): Promise<Email | null> {
+  try {
+    const { data, error } = await supabase
+      .from('emails')
+      .select('*')
+      .eq('tracking_id', trackingId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  } catch (error) {
+    console.error('Error finding email by tracking ID:', error);
+    throw error;
+  }
+}
+
+// ==========================================
+// LEAD IMPORT FUNCTIONS FOR DYNAMIC TABLES
+// ==========================================
+
+/**
+ * Create a new dynamic lead table for a specific region/campaign
+ * @param tableName The name to use for the table (sanitized from file name)
+ * @param columns Array of column definitions for the table
+ */
+export async function createDynamicLeadTable(tableName: string, columns: Array<{name: string, type: string}>): Promise<boolean> {
+  try {
+    // Create a sanitized table name (lowercase, alphanumeric with underscores)
+    const sanitizedTableName = `${tableName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_leads`;
+    
+    // Use raw SQL via the Supabase client to create the table
+    const adminClient = createAdminClient();
+    
+    // Build column definitions
+    const columnDefs = columns.map(col => `"${col.name}" ${col.type}`).join(', ');
+    
+    // Execute the CREATE TABLE statement
+    const { error } = await adminClient.rpc('execute_sql', {
+      sql: `
+        CREATE TABLE IF NOT EXISTS public.${sanitizedTableName} (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          ${columnDefs},
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `
+    });
+    
+    if (error) throw error;
+    
+    // Add the appropriate RLS policies
+    await adminClient.rpc('execute_sql', {
+      sql: `
+        -- Enable RLS on the new table
+        ALTER TABLE public.${sanitizedTableName} ENABLE ROW LEVEL SECURITY;
+        
+        -- Create policies for the new table
+        CREATE POLICY "Enable read access for authenticated users on ${sanitizedTableName}" 
+          ON public.${sanitizedTableName} FOR SELECT 
+          USING (auth.role() IN ('authenticated', 'service_role'));
+          
+        CREATE POLICY "Enable insert for authenticated users on ${sanitizedTableName}" 
+          ON public.${sanitizedTableName} FOR INSERT 
+          WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+          
+        CREATE POLICY "Enable update for authenticated users on ${sanitizedTableName}" 
+          ON public.${sanitizedTableName} FOR UPDATE 
+          USING (auth.role() IN ('authenticated', 'service_role'));
+          
+        CREATE POLICY "Enable delete for authenticated users on ${sanitizedTableName}" 
+          ON public.${sanitizedTableName} FOR DELETE 
+          USING (auth.role() IN ('authenticated', 'service_role'));
+      `
+    });
     
     return true;
   } catch (error) {
-    console.error('Error in updateSenderStats:', error);
-    return false;
+    console.error('Error creating dynamic lead table:', error);
+    throw error;
   }
 }
 
 /**
- * Start a campaign by setting its status to ACTIVE
+ * Insert records into a dynamic lead table
+ * @param tableName The name of the table to insert into
+ * @param records Array of record objects to insert
  */
-export async function startCampaign(campaignId: string): Promise<boolean> {
+export async function insertLeadsIntoDynamicTable(tableName: string, records: Record<string, any>[]): Promise<number> {
   try {
-    return await updateCampaignStatus(campaignId, 'ACTIVE');
+    if (records.length === 0) return 0;
+    
+    // Create a sanitized table name
+    const sanitizedTableName = `${tableName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_leads`;
+    
+    const adminClient = createAdminClient();
+    
+    // Extract column names from the first record
+    const columns = Object.keys(records[0]);
+    
+    // Batch inserts in chunks to avoid request size limits
+    const chunkSize = 100;
+    let insertedCount = 0;
+    
+    for (let i = 0; i < records.length; i += chunkSize) {
+      const chunk = records.slice(i, i + chunkSize);
+      
+      // Execute the insert
+      const { error, data } = await adminClient
+        .from(sanitizedTableName)
+        .insert(chunk)
+        .select('id');
+      
+      if (error) throw error;
+      
+      insertedCount += data.length;
+    }
+    
+    return insertedCount;
   } catch (error) {
-    console.error('Error starting campaign:', error);
-    return false;
+    console.error(`Error inserting into dynamic table ${tableName}:`, error);
+    throw error;
   }
 }
 
 /**
- * Pause a campaign by setting its status to PAUSED
+ * Register a new lead source with its dynamic table
+ * @param sourceData Information about the imported lead source
  */
-export async function pauseCampaign(campaignId: string): Promise<boolean> {
+export async function createLeadSource(sourceData: {
+  name: string;
+  fileName: string;
+  tableName: string;
+  recordCount: number;
+  columnMap: Record<string, string>; // Maps CSV columns to standard fields
+  storagePath?: string; // Path to the original file in storage
+}): Promise<UUID> {
   try {
-    return await updateCampaignStatus(campaignId, 'PAUSED');
-  } catch (error) {
-    console.error('Error pausing campaign:', error);
-    return false;
-  }
-}
-
-/**
- * Complete a campaign by setting its status to COMPLETED
- */
-export async function completeCampaign(campaignId: string): Promise<boolean> {
-  try {
-    return await updateCampaignStatus(campaignId, 'COMPLETED');
-  } catch (error) {
-    console.error('Error completing campaign:', error);
-    return false;
-  }
-}
-
-/**
- * OAuth Credentials Type Definition
- * Used for storing and retrieving OAuth tokens
- */
-export interface OAuthCredentials {
-  email: string;
-  sender_id?: string;
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expiry_date?: number;
-  scopes?: string;
-  client_id?: string;
-  client_secret?: string;
-}
-
-/**
- * Get OAuth token by email address
- */
-export async function getOAuthTokenByEmail(email: string): Promise<OAuthCredentials | null> {
-  try {
+    // Store the column mapping as JSON metadata
     const { data, error } = await supabase
-      .from('oauth_tokens')
-      .select('*')
-      .eq('email', email)
+      .from('lead_sources')
+      .insert({
+        name: sourceData.name,
+        file_name: sourceData.fileName,
+        last_imported: new Date().toISOString(),
+        record_count: sourceData.recordCount,
+        is_active: true,
+        metadata: { 
+          tableName: sourceData.tableName,
+          columnMap: sourceData.columnMap
+        },
+        storage_path: sourceData.storagePath,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id')
       .single();
     
-    if (error || !data) {
-      console.error('Error getting OAuth token by email:', error);
-      return null;
-    }
-    
-    return data as OAuthCredentials;
+    if (error) throw error;
+    return data.id;
   } catch (error) {
-    console.error('Error in getOAuthTokenByEmail:', error);
-    return null;
+    console.error('Error creating lead source:', error);
+    throw error;
   }
 }
 
 /**
- * Save or update OAuth token
+ * Get leads from a specific dynamic table
+ * @param tableName The name of the table to query
+ * @param limit Maximum number of records to return
+ * @param offset Pagination offset
  */
-export async function saveOAuthToken(credentials: OAuthCredentials): Promise<OAuthCredentials | null> {
+export async function getLeadsFromDynamicTable(tableName: string, limit = 100, offset = 0): Promise<any[]> {
   try {
-    // First check if a token already exists for this email
-    const { data: existingToken } = await supabase
-      .from('oauth_tokens')
+    // Create a sanitized table name
+    const sanitizedTableName = `${tableName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_leads`;
+    
+    const adminClient = createAdminClient();
+    
+    const { data, error } = await adminClient
+      .from(sanitizedTableName)
       .select('*')
-      .eq('email', credentials.email)
-      .maybeSingle();
+      .range(offset, offset + limit - 1);
     
-    const now = new Date().toISOString();
-    
-    if (existingToken) {
-      // Update existing token
-      const { data, error } = await supabase
-        .from('oauth_tokens')
-        .update({
-          ...credentials,
-          updated_at: now
-        })
-        .eq('email', credentials.email)
-        .select();
-      
-      if (error) {
-        console.error('Error updating OAuth token:', error);
-        return null;
-      }
-      
-      return data[0] as OAuthCredentials;
-    } else {
-      // Insert new token
-      const { data, error } = await supabase
-        .from('oauth_tokens')
-        .insert([{
-          ...credentials,
-          created_at: now,
-          updated_at: now
-        }])
-        .select();
-      
-      if (error) {
-        console.error('Error creating OAuth token:', error);
-        return null;
-      }
-      
-      return data[0] as OAuthCredentials;
-    }
-  } catch (error) {
-    console.error('Error in saveOAuthToken:', error);
-    return null;
-  }
-}
-
-/**
- * Get client secret by client ID
- */
-export async function getClientSecret(clientId: string): Promise<string | null> {
-  try {
-    const { data, error } = await supabase
-      .from('client_secrets')
-      .select('client_secret')
-      .eq('client_id', clientId)
-      .single();
-    
-    if (error || !data) {
-      console.error('Error getting client secret:', error);
-      return null;
-    }
-    
-    return data.client_secret as string;
-  } catch (error) {
-    console.error('Error in getClientSecret:', error);
-    return null;
-  }
-}
-
-/**
- * Save client secret
- */
-export async function saveClientSecret(clientId: string, clientSecret: string): Promise<boolean> {
-  try {
-    // First check if a client secret already exists for this client ID
-    const { data: existingSecret } = await supabase
-      .from('client_secrets')
-      .select('*')
-      .eq('client_id', clientId)
-      .maybeSingle();
-    
-    const now = new Date().toISOString();
-    
-    if (existingSecret) {
-      // Update existing secret
-      const { error } = await supabase
-        .from('client_secrets')
-        .update({
-          client_secret: clientSecret,
-          updated_at: now
-        })
-        .eq('client_id', clientId);
-      
-      if (error) {
-        console.error('Error updating client secret:', error);
-        return false;
-      }
-    } else {
-      // Insert new secret
-      const { error } = await supabase
-        .from('client_secrets')
-        .insert([{
-          client_id: clientId,
-          client_secret: clientSecret,
-          created_at: now,
-          updated_at: now
-        }]);
-      
-      if (error) {
-        console.error('Error creating client secret:', error);
-        return false;
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in saveClientSecret:', error);
-    return false;
-  }
-}
-
-/**
- * Get all OAuth tokens from the database
- * @param userId Optional user ID to filter tokens by
- */
-export async function getAllOAuthTokens(userId?: string): Promise<any[]> {
-  try {
-    let query = supabase.from('oauth_tokens').select('*');
-    
-    if (userId) {
-      // If a user ID is provided, filter by user ID
-      query = query.eq('user_id', userId);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error('Error getting OAuth tokens:', error);
-      return [];
-    }
-    
+    if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error in getAllOAuthTokens:', error);
-    return [];
+    console.error(`Error fetching leads from dynamic table ${tableName}:`, error);
+    throw error;
   }
 }
 
 /**
- * Update token refresh attempt status and track failures
- * @param tokenId The ID of the token
- * @param success Whether the refresh attempt was successful
- * @param errorMessage Optional error message if the attempt failed
+ * Get all dynamic lead tables in the database
  */
-export async function updateTokenRefreshAttempt(
-  tokenId: string, 
-  success: boolean,
-  errorMessage?: string
-): Promise<boolean> {
+export async function getAllDynamicLeadTables(): Promise<string[]> {
   try {
-    // First get the current token to check its consecutive failures
-    const { data: currentToken, error: getError } = await supabase
-      .from('oauth_tokens')
-      .select('consecutive_refresh_failures')
-      .eq('id', tokenId)
-      .single();
+    const adminClient = createAdminClient();
     
-    if (getError) {
-      console.error('Error getting current token status:', getError);
-      return false;
-    }
+    const { data, error } = await adminClient.rpc('execute_sql', {
+      sql: `
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name LIKE '%_leads'
+        AND table_name != 'leads'
+      `
+    });
     
-    // Calculate the new failure count
-    let consecutiveFailures = currentToken?.consecutive_refresh_failures || 0;
-    
-    if (success) {
-      // Reset failure count on success
-      consecutiveFailures = 0;
-    } else {
-      // Increment failure count on failure
-      consecutiveFailures += 1;
-    }
-    
-    // Update the token record
-    const { error } = await supabase
-      .from('oauth_tokens')
-      .update({
-        consecutive_refresh_failures: consecutiveFailures,
-        last_refresh_attempt: new Date().toISOString(),
-        last_refresh_error: success ? null : errorMessage,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', tokenId);
-    
-    if (error) {
-      console.error('Error updating token refresh attempt:', error);
-      return false;
-    }
-    
-    return true;
+    if (error) throw error;
+    return data.map((row: any) => row.table_name) || [];
   } catch (error) {
-    console.error('Error in updateTokenRefreshAttempt:', error);
-    return false;
+    console.error('Error fetching dynamic lead tables:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process leads from a dynamic table and normalize them to the leads table
+ * This function extracts leads and their multiple contacts from the imported table
+ * @param tableName The name of the dynamic table containing imported leads 
+ * @param leadSourceId The ID of the lead source
+ */
+export async function processLeadsFromDynamicTable(tableName: string, leadSourceId: UUID): Promise<{ 
+  processed: number, 
+  contactsCreated: number 
+}> {
+  try {
+    const adminClient = createAdminClient();
+    const sanitizedTableName = `${tableName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_leads`;
+    let processed = 0;
+    let contactsCreated = 0;
+    
+    // Get all records from the dynamic table
+    const { data, error } = await adminClient
+      .from(sanitizedTableName)
+      .select('*')
+      .limit(1000); // Process in chunks
+    
+    if (error) throw error;
+    if (!data || data.length === 0) return { processed: 0, contactsCreated: 0 };
+    
+    // Process each lead record
+    for (const record of data) {
+      try {
+        // Map standard property fields to our leads table
+        const leadData: Partial<Lead> = {
+          property_address: record.property_address || '',
+          property_city: record.property_city || '',
+          property_state: record.property_state || '',
+          property_zip: record.property_zip || '',
+          owner_name: record.owner_name || '',
+          mailing_address: record.mailing_address || '',
+          mailing_city: record.mailing_city || '',
+          mailing_state: record.mailing_state || '',
+          mailing_zip: record.mailing_zip || '',
+          wholesale_value: record.wholesale_value ? parseFloat(record.wholesale_value) : null,
+          market_value: record.market_value ? parseFloat(record.market_value) : null,
+          days_on_market: record.days_on_market ? parseInt(record.days_on_market) : null,
+          mls_status: record.mls_status || '',
+          mls_list_date: record.mls_list_date || '',
+          mls_list_price: record.mls_list_price ? parseFloat(record.mls_list_price) : null,
+          status: 'NEW',
+          source_id: leadSourceId,
+          owner_type: record.owner_type || '',
+          property_type: record.property_type || '',
+          beds: record.beds || '',
+          baths: record.baths || '',
+          square_footage: record.square_footage || '',
+          year_built: record.year_built || '',
+          assessed_total: record.assessed_total ? parseFloat(record.assessed_total) : null,
+        };
+
+        // Create the lead record
+        const leadId = await createLead(leadData);
+        processed++;
+        
+        // Process contacts for this lead
+        const contactsForLead = await processLeadContacts(leadId, record);
+        contactsCreated += contactsForLead;
+      } catch (err) {
+        console.error(`Error processing lead record:`, err);
+        // Continue with next record
+      }
+    }
+    
+    return { processed, contactsCreated };
+  } catch (error) {
+    console.error(`Error processing leads from dynamic table ${tableName}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Process and create contact records from a lead record
+ * @param leadId The ID of the lead these contacts belong to
+ * @param leadRecord The lead record containing contact information
+ * @returns Number of contacts created
+ */
+async function processLeadContacts(leadId: UUID, leadRecord: any): Promise<number> {
+  try {
+    let contactsCreated = 0;
+    
+    // Process each potential contact (1-5)
+    for (let i = 1; i <= 5; i++) {
+      const nameField = `contact${i}name`;
+      const emailFields = [
+        `contact${i}email_1`,
+        `contact${i}email_2`,
+        `contact${i}email_3`
+      ];
+      
+      // Find valid email addresses for this contact
+      const validEmails = emailFields
+        .map(field => leadRecord[field])
+        .filter(email => email && typeof email === 'string' && email.includes('@') && email.length > 5);
+      
+      // Only proceed if we have at least one valid email
+      if (validEmails.length > 0) {
+        // Get the contact name - this is the only name field we care about
+        let name = '';
+        
+        if (leadRecord[nameField] && typeof leadRecord[nameField] === 'string' && leadRecord[nameField].trim()) {
+          name = leadRecord[nameField].trim();
+        }
+        // If no name but we have an email, use the email prefix as name
+        else if (validEmails.length > 0) {
+          const emailParts = validEmails[0].split('@');
+          name = emailParts[0].replace(/[.]/g, ' ').replace(/[_-]/g, ' ');
+          // Capitalize first letter of each word
+          name = name.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        }
+        
+        // If we still don't have a name, use a placeholder
+        if (!name || name.trim() === '') {
+          name = `Contact ${i}`;
+        }
+        
+        // Create a contact record for each valid email
+        for (const email of validEmails) {
+          const { data, error } = await supabase
+            .from('contacts')
+            .insert({
+              name,
+              email,
+              lead_id: leadId,
+              is_primary: i === 1, // First contact is primary
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select('id');
+          
+          if (!error) {
+            contactsCreated++;
+          } else {
+            console.error(`Error creating contact with email ${email}:`, error);
+          }
+        }
+      }
+    }
+    
+    return contactsCreated;
+  } catch (error) {
+    console.error(`Error processing contacts for lead ${leadId}:`, error);
+    return 0; // Return 0 to indicate no contacts were created
   }
 }

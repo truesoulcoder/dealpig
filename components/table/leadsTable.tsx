@@ -1,268 +1,168 @@
 "use client";
 
-import { useCallback, useState, useMemo, useEffect } from "react";
-import {
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { 
+  Table, 
+  TableHeader, 
+  TableBody, 
+  TableColumn, 
+  TableRow, 
   TableCell,
-  Input,
+  Chip,
   Button,
-  DropdownTrigger,
   Dropdown,
+  DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  Chip,
-  Tooltip,
   Pagination,
-  Selection,
-  ChipProps,
-  SortDescriptor,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
-  Checkbox,
-  Spinner,
+  Input,
   Select,
-  SelectItem
+  SelectItem,
+  Spinner
 } from "@heroui/react";
-import { MagnifyingGlassIcon as SearchIcon } from "@heroicons/react/24/outline";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
-import { PlusIcon } from "@heroicons/react/24/outline";
-import { EllipsisVerticalIcon as VerticalDotsIcon } from "@heroicons/react/24/outline";
-import { columns, statusColorMap, statusOptions, emailStatusOptions } from "./tableData";
-import { getLeads, updateLead, deleteLead } from "@/actions/ingestLeads.action";
-import { useRouter } from "next/navigation";
-import { toast } from "react-hot-toast";
-import { generateLoi } from "@/actions/generateLoi.action";
-import { sendLoiEmail } from "@/actions/sendLoiEmail.action";
-import { Lead } from "@/helpers/types";
-import { getEmailsByLead } from "@/actions/campaign.action";
+import { FaPlus, FaSearch, FaEllipsisVertical, FaEye, FaEdit, FaTrash } from 'react-icons/fa';
+import { supabase } from '@/lib/supabase';
+import { Lead, LeadStatus } from '@/helpers/types';
 
-interface LeadWithEmail extends Lead {
-  email_status?: string;
-  last_email_date?: string;
-  recipient_email?: string; 
-}
+// Column definitions for the leads table
+const columns = [
+  { key: "property_address", label: "PROPERTY ADDRESS" },
+  { key: "location", label: "LOCATION" },
+  { key: "value", label: "VALUE" },
+  { key: "status", label: "STATUS" },
+  { key: "created_at", label: "CREATED" },
+  { key: "actions", label: "ACTIONS" },
+];
 
-interface LeadsTableProps {
-  onRowClick?: (leadId: string) => void;
-}
+// Status options for filtering
+const statusOptions = Object.values(LeadStatus).map(status => ({
+  label: status.charAt(0).toUpperCase() + status.slice(1).toLowerCase(),
+  value: status
+}));
 
-// Helper function to get emails by lead ID
-async function getEmailsByLeadId(leadId: string) {
-  try {
-    const emails = await getEmailsByLead(leadId);
-    return emails || [];
-  } catch (error) {
-    console.error(`Error fetching emails for lead ${leadId}:`, error);
-    return [];
-  }
-}
+// Create a refresh tag to track cache invalidation
+let refreshCounter = 0;
 
-export default function LeadsTable({ onRowClick }: LeadsTableProps) {
-  // State management
-  const [leads, setLeads] = useState<LeadWithEmail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set([
-    "property_address", "property_city", "property_state", "property_zip", "status", "email_status", "actions"
-  ]));
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Selection>(new Set(["all"]));
-  const [emailStatusFilter, setEmailStatusFilter] = useState<Selection>(new Set(["all"]));
-  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
-    column: "created_at",
-    direction: "descending",
-  });
-  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
-  const [bulkStatus, setBulkStatus] = useState<string>("");
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+export default function LeadsTable() {
   const router = useRouter();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshTag, setRefreshTag] = useState(0);
   
-  // Modal state for bulk email
-  const { isOpen: isEmailModalOpen, onOpen: onOpenEmailModal, onClose: onCloseEmailModal } = useDisclosure();
-  // Modal state for bulk delete confirmation
-  const { isOpen: isDeleteModalOpen, onOpen: onOpenDeleteModal, onClose: onCloseDeleteModal } = useDisclosure();
-  // Modal state for bulk status update
-  const { isOpen: isStatusModalOpen, onOpen: onOpenStatusModal, onClose: onCloseStatusModal } = useDisclosure();
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const rowsPerPage = 10;
 
-  // Function to load leads data - MOVED UP before useEffect
-  const loadLeads = useCallback(async () => {
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  
+  // Refresh function that can be called from parent components
+  const refreshData = useCallback(() => {
+    setRefreshTag(++refreshCounter);
+  }, []);
+
+  // Make the refresh function available through a ref if needed
+  if (typeof window !== 'undefined') {
+    // @ts-ignore - Store the refresh function globally for internal communication
+    window.__refreshLeadsTable = refreshData;
+  }
+  
+  // Fetch leads data
+  const fetchLeads = async () => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      const leadsData = await getLeads();
+      let query = supabase
+        .from('leads')
+        .select('*', { count: 'exact' });
       
-      // For each lead, get the most recent email
-      const leadsWithEmailStatus: LeadWithEmail[] = await Promise.all(
-        leadsData.map(async (lead) => {
-          if (!lead.id) return { ...lead, email_status: 'PENDING' };
-          
-          const emails = await getEmailsByLeadId(lead.id);
-          let emailStatus = 'PENDING';
-          let lastEmailDate = '';
-          let recipientEmail = '';
-          
-          if (emails.length > 0) {
-            // Get the most recent email
-            const latestEmail = emails.sort((a, b) => {
-              return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-            })[0];
-            
-            emailStatus = latestEmail.status || 'PENDING';
-            lastEmailDate = latestEmail.sent_at || latestEmail.created_at || '';
-            
-            // Get the recipient's email if available
-            if (lead.contacts && lead.contacts.length > 0) {
-              recipientEmail = lead.contacts[0].email;
-            }
-          }
-          
-          return {
-            ...lead,
-            email_status: emailStatus,
-            last_email_date: lastEmailDate,
-            recipient_email: recipientEmail
-          };
-        })
-      );
-      
-      setLeads(leadsWithEmailStatus);
-    } catch (error) {
-      console.error('Error fetching leads with email status:', error);
-      toast.error("Failed to load leads. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Load leads with their email statuses
-  useEffect(() => {
-    loadLeads();
-  }, [loadLeads]);
-  
-  // Function to load leads data
-  const handleColumnVisibilityChange = useCallback((column: string) => {
-    setVisibleColumns((prevColumns) => {
-      const newColumns = new Set(prevColumns);
-      if (newColumns.has(column)) {
-        newColumns.delete(column);
-      } else {
-        newColumns.add(column);
+      // Apply filters
+      if (searchQuery) {
+        query = query.or(
+          `property_address.ilike.%${searchQuery}%,property_city.ilike.%${searchQuery}%,owner_name.ilike.%${searchQuery}%`
+        );
       }
-      return newColumns;
-    });
-  }, []);
 
-  // Compute the filtered and sorted items
-  const items = useMemo(() => {
-    let filtered = [...leads];
-    
-    // Apply search query filter
-    if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(lead => 
-        lead.property_address?.toLowerCase().includes(query) ||
-        lead.property_city?.toLowerCase().includes(query) ||
-        lead.property_zip?.toLowerCase().includes(query) ||
-        (lead.contacts && lead.contacts.some(contact => 
-          contact.name?.toLowerCase().includes(query) || 
-          contact.email?.toLowerCase().includes(query)
-        ))
-      );
-    }
-    
-    // Apply lead status filter
-    if (statusFilter !== "all" && !statusFilter.has("all")) {
-      filtered = filtered.filter(lead => statusFilter.has(lead.status?.toLowerCase() || "new"));
-    }
-    
-    // Apply email status filter
-    if (emailStatusFilter !== "all" && !emailStatusFilter.has("all")) {
-      filtered = filtered.filter(lead => emailStatusFilter.has(lead.email_status?.toLowerCase() || "pending"));
-    }
-    
-    // Apply sorting
-    if (sortDescriptor.column) {
-      filtered = [...filtered].sort((a, b) => {
-        const first = a[sortDescriptor.column as keyof LeadWithEmail] as string;
-        const second = b[sortDescriptor.column as keyof LeadWithEmail] as string;
-        
-        if (!first && !second) return 0;
-        if (!first) return 1;
-        if (!second) return -1;
-        
-        const cmp = first.localeCompare(second);
-        
-        return sortDescriptor.direction === "descending" ? -cmp : cmp;
-      });
-    }
-    
-    return filtered;
-  }, [leads, searchQuery, statusFilter, emailStatusFilter, sortDescriptor]);
+      if (statusFilter) {
+        query = query.eq('status', statusFilter);
+      }
 
-  // Compute the pagination
-  const pages = Math.ceil(items.length / rowsPerPage);
-  const paginatedItems = useMemo(() => {
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    return items.slice(start, end);
-  }, [items, page, rowsPerPage]);
+      // Apply pagination
+      const from = (page - 1) * rowsPerPage;
+      const to = from + rowsPerPage - 1;
+      
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-  // Rows per page options
-  const rowsPerPageOptions = [5, 10, 15, 20, 25];
-
-  // Handle rows per page change
-  const handleRowsPerPageChange = useCallback((value: number) => {
-    setRowsPerPage(value);
-    setPage(1);
-  }, []);
-
-  // Get selected leads
-  const selectedLeads = useMemo(() => {
-    if (selectedKeys === "all") {
-      return items;
-    }
-    const selectedKeysArray = Array.from(selectedKeys);
-    return items.filter(lead => lead.id && selectedKeysArray.includes(lead.id));
-  }, [selectedKeys, items]);
-
-  // Get email status chip color
-  const getStatusChipColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'sent':
-        return 'success';
-      case 'opened':
-        return 'primary';
-      case 'replied':
-        return 'secondary';
-      case 'bounced':
-        return 'danger';
-      case 'pending':
-        return 'warning';
-      default:
-        return 'default';
+      if (error) throw error;
+      
+      setLeads(data || []);
+      setTotal(count || 0);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      setError('Failed to load leads. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  // Get lead status chip color
-  const getLeadStatusChipColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+
+  // Initial data fetch and on filter/page change
+  useEffect(() => {
+    fetchLeads();
+  }, [page, searchQuery, statusFilter, refreshTag]);
+
+  // Handle row actions
+  const handleViewLead = (leadId: string) => {
+    router.push(`/leads/${leadId}`);
+  };
+
+  const handleEditLead = (leadId: string) => {
+    router.push(`/leads/${leadId}/edit`);
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    if (!confirm('Are you sure you want to delete this lead?')) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadId);
+      
+      if (error) throw error;
+      
+      // Refresh the leads list
+      fetchLeads();
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      setError('Failed to delete lead. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get status chip color based on lead status
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
       case 'new':
         return 'primary';
       case 'contacted':
         return 'success';
-      case 'negotiating':
+      case 'qualified':
         return 'warning';
-      case 'closed':
+      case 'negotiating':
         return 'secondary';
+      case 'under_contract':
+        return 'info';
+      case 'closed':
+        return 'success';
       case 'dead':
         return 'danger';
       default:
@@ -270,489 +170,189 @@ export default function LeadsTable({ onRowClick }: LeadsTableProps) {
     }
   };
 
-  // Handle LOI generation for a lead
-  const handleGenerateLOI = (leadId: string, event: React.MouseEvent) => {
-    // Prevent the row click event from firing
-    event.stopPropagation();
-    console.log(`Generate LOI for lead ${leadId}`);
-    // Navigate to the generate LOI page
-    router.push(`/leads/${leadId}/generate-loi`);
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
-  // Handle bulk LOI generation
-  const handleBulkGenerateLOI = () => {
-    // Redirect to bulk LOI generation page with selected lead IDs
-    const leadIds = selectedLeads.map(lead => lead.id).join(',');
-    router.push(`/leads/bulk-loi?ids=${leadIds}`);
-  };
-
-  // Handle email sending for a lead
-  const handleSendEmail = (leadId: string, event: React.MouseEvent) => {
-    // Prevent the row click event from firing
-    event.stopPropagation();
-    console.log(`Send email for lead ${leadId}`);
-    // Navigate to the send email page
-    router.push(`/leads/${leadId}/send-email`);
-  };
-  
-  // Handle bulk email sending
-  const handleBulkSendEmail = () => {
-    onOpenEmailModal();
-  };
-  
-  // Process bulk email send
-  const processBulkEmail = () => {
-    const leadIds = selectedLeads.map(lead => lead.id).join(',');
-    router.push(`/leads/bulk-email?ids=${leadIds}`);
-    onCloseEmailModal();
-  };
-  
-  // Handle bulk status update
-  const handleBulkStatusUpdate = () => {
-    onOpenStatusModal();
-  };
-  
-  // Process bulk status update
-  const processBulkStatusUpdate = async () => {
-    if (!bulkStatus) return;
-    
-    try {
-      setIsUpdating(true);
-      // Update each selected lead with the new status
-      await Promise.all(
-        selectedLeads.map(lead => {
-          if (!lead.id) return Promise.resolve();
-          return updateLead({
-            id: lead.id,
-            status: bulkStatus,
-            property_address: lead.property_address || '',
-            property_city: lead.property_city || '',
-            property_state: lead.property_state || '',
-            property_zip: lead.property_zip || '',
-            owner_name: lead.owner_name || '',
-            owner_email: lead.contacts?.[0]?.email || '',
-            offer_price: lead.offer_price || 0
-          });
-        })
-      );
-      
-      // Successfully updated
-      toast.success(`Updated status for ${selectedLeads.length} leads`);
-      loadLeads(); // Reload leads to show updated status
-      onCloseStatusModal();
-      setSelectedKeys(new Set([]));
-    } catch (error) {
-      console.error('Error in bulk status update:', error);
-      toast.error('Failed to update lead statuses');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-  
-  // Handle bulk delete
-  const handleBulkDelete = () => {
-    onOpenDeleteModal();
-  };
-  
-  // Process bulk delete
-  const processBulkDelete = async () => {
-    try {
-      setIsDeleting(true);
-      // Delete each selected lead
-      await Promise.all(
-        selectedLeads.map(lead => {
-          if (!lead.id) return Promise.resolve();
-          return deleteLead(lead.id);
-        })
-      );
-      
-      // Successfully deleted
-      toast.success(`Deleted ${selectedLeads.length} leads`);
-      loadLeads(); // Reload leads to show updated list
-      onCloseDeleteModal();
-      setSelectedKeys(new Set([]));
-    } catch (error) {
-      console.error('Error in bulk delete:', error);
-      toast.error('Failed to delete leads');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Handle sort change
-  const handleSortChange = (descriptor: SortDescriptor) => {
-    setSortDescriptor(descriptor);
-  };
-
-  // Handle row click to view lead details
-  const handleRowClick = (leadId: string) => {
-    if (onRowClick) {
-      onRowClick(leadId);
-    }
-  };
-
-  // Handle selection change
-  const handleSelectionChange = (keys: Selection) => {
-    setSelectedKeys(keys);
-  };
-
-  if (loading) {
-    return <div className="flex justify-center p-4"><Spinner color="blue-500" /></div>;
-  }
+  // Calculate pagination information
+  const pages = Math.ceil(total / rowsPerPage);
+  const hasSearchResults = useMemo(() => leads.length > 0, [leads]);
 
   return (
-    <div className="w-full space-y-4">
+    <div className="space-y-4">
       {/* Filters and search */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-4">
-        <div className="flex w-full sm:w-auto flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Input
-            isClearable
-            placeholder="Search by address, city, or contact..."
-            startContent={<SearchIcon className="text-default-400 h-4 w-4" />}
+            classNames={{
+              base: "w-full sm:w-72",
+              inputWrapper: "h-11",
+            }}
+            placeholder="Search by address or owner..."
             value={searchQuery}
-            onValueChange={setSearchQuery}
-            className="w-full"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            startContent={<FaSearch className="text-gray-400" />}
+            isClearable
+            onClear={() => setSearchQuery('')}
+          />
+          <Select
+            className="w-full sm:w-48"
+            placeholder="Filter by status"
+            selectedKeys={statusFilter ? [statusFilter] : []}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <SelectItem key="" value="">All Statuses</SelectItem>
+            {statusOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </Select>
+        </div>
+        <div className="flex gap-3">
+          <Button 
+            color="success" 
+            variant="light"
+            onPress={refreshData}
+          >
+            Refresh
+          </Button>
+        </div>
+      </div>
+      
+      {/* Error message */}
+      {error && (
+        <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+      
+      {/* Main table */}
+      <div className="relative">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">
+            <Spinner size="lg" />
+          </div>
+        )}
+        
+        <Table aria-label="Leads table" className="min-h-[400px]">
+          <TableHeader columns={columns}>
+            {(column) => (
+              <TableColumn key={column.key}>
+                {column.label}
+              </TableColumn>
+            )}
+          </TableHeader>
+          <TableBody 
+            items={leads}
+            emptyContent={
+              !isLoading && (
+                searchQuery || statusFilter 
+                  ? "No leads match your search criteria" 
+                  : "No leads found. Add your first lead."
+              )
+            }
+          >
+            {(lead) => (
+              <TableRow key={lead.id}>
+                <TableCell>
+                  <div>
+                    <div className="font-medium">{lead.property_address}</div>
+                    {lead.owner_name && (
+                      <div className="text-sm text-gray-500">Owner: {lead.owner_name}</div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    <span>{lead.property_city}{lead.property_city && lead.property_state ? ', ' : ''}{lead.property_state}</span>
+                    {lead.property_zip && <span className="block text-gray-500">{lead.property_zip}</span>}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    {lead.wholesale_value && (
+                      <div>Wholesale: ${lead.wholesale_value.toLocaleString()}</div>
+                    )}
+                    {lead.market_value && (
+                      <div>Market: ${lead.market_value.toLocaleString()}</div>
+                    )}
+                    {!lead.wholesale_value && !lead.market_value && "-"}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Chip 
+                    size="sm" 
+                    color={getStatusColor(lead.status)} 
+                    variant="flat"
+                  >
+                    {lead.status}
+                  </Chip>
+                </TableCell>
+                <TableCell>
+                  {formatDate(lead.created_at)}
+                </TableCell>
+                <TableCell>
+                  <Dropdown>
+                    <DropdownTrigger>
+                      <Button isIconOnly variant="light" size="sm">
+                        <FaEllipsisVertical />
+                      </Button>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Lead Actions">
+                      <DropdownItem 
+                        key="view" 
+                        startContent={<FaEye className="text-blue-500" />}
+                        onPress={() => handleViewLead(lead.id)}
+                      >
+                        View Details
+                      </DropdownItem>
+                      <DropdownItem 
+                        key="edit" 
+                        startContent={<FaEdit className="text-green-500" />}
+                        onPress={() => handleEditLead(lead.id)}
+                      >
+                        Edit Lead
+                      </DropdownItem>
+                      <DropdownItem 
+                        key="delete" 
+                        className="text-danger" 
+                        color="danger"
+                        startContent={<FaTrash className="text-red-500" />}
+                        onPress={() => handleDeleteLead(lead.id)}
+                      >
+                        Delete Lead
+                      </DropdownItem>
+                    </DropdownMenu>
+                  </Dropdown>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      
+      {/* Pagination */}
+      {hasSearchResults && (
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-500">
+            Showing {Math.min((page - 1) * rowsPerPage + 1, total)} to {Math.min(page * rowsPerPage, total)} of {total} leads
+          </span>
+          <Pagination
+            showControls
+            total={pages}
+            initialPage={1}
+            page={page}
+            onChange={setPage}
           />
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 items-end justify-end">
-          {/* Column visibility dropdown */}
-          <Dropdown>
-            <DropdownTrigger>
-              <Button 
-                variant="flat" 
-                endContent={<ChevronDownIcon className="text-small" />}
-              >
-                Columns
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu
-              disallowEmptySelection
-              aria-label="Column visibility"
-              closeOnSelect={false}
-              selectedKeys={visibleColumns}
-              selectionMode="multiple"
-              onSelectionChange={handleColumnVisibilityChange as any}
-            >
-              <DropdownItem key="property_address">Address</DropdownItem>
-              <DropdownItem key="property_city">City</DropdownItem>
-              <DropdownItem key="property_state">State</DropdownItem>
-              <DropdownItem key="property_zip">Zip</DropdownItem>
-              <DropdownItem key="status">Lead Status</DropdownItem>
-              <DropdownItem key="email_status">Email Status</DropdownItem>
-              <DropdownItem key="actions">Actions</DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
-
-          {/* Lead status filter */}
-          <Dropdown>
-            <DropdownTrigger>
-              <Button 
-                variant="flat" 
-                endContent={<ChevronDownIcon className="text-small" />}
-              >
-                Lead Status
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu
-              disallowEmptySelection
-              aria-label="Lead Status Filter"
-              closeOnSelect={false}
-              selectedKeys={statusFilter}
-              selectionMode="multiple"
-              onSelectionChange={setStatusFilter as any}
-            >
-              {["all", "new", "contacted", "qualified", "negotiating", "closed", "dead"].map((status) => (
-                <DropdownItem key={status} className="capitalize">
-                  {status === "all" ? "All" : status}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-
-          {/* Email status filter */}
-          <Dropdown>
-            <DropdownTrigger>
-              <Button 
-                variant="flat" 
-                endContent={<ChevronDownIcon className="text-small" />}
-              >
-                Email Status
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu
-              disallowEmptySelection
-              aria-label="Email Status Filter"
-              closeOnSelect={false}
-              selectedKeys={emailStatusFilter}
-              selectionMode="multiple"
-              onSelectionChange={setEmailStatusFilter as any}
-            >
-              {["all", "pending", "sent", "opened", "clicked", "replied", "bounced", "failed"].map((status) => (
-                <DropdownItem key={status} className="capitalize">
-                  {status === "all" ? "All" : status}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-
-          {/* Bulk actions button - only shown when items are selected */}
-          {selectedKeys !== "all" && selectedKeys.size > 0 && (
-            <Dropdown>
-              <DropdownTrigger>
-                <Button 
-                  color="primary"
-                >
-                  Actions ({selectedKeys.size})
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu aria-label="Bulk Actions">
-                <DropdownItem key="bulk-loi" onPress={handleBulkGenerateLOI}>Generate LOIs</DropdownItem>
-                <DropdownItem key="bulk-email" onPress={handleBulkSendEmail}>Send Emails</DropdownItem>
-                <DropdownItem key="bulk-status" onPress={handleBulkStatusUpdate}>Update Status</DropdownItem>
-                <DropdownItem key="bulk-delete" onPress={handleBulkDelete} className="text-danger">Delete</DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
-          )}
-        </div>
-      </div>
-
-      {/* The actual table */}
-      <Table
-        aria-label="Leads table"
-        isHeaderSticky
-        classNames={{
-          wrapper: "max-h-[calc(100vh-250px)]",
-          table: "min-h-[400px]",
-        }}
-        sortDescriptor={sortDescriptor}
-        onSortChange={handleSortChange}
-        selectedKeys={selectedKeys}
-        onSelectionChange={handleSelectionChange}
-        selectionMode="multiple"
-      >
-        <TableHeader>
-          <TableColumn key="property_address" allowsSorting isVisible={visibleColumns.has("property_address")}>Address</TableColumn>
-          <TableColumn key="property_city" allowsSorting isVisible={visibleColumns.has("property_city")}>City</TableColumn>
-          <TableColumn key="property_state" allowsSorting isVisible={visibleColumns.has("property_state")}>State</TableColumn>
-          <TableColumn key="property_zip" isVisible={visibleColumns.has("property_zip")}>Zip</TableColumn>
-          <TableColumn key="status" allowsSorting isVisible={visibleColumns.has("status")}>Lead Status</TableColumn>
-          <TableColumn key="email_status" allowsSorting isVisible={visibleColumns.has("email_status")}>Email Status</TableColumn>
-          <TableColumn key="actions" isVisible={visibleColumns.has("actions")}>Actions</TableColumn>
-        </TableHeader>
-        <TableBody
-          loadingContent={<Spinner color="blue-500" />}
-          emptyContent={
-            searchQuery || statusFilter.has("all") === false || emailStatusFilter.has("all") === false 
-              ? "No leads match your filters. Try adjusting your search or filters." 
-              : "No leads found. Upload some leads using the CSV upload tool."
-          }
-          isLoading={loading}
-        >
-          {paginatedItems.length > 0 ? (
-            paginatedItems.map((lead) => (
-              <TableRow 
-                key={lead.id} 
-                className="hover:bg-gray-50 cursor-pointer"
-                onPress={onRowClick && lead.id ? () => handleRowClick(lead.id!) : undefined}
-              >
-                {visibleColumns.has("property_address") && <TableCell>{lead.property_address}</TableCell>}
-                {visibleColumns.has("property_city") && <TableCell>{lead.property_city}</TableCell>}
-                {visibleColumns.has("property_state") && <TableCell>{lead.property_state}</TableCell>}
-                {visibleColumns.has("property_zip") && <TableCell>{lead.property_zip}</TableCell>}
-                {visibleColumns.has("status") && (
-                  <TableCell>
-                    <Chip size="sm" variant="flat" color={getLeadStatusChipColor(lead.status || 'new')}>
-                      {lead.status || 'New'}
-                    </Chip>
-                  </TableCell>
-                )}
-                {visibleColumns.has("email_status") && (
-                  <TableCell>
-                    <Chip 
-                      size="sm" 
-                      variant="flat" 
-                      color={getStatusChipColor(lead.email_status || 'pending')}>
-                      {lead.email_status || 'Pending'}
-                    </Chip>
-                  </TableCell>
-                )}
-                {visibleColumns.has("actions") && (
-                  <TableCell className="whitespace-nowrap">
-                    <div className="flex gap-2 items-center">
-                      <Dropdown>
-                        <DropdownTrigger>
-                          <Button isIconOnly size="sm" variant="light">
-                            <VerticalDotsIcon className="text-default-300" />
-                          </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu>
-                          <DropdownItem 
-                            key="generate-loi" 
-                            onPress={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              lead.id && handleGenerateLOI(lead.id, e);
-                            }}
-                          >
-                            Generate LOI
-                          </DropdownItem>
-                          <DropdownItem 
-                            key="send-email"
-                            onPress={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              lead.id && handleSendEmail(lead.id, e);
-                            }}
-                          >
-                            Send Email
-                          </DropdownItem>
-                          {onRowClick && lead.id && (
-                            <DropdownItem 
-                              key="view"
-                              onPress={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleRowClick(lead.id!);
-                              }}
-                            >
-                              View Details
-                            </DropdownItem>
-                          )}
-                        </DropdownMenu>
-                      </Dropdown>
-                    </div>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))
-          ) : null}
-        </TableBody>
-      </Table>
-
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">
-            Showing {paginatedItems.length} of {items.length} leads
-          </span>
-          <Dropdown>
-            <DropdownTrigger>
-              <Button 
-                variant="flat" 
-                size="sm"
-                endContent={<ChevronDownIcon className="text-small" />}
-              >
-                {rowsPerPage} per page
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu
-              disallowEmptySelection
-              aria-label="Rows per page"
-              selectionMode="single"
-              selectedKeys={new Set([rowsPerPage.toString()])}
-              onSelectionChange={(keys) => {
-                if (keys && typeof keys === 'object' && 'size' in keys && keys.size > 0) {
-                  handleRowsPerPageChange(Number(Array.from(keys)[0]));
-                }
-              }}
-            >
-              {rowsPerPageOptions.map((option) => (
-                <DropdownItem key={option.toString()}>
-                  {option}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-        </div>
-        <Pagination
-          isCompact
-          showControls
-          showShadow
-          color="primary"
-          page={page}
-          total={pages}
-          onChange={setPage}
-        />
-      </div>
-
-      {/* Bulk Email Modal */}
-      <Modal isOpen={isEmailModalOpen} onClose={onCloseEmailModal}>
-        <ModalContent>
-          <ModalHeader>Send Bulk Email</ModalHeader>
-          <ModalBody>
-            <p>You are about to send emails to {selectedLeads.length} lead(s).</p>
-            <p className="text-sm text-gray-500 mt-2">
-              This action will redirect you to the bulk email composer where you can customize your message.
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={onCloseEmailModal}>
-              Cancel
-            </Button>
-            <Button color="primary" onPress={processBulkEmail}>
-              Proceed
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      
-      {/* Bulk Status Update Modal */}
-      <Modal isOpen={isStatusModalOpen} onClose={onCloseStatusModal}>
-        <ModalContent>
-          <ModalHeader>Update Lead Status</ModalHeader>
-          <ModalBody>
-            <p className="mb-4">Update status for {selectedLeads.length} selected leads:</p>
-            <Select
-              label="Select new status"
-              placeholder="Choose a status"
-              value={bulkStatus}
-              onChange={(e) => setBulkStatus(e.target.value)}
-              className="w-full"
-            >
-              <SelectItem key="new" value="new">New</SelectItem>
-              <SelectItem key="contacted" value="contacted">Contacted</SelectItem>
-              <SelectItem key="negotiating" value="negotiating">Negotiating</SelectItem>
-              <SelectItem key="closed" value="closed">Closed</SelectItem>
-              <SelectItem key="dead" value="dead">Dead</SelectItem>
-            </Select>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={onCloseStatusModal}>
-              Cancel
-            </Button>
-            <Button 
-              color="primary" 
-              onPress={processBulkStatusUpdate}
-              isDisabled={!bulkStatus}
-              isLoading={isUpdating}
-            >
-              Update Status
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-      
-      {/* Bulk Delete Confirmation Modal */}
-      <Modal isOpen={isDeleteModalOpen} onClose={onCloseDeleteModal}>
-        <ModalContent>
-          <ModalHeader>Confirm Deletion</ModalHeader>
-          <ModalBody>
-            <p className="text-red-500 font-medium">Warning: This action cannot be undone.</p>
-            <p className="mt-2">You are about to delete {selectedLeads.length} lead(s). Are you sure you want to proceed?</p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="flat" onPress={onCloseDeleteModal}>
-              Cancel
-            </Button>
-            <Button 
-              color="danger" 
-              onPress={processBulkDelete}
-              isLoading={isDeleting}
-            >
-              Delete Leads
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      )}
     </div>
   );
 }

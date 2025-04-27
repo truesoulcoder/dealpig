@@ -1,476 +1,488 @@
-"use server";
+'use server';
 
-import path from 'path';
-import { parse } from 'csv-parse/sync';
-import { 
-  createLead, 
-  createContact, 
-  createLeadSource, 
-  createCampaign,
-  addLeadsToCampaign,
-  Lead, 
-  Contact, 
-  LeadSource,
-  Campaign
-} from '@/lib/database';
-import { uploadToStorage, StorageBucket } from '@/utils/supabase/storage';
-import { cookies } from 'next/headers';
+import { createLeadSource, insertLeadsIntoDynamicTable, processLeadsFromDynamicTable } from '@/lib/database';
+import { parse as csvParse } from 'csv-parse/sync';
+import { UUID } from '@/helpers/types';
+import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
-// Maximum file size 50MB to match Supabase storage bucket limit
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// Import the cache and revalidate functions from Next.js
+import { revalidateTag } from 'next/cache';
 
-interface CsvLead {
-  property_address: string;
-  property_city: string;
-  property_state: string;
-  property_zip: string;
-  wholesale_value?: string;
-  market_value?: string;
-  days_on_market?: string;
-  mls_status?: string;
-  mls_list_date?: string;
-  mls_list_price?: string;
-  owner_type?: string;
-  property_type?: string;
-  beds?: string;
-  baths?: string;
-  square_footage?: string;
-  year_built?: string;
-  assessed_total?: string;
-  contact1name?: string;
-  contact1phone_1?: string;
-  contact1email_1?: string;
-  contact2name?: string;
-  contact2phone_1?: string;
-  contact2email_1?: string;
-  contact3name?: string;
-  contact3phone_1?: string;
-  contact3email_1?: string;
-  [key: string]: string | undefined;
-}
-
-interface IngestResult {
+type UploadResult = {
   success: boolean;
-  message: string;
+  message?: string;
   totalRows: number;
   insertedLeads: number;
-  insertedContacts: number;
-  errors: string[];
-  sourceId?: string;
-  campaignId?: string;
-  fileUrl?: string;
+  contactsCount?: number; // Adding this field to track contacts created
+  errors?: string[];
+  leadSourceId?: UUID;
+  storagePath?: string; // Adding field to track where the file is stored
+};
+
+// Add a new type for progress tracking
+type ImportProgress = {
+  stage: 'parsing' | 'creating_table' | 'inserting_records' | 'processing_leads' | 'complete';
+  percentage: number;
+  message: string;
+};
+
+// Map to store import progress by ID
+const importProgressMap = new Map<string, ImportProgress>();
+
+/**
+ * Store the original CSV file in Supabase storage for backup purposes
+ * @param file The uploaded CSV file
+ * @returns The storage path where the file is stored or null if storage fails
+ */
+async function storeOriginalFile(file: File): Promise<string | null> {
+  try {
+    // Create a Supabase client for storage
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false
+        },
+        global: {
+          headers: {
+            'X-Supabase-Storage-Region': process.env.SUPABASE_STORAGE_REGION || 'us-east-1'
+          }
+        }
+      }
+    );
+    
+    // Generate a unique filename to avoid collisions
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const uniqueId = randomUUID().slice(0, 8);
+    const fileName = `${timestamp}-${uniqueId}-${file.name}`;
+    
+    // Convert file to ArrayBuffer for upload
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Upload to the lead-imports bucket
+    const { data, error } = await supabase
+      .storage
+      .from('lead-imports')
+      .upload(fileName, arrayBuffer, {
+        contentType: 'text/csv',
+        cacheControl: '3600'
+      });
+    
+    if (error) {
+      console.error('Error storing CSV file:', error);
+      return null;
+    }
+    
+    // Construct the full storage URL to the file
+    const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URL || 'https://fzvueuydzfwtbyiumbep.supabase.co/storage/v1/s3';
+    const fullPath = `${storageUrl}/lead-imports/${data.path}`;
+    
+    return fullPath;
+  } catch (error) {
+    console.error('Failed to store original CSV file:', error);
+    return null;
+  }
 }
 
-// Core logic extracted to be testable
-export async function ingestLeadsFromCsvCore(
-  fileContent: string, 
-  fileName: string,
-  fileBuffer?: Buffer,
-  dbCreateLeadSource = createLeadSource,
-  dbCreateLead = createLead,
-  dbCreateContact = createContact,
-  dbCreateCampaign = createCampaign,
-  dbAddLeadsToCampaign = addLeadsToCampaign
-): Promise<IngestResult> {
+/**
+ * Get the current progress of an import operation
+ * @param importId The ID of the import operation
+ * @returns The current progress or null if not found
+ */
+export async function getImportProgress(importId: string): Promise<ImportProgress | null> {
+  return importProgressMap.get(importId) || null;
+}
+
+/**
+ * Update the progress of an import operation
+ * @param importId The ID of the import operation
+ * @param progress The progress data to update
+ */
+function updateImportProgress(importId: string, progress: Partial<ImportProgress>): void {
+  const current = importProgressMap.get(importId) || {
+    stage: 'parsing',
+    percentage: 0,
+    message: 'Starting import...'
+  };
+  
+  importProgressMap.set(importId, {
+    ...current,
+    ...progress
+  });
+  
+  // Progress should be automatically garbage collected after 1 hour
+  setTimeout(() => {
+    importProgressMap.delete(importId);
+  }, 60 * 60 * 1000);
+}
+
+/**
+ * Server action to upload and process a CSV file containing lead data
+ * Handles multiple contacts per property according to the database schema
+ * @param formData The form data containing the CSV file
+ * @returns Result of the import operation with an importId for tracking progress
+ */
+export async function uploadCsv(formData: FormData): Promise<UploadResult & { importId?: string }> {
+  // Generate a unique ID for this import operation
+  const importId = randomUUID();
+  
   try {
+    // Initialize progress
+    updateImportProgress(importId, {
+      stage: 'parsing',
+      percentage: 0,
+      message: 'Starting CSV import...'
+    });
+
+    // Get the file from the form data
+    const file = formData.get('file') as File;
+    if (!file) {
+      return {
+        success: false,
+        message: 'No file provided',
+        totalRows: 0,
+        insertedLeads: 0,
+        importId
+      };
+    }
+
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      return {
+        success: false,
+        message: 'File must be a CSV',
+        totalRows: 0,
+        insertedLeads: 0,
+        importId
+      };
+    }
+
+    // Store the original file in Supabase storage for backup
+    const storagePath = await storeOriginalFile(file);
+    if (!storagePath) {
+      console.warn('Failed to store the original file, but continuing with import');
+    }
+
+    updateImportProgress(importId, {
+      percentage: 10,
+      message: 'Reading CSV file...'
+    });
+
+    // Read the file as text
+    const fileContent = await file.text();
+    
     // Parse CSV content
-    const rows = parse(fileContent, {
+    const records = csvParse(fileContent, {
       columns: true,
       skip_empty_lines: true,
-      trim: true,
-    }) as CsvLead[];
+      trim: true
+    });
 
-    if (!rows.length) {
+    updateImportProgress(importId, {
+      percentage: 20,
+      message: 'CSV parsed successfully'
+    });
+
+    if (records.length === 0) {
+      updateImportProgress(importId, {
+        stage: 'complete',
+        percentage: 100,
+        message: 'Import completed. The CSV file was empty.'
+      });
+      
       return {
         success: false,
-        message: 'No data found in CSV file',
+        message: 'The CSV file is empty',
         totalRows: 0,
         insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['Empty CSV file']
+        storagePath,
+        importId
       };
     }
 
-    // Extract base filename without extension to use as name
-    const baseFileName = path.basename(fileName, '.csv');
+    // Extract filename without extension for table naming
+    const fileName = file.name;
+    const tableName = fileName.endsWith('.csv') ? 
+      fileName.slice(0, -4).toLowerCase().replace(/[^a-z0-9]/g, '_') : 
+      fileName.toLowerCase().replace(/[^a-z0-9]/g, '_');
     
-    // Upload the original CSV file to Supabase storage for reference
-    let fileUrl: string | null = null;
-    
-    // Only attempt file upload if we have a buffer
-    if (fileBuffer) {
-      try {
-        // Create a unique filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const storagePath = `${baseFileName}_${timestamp}.csv`;
-        
-        console.log(`Uploading CSV file to storage: ${storagePath}, size: ${fileBuffer.length} bytes`);
-        
-        // Use the existing uploadToStorage function from utils/supabase/storage.ts
-        fileUrl = await uploadToStorage(
-          StorageBucket.LEAD_IMPORTS,
-          storagePath, 
-          fileBuffer, 
-          'text/csv',
-          cookies()
-        );
-        
-        if (fileUrl) {
-          console.log(`CSV file uploaded successfully, URL: ${fileUrl}`);
+    // Detect column types from first record
+    const firstRecord = records[0];
+    const columns = Object.keys(firstRecord).map(key => {
+      let type = 'text';
+      const value = firstRecord[key];
+      
+      // Try to determine the column type
+      if (!isNaN(parseFloat(value)) && isFinite(value)) {
+        // Check if it's an integer
+        if (parseInt(value).toString() === value) {
+          type = 'integer';
         } else {
-          console.warn('Failed to upload CSV file, but continuing with lead import');
+          type = 'numeric';
         }
-      } catch (uploadError) {
-        console.error('Error uploading CSV file:', uploadError);
-        // Continue with lead processing even if file upload fails
+      } else if (
+        /^\d{4}-\d{2}-\d{2}$/.test(value) || 
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+      ) {
+        type = 'timestamp';
       }
+
+      return { name: key, type };
+    });
+
+    updateImportProgress(importId, {
+      stage: 'creating_table',
+      percentage: 30,
+      message: 'Creating database table...'
+    });
+
+    // Create a dynamic table for this import
+    try {
+      await createDynamicLeadTable(tableName, columns);
+    } catch (error) {
+      updateImportProgress(importId, {
+        stage: 'complete',
+        percentage: 100,
+        message: `Import failed: ${(error as Error).message}`
+      });
+      
+      return {
+        success: false,
+        message: 'Failed to create table for lead data',
+        totalRows: records.length,
+        insertedLeads: 0,
+        errors: [(error as Error).message],
+        importId
+      };
     }
     
-    // Create a lead source record using the filename as the name
-    const leadSource: LeadSource = {
-      name: baseFileName, // Use the CSV filename (without extension) as the lead source name
-      file_name: fileName,
-      last_imported: new Date().toISOString(),
-      record_count: rows.length,
-      file_url: fileUrl || undefined,
-    };
-
-    const source = await dbCreateLeadSource(leadSource);
-    const sourceId = source?.id;
-
-    let insertedLeads = 0;
-    let insertedContacts = 0;
-    const errors: string[] = [];
-    const leadIds: string[] = [];
-
-    // Process each row in the CSV
-    for (const row of rows) {
-      try {
-        // Check for required fields
-        if (!row.property_address || !row.property_city || !row.property_state || !row.property_zip) {
-          errors.push(`Missing required property information: ${JSON.stringify(row)}`);
-          continue;
-        }
-
-        // Convert numeric values and prepare lead with contact information
-        const lead: Lead = {
-          property_address: row.property_address,
-          property_city: row.property_city,
-          property_state: row.property_state,
-          property_zip: row.property_zip,
-          wholesale_value: row.wholesale_value ? parseFloat(row.wholesale_value) : undefined,
-          market_value: row.market_value ? parseFloat(row.market_value) : undefined,
-          days_on_market: row.days_on_market ? parseInt(row.days_on_market, 10) : undefined,
-          mls_status: row.mls_status,
-          mls_list_date: row.mls_list_date,
-          mls_list_price: row.mls_list_price ? parseFloat(row.mls_list_price) : undefined,
-          owner_type: row.owner_type,
-          property_type: row.property_type,
-          beds: row.beds,
-          baths: row.baths,
-          square_footage: row.square_footage,
-          year_built: row.year_built,
-          assessed_total: row.assessed_total ? parseFloat(row.assessed_total) : undefined,
-          // Add contact fields directly to the lead
-          contact1name: row.contact1name,
-          contact1phone_1: row.contact1phone_1,
-          contact1email_1: row.contact1email_1,
-          contact2name: row.contact2name,
-          contact2phone_1: row.contact2phone_1,
-          contact2email_1: row.contact2email_1,
-          contact3name: row.contact3name,
-          contact3phone_1: row.contact3phone_1,
-          contact3email_1: row.contact3email_1,
-          source_id: sourceId,
-          status: 'NEW'
-        };
-
-        // Insert the lead
-        const newLead = await dbCreateLead(lead);
-        
-        if (newLead && newLead.id) {
-          insertedLeads++;
-          leadIds.push(newLead.id);
-
-          // Create contacts from the lead's contact fields
-          let contactsCreated = 0;
-          
-          // Create Contact 1 if name and email exist
-          if (row.contact1name && row.contact1email_1 && newLead.id) {
-            const contact1: Contact = {
-              name: row.contact1name,
-              email: row.contact1email_1,
-              lead_id: newLead.id,
-              is_primary: true
-            };
-
-            const newContact = await dbCreateContact(contact1);
-            if (newContact) {
-              contactsCreated++;
-            }
-          }
-          
-          // Create Contact 2 if name and email exist
-          if (row.contact2name && row.contact2email_1 && newLead.id) {
-            const contact2: Contact = {
-              name: row.contact2name,
-              email: row.contact2email_1,
-              lead_id: newLead.id,
-              is_primary: false
-            };
-
-            const newContact = await dbCreateContact(contact2);
-            if (newContact) {
-              contactsCreated++;
-            }
-          }
-          
-          // Create Contact 3 if name and email exist
-          if (row.contact3name && row.contact3email_1 && newLead.id) {
-            const contact3: Contact = {
-              name: row.contact3name,
-              email: row.contact3email_1,
-              lead_id: newLead.id,
-              is_primary: false
-            };
-
-            const newContact = await dbCreateContact(contact3);
-            if (newContact) {
-              contactsCreated++;
-            }
-          }
-          
-          insertedContacts += contactsCreated;
-          
-          if (contactsCreated === 0) {
-            errors.push(`No valid contacts found for lead: ${newLead.id}`);
-          }
-        } else {
-          errors.push(`Failed to insert lead: ${row.property_address}`);
-        }
-      } catch (error) {
-        errors.push(`Error processing row: ${error instanceof Error ? error.message : String(error)}`);
+    updateImportProgress(importId, {
+      stage: 'inserting_records',
+      percentage: 40,
+      message: `Inserting ${records.length} records into database...`
+    });
+    
+    // Insert records into the dynamic table
+    let insertedCount = 0;
+    try {
+      insertedCount = await insertLeadsIntoDynamicTable(tableName, records);
+      
+      updateImportProgress(importId, {
+        percentage: 60,
+        message: `${insertedCount} records inserted successfully`
+      });
+    } catch (error) {
+      updateImportProgress(importId, {
+        stage: 'complete',
+        percentage: 100,
+        message: `Import failed: ${(error as Error).message}`
+      });
+      
+      return {
+        success: false,
+        message: 'Failed to insert lead data',
+        totalRows: records.length,
+        insertedLeads: insertedCount,
+        errors: [(error as Error).message],
+        importId
+      };
+    }
+    
+    // Map columns to standard field names for this lead source
+    const columnMap: Record<string, string> = {};
+    const knownFields = [
+      'property_address', 'property_city', 'property_state', 'property_zip',
+      'owner_name', 'mailing_address', 'mailing_city', 'mailing_state', 'mailing_zip',
+      'wholesale_value', 'market_value', 'days_on_market', 'mls_status',
+      'mls_list_date', 'mls_list_price', 'status', 'owner_type', 'property_type',
+      'beds', 'baths', 'square_footage', 'year_built', 'assessed_total'
+    ];
+    
+    // Add all contact fields
+    for (let i = 1; i <= 5; i++) {
+      knownFields.push(`contact${i}name`);
+      knownFields.push(`contact${i}firstname`);
+      knownFields.push(`contact${i}lastname`);
+      for (let j = 1; j <= 3; j++) {
+        knownFields.push(`contact${i}phone_${j}`);
+        knownFields.push(`contact${i}email_${j}`);
       }
     }
 
-    // Automatically create a campaign for this lead list
-    let campaignId: string | undefined;
-    if (leadIds.length > 0 && sourceId) {
-      try {
-        // Create a new campaign with default settings
-        const campaign: Campaign = {
-          name: `${baseFileName} Campaign`,
-          description: `Auto-generated campaign for ${baseFileName} lead list`,
-          status: 'DRAFT',
-          leads_per_day: 10, // Default value
-          start_time: '09:00',  // Default value
-          end_time: '17:00',    // Default value
-          min_interval_minutes: 15,  // Default value
-          max_interval_minutes: 45,  // Default value
-          attachment_type: 'PDF',    // Default value
-          total_leads: leadIds.length
-        };
-
-        const newCampaign = await dbCreateCampaign(campaign);
-        
-        if (newCampaign && newCampaign.id) {
-          campaignId = newCampaign.id;
-          
-          // Add the leads to the campaign
-          await dbAddLeadsToCampaign(campaignId, leadIds);
-        }
-      } catch (error) {
-        errors.push(`Error creating campaign: ${error instanceof Error ? error.message : String(error)}`);
+    // Auto-map based on field names
+    Object.keys(firstRecord).forEach(key => {
+      const lowerKey = key.toLowerCase().replace(/\s+/g, '_');
+      
+      // Direct match
+      if (knownFields.includes(lowerKey)) {
+        columnMap[key] = lowerKey;
       }
+      // Check for fuzzy matches
+      else {
+        if (lowerKey.includes('address') && !lowerKey.includes('mailing')) columnMap[key] = 'property_address';
+        else if (lowerKey.includes('city') && !lowerKey.includes('mailing')) columnMap[key] = 'property_city';
+        else if (lowerKey.includes('state') && !lowerKey.includes('mailing')) columnMap[key] = 'property_state';
+        else if (lowerKey.includes('zip') && !lowerKey.includes('mailing')) columnMap[key] = 'property_zip';
+        else if (lowerKey.includes('mailing') && lowerKey.includes('address')) columnMap[key] = 'mailing_address';
+        else if (lowerKey.includes('mailing') && lowerKey.includes('city')) columnMap[key] = 'mailing_city';
+        else if (lowerKey.includes('mailing') && lowerKey.includes('state')) columnMap[key] = 'mailing_state';
+        else if (lowerKey.includes('mailing') && lowerKey.includes('zip')) columnMap[key] = 'mailing_zip';
+        else if (lowerKey.includes('market') && lowerKey.includes('value')) columnMap[key] = 'market_value';
+        else if (lowerKey.includes('wholesale') && lowerKey.includes('value')) columnMap[key] = 'wholesale_value';
+        else if (lowerKey.includes('list') && lowerKey.includes('price')) columnMap[key] = 'mls_list_price';
+        else if (lowerKey.includes('list') && lowerKey.includes('date')) columnMap[key] = 'mls_list_date';
+        else if (lowerKey.includes('assessed')) columnMap[key] = 'assessed_total';
+        else if (lowerKey.includes('year') && lowerKey.includes('built')) columnMap[key] = 'year_built';
+        else if (lowerKey === 'beds' || lowerKey.includes('bedroom')) columnMap[key] = 'beds';
+        else if (lowerKey === 'baths' || lowerKey.includes('bathroom')) columnMap[key] = 'baths';
+        else if (lowerKey.includes('sqft') || lowerKey.includes('square_ft') || lowerKey.includes('sq_ft')) columnMap[key] = 'square_footage';
+        
+        // Handle contact fields with various formats
+        for (let i = 1; i <= 5; i++) {
+          if (lowerKey.includes(`contact${i}`) || lowerKey.includes(`owner${i}`)) {
+            if (lowerKey.includes('name') && !lowerKey.includes('first') && !lowerKey.includes('last')) {
+              columnMap[key] = `contact${i}name`;
+            }
+            else if (lowerKey.includes('first')) {
+              columnMap[key] = `contact${i}firstname`;
+            }
+            else if (lowerKey.includes('last')) {
+              columnMap[key] = `contact${i}lastname`;
+            }
+            else if (lowerKey.includes('phone') || lowerKey.includes('mobile') || lowerKey.includes('cell')) {
+              // Check if there's a specific number indicated
+              if (lowerKey.includes('1') || lowerKey.includes('primary')) {
+                columnMap[key] = `contact${i}phone_1`;
+              } else if (lowerKey.includes('2') || lowerKey.includes('secondary')) {
+                columnMap[key] = `contact${i}phone_2`;
+              } else if (lowerKey.includes('3')) {
+                columnMap[key] = `contact${i}phone_3`;
+              } else {
+                columnMap[key] = `contact${i}phone_1`; // Default to first phone
+              }
+            }
+            else if (lowerKey.includes('email')) {
+              // Check if there's a specific number indicated
+              if (lowerKey.includes('1') || lowerKey.includes('primary')) {
+                columnMap[key] = `contact${i}email_1`;
+              } else if (lowerKey.includes('2') || lowerKey.includes('secondary')) {
+                columnMap[key] = `contact${i}email_2`;
+              } else if (lowerKey.includes('3')) {
+                columnMap[key] = `contact${i}email_3`;
+              } else {
+                columnMap[key] = `contact${i}email_1`; // Default to first email
+              }
+            }
+          }
+        }
+      }
+    });
+
+    updateImportProgress(importId, {
+      percentage: 70,
+      message: 'Creating lead source record...'
+    });
+
+    // Create a lead source record
+    let leadSourceId;
+    try {
+      leadSourceId = await createLeadSource({
+        name: tableName.replace(/_/g, ' '),
+        fileName: file.name,
+        tableName,
+        recordCount: records.length,
+        columnMap,
+        storagePath // Pass the storage path to track the original file
+      });
+    } catch (error) {
+      updateImportProgress(importId, {
+        stage: 'complete',
+        percentage: 100,
+        message: `Import partially completed: ${(error as Error).message}`
+      });
+      
+      return {
+        success: false,
+        message: 'Failed to create lead source',
+        totalRows: records.length,
+        insertedLeads: insertedCount,
+        errors: [(error as Error).message],
+        importId
+      };
     }
+    
+    updateImportProgress(importId, {
+      stage: 'processing_leads',
+      percentage: 80,
+      message: 'Processing lead records...'
+    });
+    
+    // Process the leads from the dynamic table into the main leads table with normalized contacts
+    let processResult = { processed: 0, contactsCreated: 0 };
+    try {
+      processResult = await processLeadsFromDynamicTable(tableName, leadSourceId);
+      
+      updateImportProgress(importId, {
+        stage: 'complete',
+        percentage: 100,
+        message: `Import completed successfully: ${processResult.processed} leads and ${processResult.contactsCreated} contacts created`
+      });
+    } catch (error) {
+      updateImportProgress(importId, {
+        stage: 'complete',
+        percentage: 100,
+        message: `Import partially completed: ${(error as Error).message}`
+      });
+      
+      return {
+        success: false,
+        message: 'Successfully imported raw data, but failed to process all leads',
+        totalRows: records.length,
+        insertedLeads: processResult.processed,
+        contactsCount: processResult.contactsCreated,
+        leadSourceId,
+        errors: [(error as Error).message],
+        importId
+      };
+    }
+
+    // Revalidate the leads cache tag to ensure updated data is shown
+    revalidateTag('leads');
 
     return {
-      success: insertedLeads > 0,
-      message: `Processed ${rows.length} rows, inserted ${insertedLeads} leads and ${insertedContacts} contacts${campaignId ? ', and created a campaign' : ''}`,
-      totalRows: rows.length,
-      insertedLeads,
-      insertedContacts,
-      errors,
-      sourceId,
-      campaignId,
-      fileUrl: fileUrl || undefined
+      success: true,
+      message: 'Successfully imported lead data',
+      totalRows: records.length,
+      insertedLeads: processResult.processed,
+      contactsCount: processResult.contactsCreated,
+      leadSourceId,
+      storagePath,
+      importId
     };
   } catch (error) {
-    console.error('Error parsing CSV:', error);
+    updateImportProgress(importId, {
+      stage: 'complete',
+      percentage: 100,
+      message: `Import failed: ${(error as Error).message}`
+    });
+    
+    console.error('CSV upload error:', error);
     return {
       success: false,
-      message: `Failed to process CSV: ${error instanceof Error ? error.message : String(error)}`,
+      message: 'An unexpected error occurred during CSV processing',
       totalRows: 0,
       insertedLeads: 0,
-      insertedContacts: 0,
-      errors: [String(error)]
+      errors: [(error as Error).message],
+      importId
     };
   }
 }
 
-// Server action that uses the core logic
-export async function ingestLeadsFromCsv(fileContent: string, fileName: string): Promise<IngestResult> {
-  // Convert string to Buffer for storage
-  const fileBuffer = Buffer.from(fileContent);
-  
-  // Log upload attempt details
-  console.log(`[LEADIMPORT] Preparing to import file: ${fileName}`);
-  console.log(`[LEADIMPORT] File size: ${fileBuffer.length} bytes`);
-  console.log(`[LEADIMPORT] Using bucket: ${LEADS_BUCKET}`);
-  
-  return ingestLeadsFromCsvCore(fileContent, fileName, fileBuffer);
-}
-
-export async function uploadCsv(formData: FormData): Promise<IngestResult> {
-  try {
-    const file = formData.get('file') as File;
-    
-    if (!file) {
-      console.error('CSV Upload Error: No file provided in form data');
-      return {
-        success: false,
-        message: 'No file uploaded',
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['No file provided']
-      };
-    }
-
-    // Check file type
-    if (!file.name.endsWith('.csv')) {
-      console.error('CSV Upload Error: Invalid file type', file.name);
-      return {
-        success: false,
-        message: 'Invalid file type. Please upload a CSV file.',
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['Invalid file type']
-      };
-    }
-    
-    // Check file size
-    if (file.size > MAX_FILE_SIZE) {
-      console.error('CSV Upload Error: File too large', { size: file.size, maxSize: MAX_FILE_SIZE });
-      return {
-        success: false,
-        message: `File size exceeds the 50MB limit (${Math.round(file.size / (1024 * 1024))}MB)`,
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['File too large']
-      };
-    }
-
-    // Read file content
-    let fileContent;
-    try {
-      fileContent = await file.text();
-      console.log(`CSV file read successfully: ${file.name}, ${fileContent.length} bytes`);
-    } catch (error) {
-      console.error('CSV Upload Error: Failed to read file content', error);
-      return {
-        success: false,
-        message: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['File reading error']
-      };
-    }
-    
-    // If file is empty or invalid
-    if (!fileContent || fileContent.trim().length === 0) {
-      console.error('CSV Upload Error: Empty file');
-      return {
-        success: false,
-        message: 'The uploaded file is empty',
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['Empty file']
-      };
-    }
-    
-    // Convert file to buffer for storage
-    let fileBuffer: Buffer;
-    try {
-      fileBuffer = Buffer.from(await file.arrayBuffer());
-      console.log(`CSV file converted to buffer: ${fileBuffer.length} bytes`);
-    } catch (error) {
-      console.error('CSV Upload Error: Failed to convert file to buffer', error);
-      return {
-        success: false,
-        message: `Error processing file: ${error instanceof Error ? error.message : String(error)}`,
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: ['File processing error']
-      };
-    }
-    
-    try {
-      // Process the CSV file
-      console.log(`Starting CSV processing for file: ${file.name}`);
-      const result = await ingestLeadsFromCsvCore(fileContent, file.name, fileBuffer);
-      console.log(`CSV processing complete: ${result.insertedLeads} leads inserted`);
-      return result;
-    } catch (error) {
-      console.error('CSV Upload Error: Failed during CSV processing', error);
-      // Provide detailed error information
-      return {
-        success: false,
-        message: `Error processing CSV: ${error instanceof Error ? error.message : String(error)}`,
-        totalRows: 0,
-        insertedLeads: 0,
-        insertedContacts: 0,
-        errors: [error instanceof Error ? error.stack || error.message : String(error)]
-      };
-    }
-  } catch (error) {
-    console.error('CSV Upload: Unexpected error', error);
-    return {
-      success: false,
-      message: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
-      totalRows: 0,
-      insertedLeads: 0,
-      insertedContacts: 0,
-      errors: [String(error)]
-    };
-  }
-}
-
-// Export getLeads function that uses the database implementation
-export async function getLeads() {
-  try {
-    const { getLeads: databaseGetLeads } = await import('@/lib/database');
-    return databaseGetLeads();
-  } catch (error) {
-    console.error('Error in getLeads action:', error);
-    return [];
-  }
-}
-
-// Add updateLead function
-export async function updateLead(lead: Partial<Lead> & { id: string }) {
-  try {
-    const { updateLead: databaseUpdateLead } = await import('@/lib/database');
-    const { id, ...updateData } = lead;
-    return databaseUpdateLead(id, updateData); // Adjusted to pass the id and update data separately
-  } catch (error) {
-    console.error('Error in updateLead action:', error);
-    throw new Error(`Failed to update lead: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-// Add deleteLead function
-export async function deleteLead(leadId: string) {
-  try {
-    const { deleteLead: databaseDeleteLead } = await import('@/lib/database');
-    return databaseDeleteLead(leadId);
-  } catch (error) {
-    console.error('Error in deleteLead action:', error);
-    throw new Error(`Failed to delete lead: ${error instanceof Error ? error.message : String(error)}`);
-  }
+/**
+ * Helper function to create a dynamic table for lead data
+ */
+async function createDynamicLeadTable(tableName: string, columns: Array<{name: string, type: string}>): Promise<boolean> {
+  return await import('@/lib/database').then(db => db.createDynamicLeadTable(tableName, columns));
 }
