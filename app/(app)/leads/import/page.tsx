@@ -49,7 +49,10 @@ export default function ImportLeadsPage() {
       console.log('Upload result:', result);
       
       // Set the result based on the server response
-      setUploadResult(result);
+      setUploadResult({
+        ...result,
+        message: result.message || "Import completed",
+      });
     } catch (error) {
       console.error("Upload error:", error);
       setUploadResult({
@@ -101,9 +104,10 @@ export default function ImportLeadsPage() {
         const responseTimestamp = new Date().toISOString();
         setRequestHistory(prev => [...prev, `${responseTimestamp}: ${response.status} response from ${url}`]);
         return response;
-      } catch (error) {
+      } catch (error: unknown) {
         const errorTimestamp = new Date().toISOString();
-        setRequestHistory(prev => [...prev, `${errorTimestamp}: Error on ${url}: ${error.message}`]);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setRequestHistory(prev => [...prev, `${errorTimestamp}: Error on ${url}: ${errorMessage}`]);
         throw error;
       }
     };

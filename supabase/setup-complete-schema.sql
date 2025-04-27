@@ -187,12 +187,11 @@ CREATE TABLE IF NOT EXISTS emails (
     subject VARCHAR NOT NULL,
     body TEXT NOT NULL,
     loi_path VARCHAR,
-    status VARCHAR DEFAULT 'PENDING', -- 'PENDING', 'SENT', 'OPENED', 'REPLIED', 'BOUNCED'
-    opened_at TIMESTAMPTZ,
-    replied_at TIMESTAMPTZ,
+    status VARCHAR DEFAULT 'SENT', -- 'SENT', 'DELIVERED', 'BOUNCED'
+    sent_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
     bounced_at TIMESTAMPTZ,
     bounce_reason TEXT,
-    sent_at TIMESTAMPTZ,
     tracking_id UUID UNIQUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -202,7 +201,7 @@ CREATE TABLE IF NOT EXISTS emails (
 CREATE TABLE IF NOT EXISTS email_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email_id UUID REFERENCES emails(id) ON DELETE CASCADE,
-    event_type VARCHAR NOT NULL, -- 'sent', 'delivered', 'opened', 'clicked', etc.
+    event_type VARCHAR NOT NULL, -- 'sent', 'delivered', 'bounced'
     recipient_email VARCHAR NOT NULL,
     campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
     metadata JSONB,
@@ -753,19 +752,107 @@ COMMENT ON FUNCTION public.create_dynamic_lead_table IS 'Creates a new dynamic l
 COMMENT ON FUNCTION public.execute_sql IS 'Executes SQL commands with service role privileges (admin only)';
 COMMENT ON FUNCTION public.query_dynamic_lead_table IS 'Queries a dynamic lead table with pagination and filtering';
 
--- Verify setup with a summary report
-DO $$
-DECLARE
-  table_count INTEGER;
-  policy_count INTEGER;
+-- Step 10: Add Dashboard Analytics Functions
+
+-- Function to group emails by status
+CREATE OR REPLACE FUNCTION public.group_by_status(campaign_id_param UUID)
+RETURNS TABLE(status VARCHAR, count bigint)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  SELECT COUNT(*) INTO table_count FROM pg_tables WHERE schemaname = 'public';
-  SELECT COUNT(*) INTO policy_count FROM pg_policies WHERE schemaname = 'public';
-  
-  RAISE NOTICE '==== SETUP SUMMARY ====';
-  RAISE NOTICE 'Tables created: %', table_count;
-  RAISE NOTICE 'Policies created: %', policy_count;
-  RAISE NOTICE 'Dynamic lead table support: ENABLED';
-  RAISE NOTICE '=====================';
+  RETURN QUERY
+  SELECT 
+    emails.status,
+    COUNT(*)::bigint
+  FROM emails
+  WHERE emails.campaign_id = campaign_id_param
+  AND emails.status IN ('SENT', 'DELIVERED', 'BOUNCED')
+  GROUP BY emails.status;
 END;
 $$;
+
+-- Function to get sender statistics for a campaign
+CREATE OR REPLACE FUNCTION public.get_sender_stats(campaign_id_param UUID)
+RETURNS TABLE(
+  sender_id UUID,
+  sender_name VARCHAR,
+  sent bigint,
+  delivered bigint,
+  bounced bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    s.id,
+    s.name,
+    COUNT(CASE WHEN e.status = 'SENT' THEN 1 ELSE NULL END)::bigint,
+    COUNT(CASE WHEN e.status = 'DELIVERED' THEN 1 ELSE NULL END)::bigint,
+    COUNT(CASE WHEN e.status = 'BOUNCED' THEN 1 ELSE NULL END)::bigint
+  FROM senders s
+  LEFT JOIN emails e ON s.id = e.sender_id AND e.campaign_id = campaign_id_param
+  WHERE s.id IN (
+    SELECT sender_id FROM campaign_senders WHERE campaign_id = campaign_id_param
+  )
+  GROUP BY s.id, s.name;
+END;
+$$;
+
+-- Function to get daily email statistics for a campaign
+CREATE OR REPLACE FUNCTION public.get_daily_stats(
+  campaign_id_param UUID,
+  start_date timestamptz
+)
+RETURNS TABLE(
+  date date,
+  sent bigint,
+  delivered bigint,
+  bounced bigint
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH days AS (
+    SELECT generate_series(
+      date_trunc('day', start_date),
+      date_trunc('day', CURRENT_DATE),
+      '1 day'::interval
+    )::date as day
+  ),
+  email_counts AS (
+    SELECT 
+      DATE(created_at) as email_date,
+      COUNT(CASE WHEN status = 'SENT' THEN 1 END) as sent,
+      COUNT(CASE WHEN status = 'DELIVERED' THEN 1 END) as delivered,
+      COUNT(CASE WHEN status = 'BOUNCED' THEN 1 END) as bounced
+    FROM emails
+    WHERE campaign_id = campaign_id_param
+    AND created_at >= start_date
+    GROUP BY email_date
+  )
+  SELECT 
+    days.day,
+    COALESCE(email_counts.sent, 0)::bigint,
+    COALESCE(email_counts.delivered, 0)::bigint,
+    COALESCE(email_counts.bounced, 0)::bigint
+  FROM days
+  LEFT JOIN email_counts ON days.day = email_counts.email_date
+  ORDER BY days.day;
+END;
+$$;
+
+-- Grant execution permission to authenticated users
+GRANT EXECUTE ON FUNCTION public.group_by_status(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.group_by_status(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_sender_stats(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_sender_stats(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.get_daily_stats(UUID, timestamptz) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_daily_stats(UUID, timestamptz) TO service_role;

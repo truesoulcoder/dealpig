@@ -3,8 +3,6 @@ import React, { useEffect, useState } from "react";
 import { SearchIcon } from "../icons/searchicon";
 import { BurguerButton } from "./burguer-button";
 import { UserDropdown } from "./user-dropdown";
-import { getCampaigns } from "@/actions/campaign.action";
-import SenderVerificationModal from "../home/sender-verification";
 
 interface Props {
   children: React.ReactNode;
@@ -25,12 +23,14 @@ export const NavbarWrapper = ({ children }: Props) => {
     async function loadCampaigns() {
       try {
         setLoading(true);
-        const campaignsData = await getCampaigns();
+        const response = await fetch('/api/campaigns');
+        const campaignsData = await response.json();
+        
         setCampaigns(campaignsData || []);
         
         // If campaigns exist, select the first active one by default
         if (campaignsData && campaignsData.length > 0) {
-          const activeCampaign = campaignsData.find(c => c.status === 'ACTIVE');
+          const activeCampaign = campaignsData.find((c: { status: string; }) => c.status === 'ACTIVE');
           if (activeCampaign && activeCampaign.id) {
             setSelectedCampaign(activeCampaign.id);
             setIsActive(true);
@@ -53,20 +53,8 @@ export const NavbarWrapper = ({ children }: Props) => {
   const handleCampaignStatusChange = async (newActiveState: boolean) => {
     if (!selectedCampaign) return;
     
-    // If trying to activate, show verification modal first
-    if (newActiveState) {
-      const campaign = campaigns.find(c => c.id === selectedCampaign);
-      if (campaign) {
-        setCampaignToActivate({id: campaign.id, name: campaign.name});
-        setVerificationModalOpen(true);
-        return;
-      }
-    } 
-    
-    // If deactivating, proceed immediately
-    if (!newActiveState) {
-      await updateCampaignStatus(selectedCampaign, false);
-    }
+    // If trying to activate, we'll just update status directly since verification modal was removed
+    await updateCampaignStatus(selectedCampaign, newActiveState);
   };
   
   // Actually update the campaign status
@@ -101,12 +89,6 @@ export const NavbarWrapper = ({ children }: Props) => {
     }
   };
   
-  // Handle successful verification and campaign activation
-  const handleAllSendersVerified = () => {
-    if (campaignToActivate) {
-      updateCampaignStatus(campaignToActivate.id, true);
-    }
-  };
 
   return (
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
@@ -176,20 +158,6 @@ export const NavbarWrapper = ({ children }: Props) => {
           </NavbarContent>
         </NavbarContent>
       </Navbar>
-      
-      {/* Sender verification modal */}
-      {campaignToActivate && (
-        <SenderVerificationModal
-          isOpen={verificationModalOpen}
-          onClose={() => {
-            setVerificationModalOpen(false);
-            setCampaignToActivate(null);
-          }}
-          campaignId={campaignToActivate.id}
-          campaignName={campaignToActivate.name}
-          onAllVerified={handleAllSendersVerified}
-        />
-      )}
       
       {children}
     </div>

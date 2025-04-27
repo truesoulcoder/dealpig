@@ -9,7 +9,8 @@ import { SidebarItem } from "./sidebar-item";
 import { SidebarMenu } from "./sidebar-menu";
 import { useSidebarContext } from "../layout/layout-context";
 import { usePathname } from "next/navigation";
-import AnimatedLogo from "../icons/AnimatedLogo";
+import Image from "next/image";
+import Link from "next/link";
 
 export const SidebarWrapper = () => {
   const pathname = usePathname();
@@ -26,12 +27,20 @@ export const SidebarWrapper = () => {
         })}
       >
         <div className={Sidebar.Header()}>
-          <AnimatedLogo />
+          <Link href="/" className="flex items-center justify-center">
+            <Image 
+              src="/dealpig.svg" 
+              alt="DealPig" 
+              width={48} 
+              height={48}
+              priority
+            />
+          </Link>
         </div>
         <div className="flex flex-col justify-between h-full">
           <div className={Sidebar.Body()}>
             <SidebarItem
-              title="Dashboard"
+              title="Home"
               icon={<HomeIcon />}
               isActive={pathname === "/" || pathname === "/home"}
               href="/"
@@ -39,7 +48,7 @@ export const SidebarWrapper = () => {
             <SidebarMenu title="Main Menu">
               <SidebarItem
                 isActive={pathname.includes("/accounts")}
-                title="Senders"
+                title="Accounts"
                 icon={<AccountsIcon />}
                 href="/accounts"
               />

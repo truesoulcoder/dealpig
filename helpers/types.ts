@@ -157,6 +157,16 @@ export interface Template {
   updated_at: Timestamp;
 }
 
+// Email Template type (more specific than general Template)
+export interface EmailTemplate extends Template {
+  type: 'EMAIL';
+}
+
+// Document Template type (more specific than general Template)
+export interface DocumentTemplate extends Template {
+  type: 'LOI' | 'CONTRACT' | 'LETTER';
+}
+
 // Campaign types
 export interface Campaign {
   id: UUID;
