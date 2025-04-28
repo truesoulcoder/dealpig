@@ -9,7 +9,10 @@
   --leet-hover: #00cc00;
   --leet-error: #ff0000;
   --leet-success: #00aa00;
-  --leet-font: 'Consolas', 'Courier New', monospace;
+  --leet-font: monospace;
+  --background: var(--leet-bg);
+  --divider: var(--leet-border);
+  --foreground: var(--leet-text);
 }
 
 /* Root level styles */
@@ -247,9 +250,37 @@
   background-color: var(--leet-accent) !important;
 }
 
-/* Commented out to allow console styles on login/register pages */
-/* [data-theme='leet'] [data-auth-layout="true"] {
-  background-color: initial;
-  color: initial;
-  font-family: initial;
-} */
+/* Global override: font, border-radius, background, and borders */
+[data-theme='leet'] * {
+  font-family: var(--leet-font) !important;
+  border-radius: 0 !important;
+}
+
+/* Replace default white backgrounds with console black */
+[data-theme='leet'] .bg-white,
+[data-theme='leet'] .bg-gray-100,
+[data-theme='leet'] .bg-gray-200,
+[data-theme='leet'] .bg-background {
+  background-color: var(--leet-bg) !important;
+}
+
+/* Replace default gray borders with console green */
+[data-theme='leet'] .border-gray-200,
+[data-theme='leet'] .border-divider,
+[data-theme='leet'] .border {
+  border-color: var(--leet-border) !important;
+}
+
+/* Override HeroUI Card backgrounds and borders */
+[data-theme='leet'] .hero-card,
+[data-theme='leet'] .card {
+  background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  border: 1px solid var(--leet-border) !important;
+  border-radius: 0 !important;
+}
+
+/* Ensure the sidebar wrapper (bg-background) uses black background */
+[data-theme='leet'] aside {
+  background-color: var(--leet-bg) !important;
+}
