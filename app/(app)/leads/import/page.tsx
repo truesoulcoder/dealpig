@@ -1,69 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardBody, CardHeader, CardFooter, Button, Divider } from "@heroui/react";
+import { useState } from "react";
+import { Card, CardBody, CardHeader, Divider, Button } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { FaArrowLeft, FaUpload, FaDownload, FaFileAlt } from "react-icons/fa";
-import { uploadCsv } from "@/actions/ingestLeads.action";
+import { FaArrowLeft, FaDownload, FaInfoCircle } from "react-icons/fa";
+import UploadCsvForm from "@/components/leads/uploadCsvForm";
 
 export default function ImportLeadsPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<{
-    success: boolean;
-    message: string;
-    totalRows?: number;
-    insertedLeads?: number;
-    insertedContacts?: number;
-    errors?: string[];
-  } | null>(null);
-  const [requestHistory, setRequestHistory] = useState<string[]>([]);
   const router = useRouter();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-      setUploadResult(null);
-    }
-  };
-
-  // Simplified submit handler to prevent multiple requests
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    if (!file || isUploading) return; // Prevent duplicate submissions
-    
-    // Set loading state
-    setIsUploading(true);
-    setUploadResult(null);
-    
-    try {
-      // Simple FormData creation
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      console.log(`Starting upload for file: ${file.name} (${Math.round(file.size / 1024)} KB)`);
-      
-      // Direct server action call with no timeout or extra wrappers
-      const result = await uploadCsv(formData);
-      console.log('Upload result:', result);
-      
-      // Set the result based on the server response
-      setUploadResult({
-        ...result,
-        message: result.message || "Import completed",
-      });
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploadResult({
-        success: false,
-        message: error instanceof Error ? error.message : "Upload failed",
-        errors: [String(error)]
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const downloadSampleCsv = () => {
     // Create sample CSV content
@@ -85,39 +29,6 @@ export default function ImportLeadsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Log requests for debugging
-  useEffect(() => {
-    const timestamp = new Date().toISOString();
-    setRequestHistory(prev => [...prev, `Page loaded/rendered at ${timestamp}`]);
-    
-    // Set up fetch interceptor
-    const originalFetch = window.fetch;
-    window.fetch = async function(input, init) {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input instanceof Request ? input.url : 'unknown';
-      const method = init?.method || 'GET';
-      
-      const requestTimestamp = new Date().toISOString();
-      setRequestHistory(prev => [...prev, `${requestTimestamp}: ${method} request to ${url}`]);
-      
-      try {
-        const response = await originalFetch.apply(this, [input, init]);
-        const responseTimestamp = new Date().toISOString();
-        setRequestHistory(prev => [...prev, `${responseTimestamp}: ${response.status} response from ${url}`]);
-        return response;
-      } catch (error: unknown) {
-        const errorTimestamp = new Date().toISOString();
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        setRequestHistory(prev => [...prev, `${errorTimestamp}: Error on ${url}: ${errorMessage}`]);
-        throw error;
-      }
-    };
-    
-    return () => {
-      // Restore original fetch when component unmounts
-      window.fetch = originalFetch;
-    };
-  }, []);
-
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
@@ -138,119 +49,8 @@ export default function ImportLeadsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
-          <Card className="mb-6">
-            <CardHeader>
-              <h2 className="text-xl font-semibold">Upload CSV File</h2>
-            </CardHeader>
-            <Divider />
-            <CardBody>
-              <form 
-                onSubmit={handleSubmit} 
-                className="space-y-6"
-                id="csv-import-form" 
-              >
-                <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50">
-                  <FaFileAlt className="text-gray-400 text-5xl mb-4" />
-                  <p className="mb-4 text-center text-gray-600">
-                    Drag and drop your CSV file here, or click to browse
-                  </p>
-                  <input
-                    type="file"
-                    id="csv-upload"
-                    accept=".csv"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <label htmlFor="csv-upload">
-                    <Button 
-                      as="span" 
-                      color="primary" 
-                      variant="flat"
-                      startContent={<FaUpload />}
-                      className="cursor-pointer"
-                    >
-                      Select CSV File
-                    </Button>
-                  </label>
-                  {file && (
-                    <p className="mt-4 text-sm font-medium">
-                      Selected: {file.name} ({Math.round(file.size / 1024)} KB)
-                    </p>
-                  )}
-                </div>
-                
-                <div className="flex justify-center">
-                  <Button
-                    type="submit"
-                    color="primary"
-                    size="lg"
-                    isLoading={isUploading}
-                    isDisabled={!file || isUploading}
-                    startContent={!isUploading && <FaUpload />}
-                  >
-                    {isUploading ? "Uploading..." : "Upload and Import Leads"}
-                  </Button>
-                </div>
-              </form>
-            </CardBody>
-          </Card>
-
-          {uploadResult && (
-            <Card className={`mb-6 ${uploadResult.success ? "border-green-500" : "border-red-500"}`}>
-              <CardHeader className={uploadResult.success ? "bg-green-50" : "bg-red-50"}>
-                <h2 className={`text-lg font-semibold ${uploadResult.success ? "text-green-700" : "text-red-700"}`}>
-                  {uploadResult.success ? "Import Successful" : "Import Failed"}
-                </h2>
-              </CardHeader>
-              <CardBody>
-                <p className="mb-4">{uploadResult.message}</p>
-                
-                {uploadResult.success && (
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="bg-gray-100 p-4 rounded-lg text-center">
-                      <p className="text-gray-500 text-sm">Total Rows</p>
-                      <p className="text-xl font-bold">{uploadResult.totalRows}</p>
-                    </div>
-                    <div className="bg-gray-100 p-4 rounded-lg text-center">
-                      <p className="text-gray-500 text-sm">Imported Leads</p>
-                      <p className="text-xl font-bold">{uploadResult.insertedLeads}</p>
-                    </div>
-                    <div className="bg-gray-100 p-4 rounded-lg text-center">
-                      <p className="text-gray-500 text-sm">Imported Contacts</p>
-                      <p className="text-xl font-bold">{uploadResult.insertedContacts}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {uploadResult.errors && uploadResult.errors.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold mb-2">Errors:</h3>
-                    <div className="bg-red-50 p-3 rounded-md max-h-40 overflow-y-auto text-sm">
-                      <ul className="list-disc pl-4 space-y-1">
-                        {uploadResult.errors.map((error, index) => (
-                          <li key={index} className="text-red-700">{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </CardBody>
-              <CardFooter>
-                <div className="flex gap-2 w-full justify-end">
-                  {uploadResult.success && (
-                    <Button color="primary" onPress={() => router.push("/leads")}>
-                      View All Leads
-                    </Button>
-                  )}
-                  {!uploadResult.success && (
-                    <Button color="primary" onPress={() => setUploadResult(null)}>
-                      Try Again
-                    </Button>
-                  )}
-                </div>
-              </CardFooter>
-            </Card>
-          )}
+          {/* The new UploadCsvForm component handles both upload and processing */}
+          <UploadCsvForm onImportSuccess={() => router.push("/leads")} />
         </div>
 
         <div>
@@ -274,6 +74,28 @@ export default function ImportLeadsPage() {
                 <li><span className="font-medium">contact_name</span> (optional) - Contact name</li>
                 <li><span className="font-medium">contact_email</span> (optional) - Contact email</li>
               </ul>
+              
+              <div className="bg-blue-50 p-4 rounded-md mb-6">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <FaInfoCircle className="text-blue-500" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="font-medium text-blue-800">Two-Step Import Process</h3>
+                    <p className="mt-1 text-sm text-blue-600">
+                      Our new lead import process has two steps:
+                    </p>
+                    <ol className="mt-2 text-sm text-blue-600 list-decimal pl-4">
+                      <li>Upload your CSV file to our secure storage</li>
+                      <li>Process the file to import leads into the database</li>
+                    </ol>
+                    <p className="mt-2 text-sm text-blue-600">
+                      This approach ensures more reliable imports, especially for larger files.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <Button
                 color="default"
                 variant="flat"

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Progress, Card, CardBody, CardHeader } from "@heroui/react";
+import { getImportProgress } from '@/actions/ingestLeads.action';
 
 type ImportProgress = {
-  stage: 'parsing' | 'creating_table' | 'inserting_records' | 'processing_leads' | 'complete';
+  stage: 'uploading' | 'parsing' | 'creating_table' | 'inserting_records' | 'processing_leads' | 'complete' | 'error';
   percentage: number;
   message: string;
+  error?: string;
 };
 
 export default function ImportProgressMeter({ importId }: { importId: string }) {
@@ -18,18 +20,21 @@ export default function ImportProgressMeter({ importId }: { importId: string }) 
     
     const fetchProgress = async () => {
       try {
-        const response = await fetch(`/api/leads/import/progress?id=${importId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch import progress');
+        // Use the server action instead of a fetch request
+        const data = await getImportProgress(importId);
+        
+        if (data) {
+          setProgress(data);
+          
+          // If there's an error or it's complete, stop polling
+          if (data.stage === 'complete' || data.stage === 'error') {
+            if (data.error) setError(data.error);
+            return;
+          }
         }
         
-        const data = await response.json();
-        setProgress(data);
-        
-        // If not complete, continue polling
-        if (data.stage !== 'complete') {
-          setTimeout(fetchProgress, 1000);
-        }
+        // Continue polling
+        setTimeout(fetchProgress, 1000);
       } catch (err) {
         setError((err as Error).message);
       }
@@ -57,13 +62,21 @@ export default function ImportProgressMeter({ importId }: { importId: string }) 
   
   const getStageTitle = (stage?: string) => {
     switch(stage) {
+      case 'uploading': return 'Uploading file';
       case 'parsing': return 'Parsing CSV file';
       case 'creating_table': return 'Creating database table';
       case 'inserting_records': return 'Inserting records';
       case 'processing_leads': return 'Processing leads';
       case 'complete': return 'Import complete';
+      case 'error': return 'Import failed';
       default: return 'Processing...';
     }
+  };
+  
+  const getProgressColor = (stage?: string) => {
+    if (stage === 'error') return 'danger';
+    if (stage === 'complete') return 'success';
+    return 'primary';
   };
   
   return (
@@ -76,7 +89,7 @@ export default function ImportProgressMeter({ importId }: { importId: string }) 
       <CardBody>
         <Progress 
           value={progress?.percentage || 0} 
-          color={progress?.stage === 'complete' ? 'success' : 'primary'}
+          color={getProgressColor(progress?.stage)}
           className="w-full mb-3" 
         />
         <p className="text-sm text-gray-600 mt-2">{progress?.message}</p>
