@@ -1,6 +1,8 @@
 import '../styles/globals.css'
 import '../styles/heroui.css'
 import '../styles/leet.css'
+import '../styles/dealpig-animation.css';
+import '../styles/dealpigtext-animation.css';
 import { Inter } from 'next/font/google'
 import { Providers } from './providers'
 

@@ -81,3 +81,10 @@ svg.active .svg-elem-1{
 .logo-animation-container {
   animation: none !important;
 }
+
+/* Hide ARIA/Tippy tooltips in the email editor toolbar */
+.ProseMirror [role="tooltip"],
+.tippy-popper,
+.tippy-box {
+  display: none !important;
+}

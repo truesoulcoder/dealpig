@@ -15,6 +15,16 @@
   --foreground: var(--leet-text);
 }
 
+/* === Console-wide override for L33T theme === */
+[data-theme='leet'] body,
+[data-theme='leet'] body * {
+  background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  font-family: var(--leet-font) !important;
+  border-color: var(--leet-border) !important;
+  border-radius: 0 !important;
+}
+
 /* Root level styles */
 [data-theme='leet'] body {
   background-color: var(--leet-bg);
@@ -180,18 +190,110 @@
   background: #00cc00;
 }
 
-/* HeroUI specific Navbar and Card overrides */
-[data-theme='leet'] .hero-navbar,
-[data-theme='leet'] .hero-navbar *,
-[data-theme='leet'] nav {
-  background-color: var(--leet-bg) !important;
-  border-color: var(--leet-border) !important;
-  color: var(--leet-text) !important;
+/* HeroUI default color overrides for leet */
+[data-theme='leet'] {
+  --hero-default-100: 0 0% 0%;
+  --hero-default-200: 0 0% 0%;
+  --hero-default-300: 0 0% 0%;
+  --hero-default-400: 0 0% 0%;
+  --hero-default-500: 0 0% 0%;
+  --hero-default-600: 0 0% 0%;
+  --hero-default-700: 0 0% 0%;
+  --hero-default-800: 0 0% 0%;
+  --hero-default-900: 0 0% 0%;
 }
 
+/* Strong override: apply console look to all card-like components */
+[data-theme='leet'] .card, 
+[data-theme='leet'] .card *,
 [data-theme='leet'] .hero-card,
 [data-theme='leet'] .hero-card * {
   background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  font-family: var(--leet-font) !important;
+  border: 1px solid var(--leet-border) !important;
+  border-radius: 0 !important;
+}
+
+/* Override Navbar backgrounds and text */
+[data-theme='leet'] nav,
+[data-theme='leet'] .navbar,
+[data-theme='leet'] .hero-navbar {
+  background-color: var(--leet-bg) !important;
   border-color: var(--leet-border) !important;
   color: var(--leet-text) !important;
+  font-family: var(--leet-font) !important;
+}
+
+/* Remove default HeroUI divider color */
+[data-theme='leet'] .divider,
+[data-theme='leet'] .hero-divider {
+  border-color: var(--leet-border) !important;
+}
+
+/* Ripple effect and hover styling for L33T menu items */
+[data-theme='leet'] .sidebar-item div,
+[data-theme='leet'] .hero-btn,
+[data-theme='leet'] button {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hover: subtle green tint */
+[data-theme='leet'] .sidebar-item div:hover,
+[data-theme='leet'] .hero-btn:hover,
+[data-theme='leet'] button:hover {
+  background-color: rgba(0,255,0,0.1) !important;
+  transition: background-color 0.3s ease-in-out;
+}
+
+/* Click ripple at center */
+[data-theme='leet'] .sidebar-item div:active::after,
+[data-theme='leet'] .hero-btn:active::after,
+[data-theme='leet'] button:active::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: rgba(0,255,0,0.3);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple-effect 0.6s ease-out;
+}
+
+@keyframes ripple-effect {
+  to {
+    transform: translate(-50%, -50%) scale(15);
+    opacity: 0;
+  }
+}
+
+/* Leet theme: button icon color override */
+[data-theme='leet'] button svg,
+[data-theme='leet'] .hero-btn svg {
+  fill: var(--leet-text) !important;
+  stroke: var(--leet-text) !important;
+  color: var(--leet-text) !important;
+}
+
+/* Hide ProseMirror and Tippy tooltips */
+.ProseMirror [role="tooltip"],
+.tippy-popper,
+.tippy-box {
+  display: none !important;
+}
+
+/* Force editor toolbar icons (SVGs) to green in L33T theme */
+[data-theme='leet'] .ProseMirror button svg,
+[data-theme='leet'] .ProseMirror button * {
+  fill: var(--leet-text) !important;
+  stroke: var(--leet-text) !important;
+  color: var(--leet-text) !important;
+}
+
+/* Ensure editor caret is visible and blinking */
+[data-theme='leet'] .ProseMirror {
+  caret-color: var(--leet-text) !important;
 }

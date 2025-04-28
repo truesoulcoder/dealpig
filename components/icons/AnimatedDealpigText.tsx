@@ -8,10 +8,10 @@ interface AnimatedDealpigTextProps {
   className?: string;
 }
 
-export const AnimatedDealpigText: React.FC<AnimatedDealpigTextProps> = ({
+export const DealpigText: React.FC<AnimatedDealpigTextProps> = ({
   width = '80%',
   height = '80%',
-  className = 'AnimatedDealpigText'
+  className = 'DealpigText'
 }) => {
   const [svgContent, setSvgContent] = useState<string | null>(null);
 

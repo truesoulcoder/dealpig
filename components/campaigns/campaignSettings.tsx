@@ -16,6 +16,7 @@ import {
 } from "@heroui/react";
 import { supabase } from "@/lib/supabase";
 import { createCampaign, addSendersToCampaign } from "@/lib/database";
+import { useTheme } from 'next-themes';
 
 // Types for our form
 type LeadSource = {
@@ -69,6 +70,8 @@ export default function CampaignForm() {
   // Campaign settings
   const [sendingRate, setSendingRate] = useState<number>(15); // Emails per hour
   const [attachDocument, setAttachDocument] = useState<boolean>(true);
+  const { theme } = useTheme();
+  const isLeet = theme === 'leet';
 
   // Fetch lead sources
   const fetchLeadSources = async () => {
@@ -289,9 +292,9 @@ export default function CampaignForm() {
   const isLoading = isLoadingLeadSources || isLoadingTemplates || isLoadingSenders;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card>
-        <CardHeader className="flex flex-col gap-1">
+    <div className="max-w-4xl mx-auto bg-green-400/10">
+      <Card className={isLeet ? 'bg-black text-green-400 border border-green-400 rounded-none font-mono' : ''}>
+        <CardHeader className={`${isLeet ? 'bg-black border-b border-green-400 font-mono text-green-400' : ''} flex flex-col gap-1`}>
           <div className="flex flex-col">
             <h2 className="text-2xl font-bold">Create New Campaign</h2>
             <p className="text-sm text-gray-500">
@@ -300,7 +303,7 @@ export default function CampaignForm() {
           </div>
         </CardHeader>
 
-        <CardBody className="gap-6">
+        <CardBody className={`${isLeet ? 'bg-black font-mono text-green-400' : ''} gap-6`}>
           {isLoading ? (
             <div className="flex justify-center items-center min-h-[200px]">
               <Spinner size="lg" />
@@ -308,13 +311,13 @@ export default function CampaignForm() {
           ) : (
             <>
               {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-md border border-red-200 mb-4">
+                <div className={`${isLeet ? 'bg-black text-red-500 border border-red-500 font-mono' : 'bg-red-50 text-red-700'} p-3 rounded-md mb-4`}>
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="bg-green-50 text-green-700 p-3 rounded-md border border-green-200 mb-4">
+                <div className={`${isLeet ? 'bg-black text-green-400 border border-green-400 font-mono' : 'bg-green-50 text-green-700'} p-3 rounded-md mb-4`}>
                   {success}
                 </div>
               )}
@@ -402,7 +405,7 @@ export default function CampaignForm() {
                 </div>
               </div>
 
-              <Divider className="my-6" />
+              <Divider className={isLeet ? 'border-green-400' : 'my-6'} />
 
               {/* Sender Selection */}
               <div>
@@ -483,13 +486,13 @@ export default function CampaignForm() {
           )}
         </CardBody>
 
-        <CardFooter className="justify-end">
+        <CardFooter className={`${isLeet ? 'bg-black border-t border-green-400 font-mono text-green-400' : 'justify-end'} `}>
           <div className="flex gap-2">
-            <Button variant="bordered" color="default">
+            <Button variant="bordered" className={isLeet ? 'border-green-400 text-green-400 font-mono rounded-none' : ''}>
               Cancel
             </Button>
             <Button
-              color="primary"
+              className={isLeet ? 'bg-black text-green-400 border border-green-400 font-mono rounded-none hover:bg-green-400 hover:text-black' : ''}
               isLoading={isWorking}
               isDisabled={!isFormValid}
               onPress={handleCreateCampaign}

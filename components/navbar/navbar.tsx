@@ -1,10 +1,7 @@
-import { Input, Link, Navbar, NavbarContent, Select, SelectItem, Switch, Tooltip } from "@heroui/react";
+import { Navbar, NavbarContent, Select, SelectItem, Switch, Tooltip } from "@heroui/react";
 import React, { useEffect, useState } from "react";
-import { SearchIcon } from "../icons/searchicon";
-import { BurguerButton } from "./burguer-button";
-import { UserDropdown } from "./user-dropdown";
-import ThemeToggle from "./theme-toggle";
 import { useTheme } from "next-themes";
+import ThemeToggle from "./theme-toggle";
 
 interface Props {
   children: React.ReactNode;
@@ -12,16 +9,14 @@ interface Props {
 
 export const NavbarWrapper = ({ children }: Props) => {
   const { theme } = useTheme();
-  const isLeetTheme = theme === 'leet';
+  const isLight = theme === 'light';
+  // Use HeroUI dark style for 'dark' and 'leet' themes
+
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [isActive, setIsActive] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   
-  // State for verification modal
-  const [verificationModalOpen, setVerificationModalOpen] = useState<boolean>(false);
-  const [campaignToActivate, setCampaignToActivate] = useState<{id: string, name: string} | null>(null);
-
   // Fetch campaigns on component mount
   useEffect(() => {
     async function loadCampaigns() {
@@ -98,83 +93,50 @@ export const NavbarWrapper = ({ children }: Props) => {
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
       <Navbar
         isBordered
-        className={`w-full sticky top-0 z-40 ${isLeetTheme ? 'bg-black border-green-400' : 'bg-background/90 backdrop-blur-md'}`}
-        classNames={{
-          wrapper: "w-full max-w-full",
-        }}
+        className={`w-full sticky top-0 z-40 ${
+          isLight
+            ? 'bg-white border border-green-400 text-black font-mono'
+            : 'bg-background/90 backdrop-blur-md'
+        }`}
       >
-        <NavbarContent className="md:hidden">
-          <BurguerButton />
-        </NavbarContent>
-        <NavbarContent className="w-full max-md:hidden">
-          <Input
-            startContent={<SearchIcon className={isLeetTheme ? 'text-green-400' : ''} />}
-            isClearable
-            className={`w-full max-w-xs ${isLeetTheme ? 'leet-input' : ''}`}
-            classNames={{
-              input: `w-full ${isLeetTheme ? 'text-green-400 font-mono' : ''}`,
-              mainWrapper: "w-full",
-              inputWrapper: isLeetTheme ? 'bg-black border-green-400 rounded-none' : '',
-            }}
-            placeholder="Search..."
-          />
-          
-          {/* Campaign selector and controls */}
-          <div className="flex items-center gap-2 ml-4">
-            <Select 
-              size="sm"
-              placeholder="Select campaign"
-              className={`min-w-[200px] ${isLeetTheme ? 'bg-black text-green-400 border-green-400 font-mono rounded-none' : ''}`}
+        <NavbarContent justify="end" className="flex items-center gap-4 px-4">
+        <Tooltip content={isActive ? 'Pause Campaign' : 'Activate Campaign'}>
+        </Tooltip>
+        <Switch
+              size="md"
+              isSelected={isActive}
+              onChange={() => handleCampaignStatusChange(!isActive)}
               classNames={{
-                trigger: isLeetTheme ? 'bg-black text-green-400 border-green-400 rounded-none' : '',
-                value: isLeetTheme ? 'text-green-400 font-mono' : '',
-                popoverContent: isLeetTheme ? 'bg-black border-green-400 rounded-none' : '',
+                base: isLight ? 'bg-white border-green-400' : '',
+                thumb: isLight ? 'bg-green-400 border-green-400' : '',
+                wrapper: isLight ? 'border-green-400' : ''
               }}
-              selectedKeys={selectedCampaign ? [selectedCampaign] : []}
-              onChange={(e) => {
-                const newCampaignId = e.target.value;
-                setSelectedCampaign(newCampaignId);
-                // Update active state based on selected campaign
-                const campaign = campaigns.find(c => c.id === newCampaignId);
-                setIsActive(campaign?.status === 'ACTIVE');
-              }}
-              isDisabled={loading || campaigns.length === 0}
-            >
-              {campaigns.map((campaign) => (
-                <SelectItem key={campaign.id} className={isLeetTheme ? 'bg-black text-green-400 font-mono' : ''}>
-                  {campaign.name}
-                </SelectItem>
-              ))}
-            </Select>
-            
-            <Tooltip content={isActive ? "Pause Campaign" : "Activate Campaign"}>
-              <Switch
-                size="sm"
-                isSelected={isActive}
-                onChange={() => handleCampaignStatusChange(!isActive)}
-                isDisabled={!selectedCampaign || loading}
-                aria-label="Campaign status toggle"
-                color={isLeetTheme ? undefined : "success"}
-                classNames={{
-                  wrapper: isLeetTheme ? 'border-green-400' : '',
-                  thumb: isLeetTheme ? 'bg-green-400 border-green-400' : '',
-                  base: isLeetTheme ? 'bg-black border-green-400' : '',
-                }}
-              />
-            </Tooltip>
-          </div>
-        </NavbarContent>
-        <NavbarContent
-          justify="end"
-          className="w-fit data-[justify=end]:flex-grow-0"
-        >
-          <NavbarContent className="flex items-center gap-4">
-            <ThemeToggle />
-            <UserDropdown />
-          </NavbarContent>
+            />
+          {/* Campaign selector and status switch */}
+          <Select
+            size="sm"
+            placeholder="Select campaign"
+            classNames={{
+              trigger: isLight ? 'bg-white text-black border-green-400' : '',
+              value: isLight ? 'text-black font-mono' : '',
+              popoverContent: isLight ? 'bg-white border-green-400' : '',
+            }}
+            selectedKeys={selectedCampaign ? [selectedCampaign] : []}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedCampaign(id);
+              const campaign = campaigns.find(c => c.id === id);
+              setIsActive(campaign?.status === 'ACTIVE');
+            }}
+            isDisabled={loading || campaigns.length === 0}
+          >
+            {campaigns.map(c => <SelectItem key={c.id} className={isLight ? 'bg-white text-black font-mono' : ''}>{c.name}</SelectItem>)}
+          </Select>
+          {/* Theme toggle */}
+          <ThemeToggle />
         </NavbarContent>
       </Navbar>
-      
+
       {children}
     </div>
   );

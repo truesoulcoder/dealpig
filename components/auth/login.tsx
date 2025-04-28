@@ -8,7 +8,7 @@ import { Formik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
+import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 
 export const Login = () => {
   const router = useRouter();

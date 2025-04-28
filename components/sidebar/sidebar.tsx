@@ -1,3 +1,4 @@
+'use client';
 import React from "react";
 import { Sidebar } from "./sidebar.styles";
 import { HomeIcon } from "../icons/sidebar/home-icon";
@@ -10,7 +11,7 @@ import { SidebarMenu } from "./sidebar-menu";
 import { useSidebarContext } from "../layout/layout-context";
 import { usePathname } from "next/navigation";
 import { AnimatedDealpig } from "../icons/AnimatedDealpig";
-import { AnimatedDealpigText } from "../icons/AnimatedDealpigText";
+import { DealpigText as AnimatedDealpigText } from "../icons/AnimatedDealpigText";
 import { ReportsIcon } from "../icons/sidebar/reports-icon";
 
 export const SidebarWrapper = () => {
@@ -23,10 +24,9 @@ export const SidebarWrapper = () => {
         <div className={Sidebar.Overlay()} onClick={setCollapsed} />
       ) : null}
       <div
-        className={Sidebar({
-          collapsed: collapsed,
-        })}
->       <div className={Sidebar.Header()}>
+        className={Sidebar({ collapsed })}
+      >
+        <div className={Sidebar.Header()}>
           {/* Replace static Image with AnimatedDealpig component */}
           <div className="relative w-full h-full flex items-center justify-center">
             <AnimatedDealpig />
