@@ -1,19 +1,18 @@
 'use client';
 
-import React, { useContext } from 'react';
-import { useActor } from '@xstate/react';
-import { ThemeMachineContext } from '@/app/providers';
+import React from 'react';
+import { useTheme } from 'next-themes';
 import { Switch } from "@heroui/react";
 
 export const ThemeToggle: React.FC = () => {
-  const service = useContext(ThemeMachineContext);
-  const [state, send] = useActor(service);
-  const current = state.value as string;
+  const { theme, setTheme } = useTheme();
+  const current = theme;
+  const nextTheme = current === 'light' ? 'dark' : current === 'dark' ? 'leet' : 'light';
 
   return (
     <Switch
       isSelected={current === 'leet'}
-      onValueChange={() => send({ type: 'TOGGLE' })}
+      onValueChange={() => setTheme(nextTheme)}
       classNames={{
         base: current === 'leet' ? 'bg-black border-green-400' : '',
         wrapper: current === 'leet' ? 'border-green-400' : '',

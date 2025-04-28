@@ -1,8 +1,5 @@
 "use client";
 import * as React from "react";
-import { createContext, useEffect } from "react";
-import { createMachine } from 'xstate';
-import { useMachine } from '@xstate/react';
 import { useTheme as useNextTheme } from "next-themes";
 import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
@@ -14,33 +11,10 @@ export interface ProvidersProps {
   themeProps?: ThemeProviderProps;
 }
 
-// Theme machine: light -> dark -> leet
-const themeMachine = createMachine({
-  id: 'theme', initial: 'light', states: {
-    light: { on: { TOGGLE: 'dark' } },
-    dark: { on: { TOGGLE: 'leet' } },
-    leet: { on: { TOGGLE: 'light' } }
-  }
-});
-// Provide theme service via context
-export const ThemeMachineContext = createContext<any>(null);
-
-// Sync machine state with next-themes
-function ThemeMachineProvider({ children }: { children: React.ReactNode }) {
-  const [state, send, service] = useMachine(themeMachine);
-  const { setTheme } = useNextTheme();
-  useEffect(() => {
-    setTheme(state.value.toString());
-  }, [state.value, setTheme]);
-  return (
-    <ThemeMachineContext.Provider value={service}>
-      {children}
-    </ThemeMachineContext.Provider>
-  );
-}
+// No XState integration; use next-themes directly
 
 export function Providers({ children, themeProps }: ProvidersProps) {
-  // No XState here; machine lives in ThemeMachineProvider
+  // Use next-themes for global theme management
 
   // Create a theme object for HeroUI
   const theme = {
@@ -76,13 +50,11 @@ export function Providers({ children, themeProps }: ProvidersProps) {
       enableColorScheme={true}
       disableTransitionOnChange
       {...themeProps}>
-      <ThemeMachineProvider>
-        <HeroUIProvider>
-          <NavigationProvider>
-            {children}
-          </NavigationProvider>
-        </HeroUIProvider>
-      </ThemeMachineProvider>
+      <HeroUIProvider>
+        <NavigationProvider>
+          {children}
+        </NavigationProvider>
+      </HeroUIProvider>
     </NextThemesProvider>
   );
 }
