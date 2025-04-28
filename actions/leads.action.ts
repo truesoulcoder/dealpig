@@ -1,8 +1,7 @@
 'use server';
 
-import { supabase } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase';
 import { Database } from '@/helpers/types';
-
 // Server action to handle leads file upload
 export async function uploadLeads(formData: FormData) {
   const file = formData.get('file');
@@ -10,15 +9,19 @@ export async function uploadLeads(formData: FormData) {
     return { success: false, message: 'Invalid file.' };
   }
   const fileName = `${crypto.randomUUID()}_${file.name}`;
-  // Upload file to Supabase storage bucket 'leads'
-  const { error: storageError } = await supabase.storage
+  // Upload file to Supabase storage bucket 'lead-imports' using admin client
+  const admin = createAdminClient();
+  const { error: storageError } = await admin.storage
     .from('lead-imports')
-    .upload(fileName, file);
+    .upload(fileName, file, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    });
   if (storageError) {
     return { success: false, message: storageError.message };
   }
   // Record the upload in lead_sources table
-  const { error: dbError } = await supabase
+  const { error: dbError } = await admin
     .from('lead_sources')
     .insert({ name: fileName, file_name: file.name, record_count: 0, is_active: true });
   if (dbError) {
