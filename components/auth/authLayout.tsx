@@ -32,8 +32,8 @@ export const AuthLayoutWrapper = ({ children }: Props) => {
           />
         </div>
 
-        <div className='z-10 flex items-center justify-center w-full'>
-          <AnimatedDealpig width="316px" height="90px" className="mx-auto" />
+        <div className='z-10 flex items-center justify-center w-full h-full'> {/* Ensure container takes full height too */}
+          <AnimatedDealpig className="mx-auto w-full h-full" /> {/* Use default 100% width/height */}
         </div>
       </div>
     </div>
