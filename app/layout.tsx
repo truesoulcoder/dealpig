@@ -1,5 +1,6 @@
 import '../styles/globals.css'
 import '../styles/heroui.css'
+import '../styles/leet.css'
 import { Inter } from 'next/font/google'
 import { Providers } from './providers'
 

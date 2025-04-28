@@ -8,9 +8,9 @@ import {
   NavbarItem,
 } from "@heroui/react";
 import React, { useCallback, useEffect, useState } from "react";
-import { DarkModeSwitch } from "./darkmodeswitch";
 import { useRouter } from "next/navigation";
 import { deleteAuthCookie } from "@/actions/auth.action";
+import { ThemeToggle } from "./theme-toggle";
 
 export const UserDropdown = () => {
   const router = useRouter();
@@ -118,7 +118,7 @@ export const UserDropdown = () => {
           Log Out
         </DropdownItem>
         <DropdownItem key='switch'>
-          <DarkModeSwitch />
+          <ThemeToggle />
         </DropdownItem>
       </DropdownMenu>
     </Dropdown>

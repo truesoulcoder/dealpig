@@ -28,6 +28,12 @@
   border-radius: 0;
 }
 
+/* Generic component hover state */
+[data-theme='leet'] .leet-component:hover {
+  background-color: var(--leet-text);
+  color: var(--leet-bg);
+}
+
 /* Button styles */
 [data-theme='leet'] .leet-btn,
 [data-theme='leet'] button:not(.hero-btn),
