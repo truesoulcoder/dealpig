@@ -12,6 +12,13 @@
   --leet-font: 'Consolas', 'Courier New', monospace;
 }
 
+/* Root level styles */
+[data-theme='leet'] body {
+  background-color: var(--leet-bg);
+  color: var(--leet-text);
+  font-family: var(--leet-font);
+}
+
 /* Common component styles */
 [data-theme='leet'] .leet-component {
   font-family: var(--leet-font);
@@ -22,7 +29,9 @@
 }
 
 /* Button styles */
-[data-theme='leet'] .leet-btn {
+[data-theme='leet'] .leet-btn,
+[data-theme='leet'] button:not(.hero-btn),
+[data-theme='leet'] .hero-btn {
   font-family: var(--leet-font);
   color: var(--leet-text);
   background-color: var(--leet-bg);
@@ -33,13 +42,17 @@
   transition: all 0.2s ease-in-out;
 }
 
-[data-theme='leet'] .leet-btn:hover {
+[data-theme='leet'] .leet-btn:hover,
+[data-theme='leet'] button:not(.hero-btn):hover,
+[data-theme='leet'] .hero-btn:hover {
   background-color: var(--leet-text);
   color: var(--leet-bg);
 }
 
 /* Input styles */
-[data-theme='leet'] .leet-input {
+[data-theme='leet'] input,
+[data-theme='leet'] .leet-input,
+[data-theme='leet'] .hero-input {
   font-family: var(--leet-font);
   color: var(--leet-text);
   background-color: var(--leet-bg);
@@ -48,36 +61,49 @@
   border-radius: 0;
 }
 
-[data-theme='leet'] .leet-input:focus {
+[data-theme='leet'] input:focus,
+[data-theme='leet'] .leet-input:focus,
+[data-theme='leet'] .hero-input:focus {
   outline: none;
   box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.3);
 }
 
 /* Table styles */
-[data-theme='leet'] .leet-table {
+[data-theme='leet'] table,
+[data-theme='leet'] .leet-table,
+[data-theme='leet'] .hero-table {
   font-family: var(--leet-font);
   color: var(--leet-text);
   border-collapse: collapse;
   width: 100%;
 }
 
+[data-theme='leet'] th,
+[data-theme='leet'] td,
 [data-theme='leet'] .leet-table th,
-[data-theme='leet'] .leet-table td {
+[data-theme='leet'] .leet-table td,
+[data-theme='leet'] .hero-table th,
+[data-theme='leet'] .hero-table td {
   border: 1px solid var(--leet-border);
   padding: 0.5rem;
   text-align: left;
 }
 
-[data-theme='leet'] .leet-table th {
+[data-theme='leet'] th,
+[data-theme='leet'] .leet-table th,
+[data-theme='leet'] .hero-table th {
   background-color: var(--leet-accent);
 }
 
-[data-theme='leet'] .leet-table tr:hover {
+[data-theme='leet'] tr:hover,
+[data-theme='leet'] .leet-table tr:hover,
+[data-theme='leet'] .hero-table tr:hover {
   background-color: var(--leet-accent);
 }
 
 /* Card styles */
-[data-theme='leet'] .leet-card {
+[data-theme='leet'] .leet-card,
+[data-theme='leet'] .hero-card {
   font-family: var(--leet-font);
   color: var(--leet-text);
   background-color: var(--leet-bg);
@@ -99,7 +125,8 @@
 }
 
 /* Form label styles */
-[data-theme='leet'] .leet-label {
+[data-theme='leet'] .leet-label,
+[data-theme='leet'] label {
   font-family: var(--leet-font);
   color: var(--leet-text);
   display: block;
@@ -145,7 +172,7 @@
   background: #00cc00;
 }
 
-/* Override for HeroUI components when in leet theme */
+/* HeroUI specific component overrides */
 [data-theme='leet'] .hero-btn {
   font-family: var(--leet-font);
   color: var(--leet-text);
@@ -154,7 +181,70 @@
   border-radius: 0;
 }
 
-[data-theme='leet'] .hero-btn:hover {
-  background-color: var(--leet-text);
-  color: var(--leet-bg);
+/* Navbar specific styles */
+[data-theme='leet'] .navbar {
+  background-color: var(--leet-bg) !important;
+  border-color: var(--leet-border) !important;
+}
+
+/* Search input styles */
+[data-theme='leet'] .navbar input,
+[data-theme='leet'] .hero-input {
+  background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  border-color: var(--leet-border) !important;
+  font-family: var(--leet-font);
+  border-radius: 0 !important;
+}
+
+[data-theme='leet'] .navbar input::placeholder {
+  color: var(--leet-text);
+  opacity: 0.6;
+}
+
+/* Select dropdown styles */
+[data-theme='leet'] select,
+[data-theme='leet'] .hero-select {
+  background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  border-color: var(--leet-border) !important;
+  font-family: var(--leet-font);
+  border-radius: 0 !important;
+}
+
+/* Switch styles */
+[data-theme='leet'] .hero-switch span {
+  background-color: var(--leet-bg) !important;
+  border-color: var(--leet-border) !important;
+}
+
+[data-theme='leet'] .hero-switch span[data-checked="true"] {
+  background-color: var(--leet-text) !important;
+  border-color: var(--leet-text) !important;
+}
+
+[data-theme='leet'] .hero-switch span[data-checked="true"] + span {
+  background-color: var(--leet-bg) !important;
+}
+
+/* Make sure dropdown menus also follow theme */
+[data-theme='leet'] .dropdown,
+[data-theme='leet'] .popover-content {
+  background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  border: 1px solid var(--leet-border) !important;
+  border-radius: 0 !important;
+  font-family: var(--leet-font);
+}
+
+[data-theme='leet'] .dropdown-item:hover,
+[data-theme='leet'] .popover-item:hover {
+  background-color: var(--leet-accent) !important;
+}
+
+/* Make sure leet theme doesn't affect auth pages */
+[data-theme='leet'] [data-auth-layout="true"] {
+  background-color: initial;
+  color: initial;
+  font-family: initial;
 }

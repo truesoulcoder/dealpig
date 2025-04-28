@@ -4,12 +4,15 @@ import { SearchIcon } from "../icons/searchicon";
 import { BurguerButton } from "./burguer-button";
 import { UserDropdown } from "./user-dropdown";
 import ThemeToggle from "./theme-toggle";
+import { useTheme } from "next-themes";
 
 interface Props {
   children: React.ReactNode;
 }
 
 export const NavbarWrapper = ({ children }: Props) => {
+  const { theme } = useTheme();
+  const isLeetTheme = theme === 'leet';
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [isActive, setIsActive] = useState<boolean>(false);
@@ -95,7 +98,7 @@ export const NavbarWrapper = ({ children }: Props) => {
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
       <Navbar
         isBordered
-        className="w-full sticky top-0 z-40 bg-background/90 backdrop-blur-md"
+        className={`w-full sticky top-0 z-40 ${isLeetTheme ? 'bg-black border-green-400' : 'bg-background/90 backdrop-blur-md'}`}
         classNames={{
           wrapper: "w-full max-w-full",
         }}
@@ -105,12 +108,13 @@ export const NavbarWrapper = ({ children }: Props) => {
         </NavbarContent>
         <NavbarContent className="w-full max-md:hidden">
           <Input
-            startContent={<SearchIcon />}
+            startContent={<SearchIcon className={isLeetTheme ? 'text-green-400' : ''} />}
             isClearable
-            className="w-full max-w-xs"
+            className={`w-full max-w-xs ${isLeetTheme ? 'leet-input' : ''}`}
             classNames={{
-              input: "w-full",
+              input: `w-full ${isLeetTheme ? 'text-green-400 font-mono' : ''}`,
               mainWrapper: "w-full",
+              inputWrapper: isLeetTheme ? 'bg-black border-green-400 rounded-none' : '',
             }}
             placeholder="Search..."
           />
@@ -120,7 +124,12 @@ export const NavbarWrapper = ({ children }: Props) => {
             <Select 
               size="sm"
               placeholder="Select campaign"
-              className="min-w-[200px]"
+              className={`min-w-[200px] ${isLeetTheme ? 'bg-black text-green-400 border-green-400 font-mono rounded-none' : ''}`}
+              classNames={{
+                trigger: isLeetTheme ? 'bg-black text-green-400 border-green-400 rounded-none' : '',
+                value: isLeetTheme ? 'text-green-400 font-mono' : '',
+                popover: isLeetTheme ? 'bg-black border-green-400 rounded-none' : '',
+              }}
               selectedKeys={selectedCampaign ? [selectedCampaign] : []}
               onChange={(e) => {
                 const newCampaignId = e.target.value;
@@ -132,7 +141,7 @@ export const NavbarWrapper = ({ children }: Props) => {
               isDisabled={loading || campaigns.length === 0}
             >
               {campaigns.map((campaign) => (
-                <SelectItem key={campaign.id}>
+                <SelectItem key={campaign.id} className={isLeetTheme ? 'bg-black text-green-400 font-mono' : ''}>
                   {campaign.name}
                 </SelectItem>
               ))}
@@ -145,7 +154,12 @@ export const NavbarWrapper = ({ children }: Props) => {
                 onChange={() => handleCampaignStatusChange(!isActive)}
                 isDisabled={!selectedCampaign || loading}
                 aria-label="Campaign status toggle"
-                color="success"
+                color={isLeetTheme ? undefined : "success"}
+                classNames={{
+                  wrapper: isLeetTheme ? 'border-green-400' : '',
+                  thumb: isLeetTheme ? 'bg-green-400 border-green-400' : '',
+                  track: isLeetTheme ? 'bg-black border-green-400' : '',
+                }}
               />
             </Tooltip>
           </div>
@@ -154,7 +168,7 @@ export const NavbarWrapper = ({ children }: Props) => {
           justify="end"
           className="w-fit data-[justify=end]:flex-grow-0"
         >
-          <NavbarContent>
+          <NavbarContent className="flex items-center gap-4">
             <ThemeToggle />
             <UserDropdown />
           </NavbarContent>
