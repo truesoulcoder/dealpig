@@ -1,4 +1,5 @@
 import { Image, Divider } from "@heroui/react";
+import { AnimatedDealpig } from "@/components/icons/AnimatedDealpig";
 
 interface Props {
   children: React.ReactNode;
@@ -32,13 +33,7 @@ export const AuthLayoutWrapper = ({ children }: Props) => {
         </div>
 
         <div className='z-10 flex items-center justify-center w-full'>
-          <Image
-            src='/logo.png'
-            alt='DealPig Logo'
-            width={316}
-            height={90}
-            className='mx-auto'
-          />
+          <AnimatedDealpig width="316px" height="90px" className="mx-auto" />
         </div>
       </div>
     </div>

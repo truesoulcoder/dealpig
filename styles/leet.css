@@ -248,9 +248,9 @@
   background-color: var(--leet-accent) !important;
 }
 
-/* Make sure leet theme doesn't affect auth pages */
-[data-theme='leet'] [data-auth-layout="true"] {
+/* Commented out to allow console styles on login/register pages */
+/* [data-theme='leet'] [data-auth-layout="true"] {
   background-color: initial;
   color: initial;
   font-family: initial;
-}
+} */

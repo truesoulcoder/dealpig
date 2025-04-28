@@ -6,9 +6,9 @@ import { LoginFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
 import { Formik } from "formik";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 
 export const Login = () => {
   const router = useRouter();
@@ -70,16 +70,8 @@ export const Login = () => {
   return (
     <div className="flex flex-col items-center max-w-md w-full mx-auto">
       <div className="mb-8 text-center">
-        <Image 
-          src="/dealpig.svg" 
-          alt="DealPig Logo" 
-          width={316}
-          height={90}
-          className="mx-auto mb-4" 
-          priority
-        />
-        <h1 className="text-2xl font-bold">Welcome to DealPig</h1>
-        <p className="text-gray-500 mt-2">Log in to access your campaigns</p>
+        <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
+        <p className="text-green-400 font-mono mt-2">Log in to access your campaigns</p>
       </div>
 
       {/* Google Login Button */}
@@ -87,8 +79,7 @@ export const Login = () => {
         <Button
           type="button"
           variant="flat"
-          color="default"
-          className="w-full flex items-center justify-center gap-3 shadow-sm hover:shadow-md transition-shadow border border-gray-200 bg-white hover:bg-gray-50"
+          className="w-full flex items-center justify-center gap-3 font-mono text-green-400 bg-black border border-green-400 rounded-none hover:bg-green-400 hover:text-black transition-colors duration-200"
           size="lg"
           onClick={handleGoogleLogin}
           isLoading={isGoogleLoading}
@@ -106,14 +97,7 @@ export const Login = () => {
             )
           }
         >
-          <span className={`font-medium ${isGoogleLoading ? 'opacity-0' : ''}`}>
-            Continue with Google
-          </span>
-          {isGoogleLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-spin h-5 w-5 border-2 border-t-transparent border-blue-600 rounded-full"></div>
-            </div>
-          )}
+          <span className={`font-medium ${isGoogleLoading ? 'opacity-0' : ''} font-mono`}>Continue with Google</span>
         </Button>
       </div>
 
@@ -142,6 +126,11 @@ export const Login = () => {
                 isDisabled={isLoading}
                 autoComplete="username"
                 size="lg"
+                classNames={{
+                  inputWrapper: "bg-black border-green-400 rounded-none",
+                  input: "text-green-400 font-mono placeholder:text-green-400 placeholder:opacity-50",
+                  label: "text-green-400 font-mono",
+                }}
               />
               <Input
                 variant="bordered"
@@ -154,6 +143,11 @@ export const Login = () => {
                 isDisabled={isLoading}
                 autoComplete="current-password"
                 size="lg"
+                classNames={{
+                  inputWrapper: "bg-black border-green-400 rounded-none",
+                  input: "text-green-400 font-mono placeholder:text-green-400 placeholder:opacity-50",
+                  label: "text-green-400 font-mono",
+                }}
               />
               <div className="flex justify-end">
                 <Link href="/forgot-password" className="text-sm text-primary-600 hover:underline">
@@ -171,14 +165,11 @@ export const Login = () => {
             <Button
               type="submit"
               variant="solid"
-              color="primary"
-              className="w-full mt-2"
+              className="w-full mt-2 font-mono text-green-400 bg-black border border-green-400 rounded-none hover:bg-green-400 hover:text-black transition-colors duration-200"
               size="lg"
               isLoading={isLoading}
               isDisabled={isLoading || isGoogleLoading}
-            >
-              {isLoading ? "Logging in..." : "Login"}
-            </Button>
+            >{isLoading ? "Logging in..." : "Login"}</Button>
           </form>
         )}
       </Formik>
