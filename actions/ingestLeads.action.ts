@@ -304,10 +304,11 @@ export async function parseLeadFile(fileId: string): Promise<ParseResult> {
       return { name: key, type };
     });
 
-    // Create SQL column definitions
-    const columnDefinitions = columns
-      .map(col => `"${col.name.toLowerCase()}" ${col.type}`)
-      .join(', ');
+    // Prepare SQL column definitions
+    const columnDefinitions = columns.map(col => ({
+      name: col.name.toLowerCase(),
+      type: col.type
+    }));
 
     updateImportProgress(fileId, {
       stage: 'creating_table',
