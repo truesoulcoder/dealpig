@@ -180,113 +180,18 @@
   background: #00cc00;
 }
 
-/* HeroUI specific component overrides */
-[data-theme='leet'] .hero-btn {
-  font-family: var(--leet-font);
-  color: var(--leet-text);
-  background-color: var(--leet-bg);
-  border: 1px solid var(--leet-border);
-  border-radius: 0;
-}
-
-/* Navbar specific styles */
-[data-theme='leet'] .navbar {
+/* HeroUI specific Navbar and Card overrides */
+[data-theme='leet'] .hero-navbar,
+[data-theme='leet'] .hero-navbar *,
+[data-theme='leet'] nav {
   background-color: var(--leet-bg) !important;
   border-color: var(--leet-border) !important;
-}
-
-/* Search input styles */
-[data-theme='leet'] .navbar input,
-[data-theme='leet'] .hero-input {
-  background-color: var(--leet-bg) !important;
   color: var(--leet-text) !important;
-  border-color: var(--leet-border) !important;
-  font-family: var(--leet-font);
-  border-radius: 0 !important;
 }
 
-[data-theme='leet'] .navbar input::placeholder {
-  color: var(--leet-text);
-  opacity: 0.6;
-}
-
-/* Select dropdown styles */
-[data-theme='leet'] select,
-[data-theme='leet'] .hero-select {
-  background-color: var(--leet-bg) !important;
-  color: var(--leet-text) !important;
-  border-color: var(--leet-border) !important;
-  font-family: var(--leet-font);
-  border-radius: 0 !important;
-}
-
-/* Switch styles */
-[data-theme='leet'] .hero-switch span {
-  background-color: var(--leet-bg) !important;
-  border-color: var(--leet-border) !important;
-}
-
-[data-theme='leet'] .hero-switch span[data-checked="true"] {
-  background-color: var(--leet-text) !important;
-  border-color: var(--leet-text) !important;
-}
-
-[data-theme='leet'] .hero-switch span[data-checked="true"] + span {
-  background-color: var(--leet-bg) !important;
-}
-
-/* Make sure dropdown menus also follow theme */
-[data-theme='leet'] .dropdown,
-[data-theme='leet'] .popover-content {
-  background-color: var(--leet-bg) !important;
-  color: var(--leet-text) !important;
-  border: 1px solid var(--leet-border) !important;
-  border-radius: 0 !important;
-  font-family: var(--leet-font);
-}
-
-[data-theme='leet'] .dropdown-item:hover,
-[data-theme='leet'] .popover-item:hover {
-  background-color: var(--leet-accent) !important;
-}
-
-/* Global override: font, border-radius, background, and borders */
-[data-theme='leet'] * {
-  font-family: var(--leet-font) !important;
-  border-radius: 0 !important;
-}
-
-/* Replace default white backgrounds with console black */
-[data-theme='leet'] .bg-white,
-[data-theme='leet'] .bg-gray-100,
-[data-theme='leet'] .bg-gray-200,
-[data-theme='leet'] .bg-background {
-  background-color: var(--leet-bg) !important;
-}
-
-/* Replace default gray borders with console green */
-[data-theme='leet'] .border-gray-200,
-[data-theme='leet'] .border-divider,
-[data-theme='leet'] .border {
-  border-color: var(--leet-border) !important;
-}
-
-/* Force console theme on all sidebar elements */
-[data-theme='leet'] aside, 
-[data-theme='leet'] aside * {
-  background-color: var(--leet-bg) !important;
-  color: var(--leet-text) !important;
-  border-color: var(--leet-border) !important;
-  font-family: var(--leet-font) !important;
-}
-
-/* Force console theme on all Card elements */
-[data-theme='leet'] .card, 
-[data-theme='leet'] .card *,
 [data-theme='leet'] .hero-card,
 [data-theme='leet'] .hero-card * {
   background-color: var(--leet-bg) !important;
+  border-color: var(--leet-border) !important;
   color: var(--leet-text) !important;
-  border: 1px solid var(--leet-border) !important;
-  font-family: var(--leet-font) !important;
 }
