@@ -1,26 +1,26 @@
 'use client';
 
-import React from 'react';
-import { useTheme } from 'next-themes';
+import React, { useContext } from 'react';
+import { useActor } from '@xstate/react';
+import { ThemeMachineContext } from '@/app/providers';
 import { Switch } from "@heroui/react";
 
 export const ThemeToggle: React.FC = () => {
-  const { theme, setTheme } = useTheme();
-  const isLeetTheme = theme === 'leet';
+  const service = useContext(ThemeMachineContext);
+  const [state, send] = useActor(service);
+  const current = state.value as string;
 
   return (
     <Switch
-      isSelected={isLeetTheme}
-      onValueChange={(value) => setTheme(value ? 'leet' : 'normie')}
+      isSelected={current === 'leet'}
+      onValueChange={() => send({ type: 'TOGGLE' })}
       classNames={{
-        base: isLeetTheme ? 'bg-black border-green-400 font-mono text-green-400' : '',
-        wrapper: isLeetTheme ? 'border-green-400' : '',
-        thumb: isLeetTheme ? 'bg-green-400 border-green-400' : '',
+        base: current === 'leet' ? 'bg-black border-green-400' : '',
+        wrapper: current === 'leet' ? 'border-green-400' : '',
+        thumb: current === 'leet' ? 'bg-green-400 border-green-400' : '',
       }}
-      aria-label="Toggle Leet Theme"
+      aria-label="Cycle theme: light, dark, leet"
     />
   );
 };
-
-
 export default ThemeToggle;

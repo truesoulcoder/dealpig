@@ -1,5 +1,9 @@
 "use client";
 import * as React from "react";
+import { createContext, useEffect } from "react";
+import { createMachine } from 'xstate';
+import { useMachine } from '@xstate/react';
+import { useTheme as useNextTheme } from "next-themes";
 import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
@@ -10,7 +14,34 @@ export interface ProvidersProps {
   themeProps?: ThemeProviderProps;
 }
 
+// Theme machine: light -> dark -> leet
+const themeMachine = createMachine({
+  id: 'theme', initial: 'light', states: {
+    light: { on: { TOGGLE: 'dark' } },
+    dark: { on: { TOGGLE: 'leet' } },
+    leet: { on: { TOGGLE: 'light' } }
+  }
+});
+// Provide theme service via context
+export const ThemeMachineContext = createContext<any>(null);
+
+// Sync machine state with next-themes
+function ThemeMachineProvider({ children }: { children: React.ReactNode }) {
+  const [state, send, service] = useMachine(themeMachine);
+  const { setTheme } = useNextTheme();
+  useEffect(() => {
+    setTheme(state.value.toString());
+  }, [state.value, setTheme]);
+  return (
+    <ThemeMachineContext.Provider value={service}>
+      {children}
+    </ThemeMachineContext.Provider>
+  );
+}
+
 export function Providers({ children, themeProps }: ProvidersProps) {
+  // No XState here; machine lives in ThemeMachineProvider
+
   // Create a theme object for HeroUI
   const theme = {
     extend: {
@@ -39,21 +70,19 @@ export function Providers({ children, themeProps }: ProvidersProps) {
     <NextThemesProvider
       defaultTheme="dark"
       attribute="data-theme"
-      value={{
-        light: "light",
-        dark: "dark", 
-        leet: "leet"
-      }}
+      value={{ light: "light", dark: "dark", leet: "leet" }}
       themes={["light", "dark", "leet"]}
       enableSystem={true}
       enableColorScheme={true}
       disableTransitionOnChange
       {...themeProps}>
-      <HeroUIProvider>
-        <NavigationProvider>
-          {children}
-        </NavigationProvider>
-      </HeroUIProvider>
+      <ThemeMachineProvider>
+        <HeroUIProvider>
+          <NavigationProvider>
+            {children}
+          </NavigationProvider>
+        </HeroUIProvider>
+      </ThemeMachineProvider>
     </NextThemesProvider>
   );
 }

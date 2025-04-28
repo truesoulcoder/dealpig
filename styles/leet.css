@@ -23,7 +23,6 @@
 [data-theme='leet'] .leet-component {
   font-family: var(--leet-font);
   color: var(--leet-text);
-  border: 1px solid var(--leet-border);
   background-color: var(--leet-bg);
   border-radius: 0;
 }
