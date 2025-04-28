@@ -128,7 +128,7 @@ export const NavbarWrapper = ({ children }: Props) => {
               classNames={{
                 trigger: isLeetTheme ? 'bg-black text-green-400 border-green-400 rounded-none' : '',
                 value: isLeetTheme ? 'text-green-400 font-mono' : '',
-                popover: isLeetTheme ? 'bg-black border-green-400 rounded-none' : '',
+                popoverContent: isLeetTheme ? 'bg-black border-green-400 rounded-none' : '',
               }}
               selectedKeys={selectedCampaign ? [selectedCampaign] : []}
               onChange={(e) => {
@@ -158,7 +158,7 @@ export const NavbarWrapper = ({ children }: Props) => {
                 classNames={{
                   wrapper: isLeetTheme ? 'border-green-400' : '',
                   thumb: isLeetTheme ? 'bg-green-400 border-green-400' : '',
-                  track: isLeetTheme ? 'bg-black border-green-400' : '',
+                  base: isLeetTheme ? 'bg-black border-green-400' : '',
                 }}
               />
             </Tooltip>
