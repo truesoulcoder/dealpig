@@ -23,11 +23,11 @@ import MatrixRain from "@/components/ui/MatrixRain"; // Import the rain effect
        setIsNavigating(true);
        // Clear any existing timer
        if (navigationTimer) clearTimeout(navigationTimer);
-       // Set timer to hide rain after 2 seconds
+       // Set timer to hide rain after 0.5 seconds (reduced from 2s)
        navigationTimer = setTimeout(() => {
          setIsNavigating(false);
          navigationTimer = null;
-       }, 2000);
+       }, 500); // Changed from 2000 to 500
      };
 
      // For Next.js App Router, usePathname change is a good indicator
