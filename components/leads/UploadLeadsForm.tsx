@@ -237,8 +237,7 @@ export default function UploadLeadsForm() {
           <div className="flex items-center gap-4 min-w-0 w-full">
             <label
               htmlFor="fileInput"
-              className="inline-flex items-center justify-center flex-shrink-0 text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2"
-            >
+              className="inline-flex items-center justify-center flex-shrink-0 text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2">
               [CHOOSE]
             </label>
             <input
