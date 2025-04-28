@@ -23,34 +23,24 @@ export async function loginUser(formData: LoginFormType) {
     }
 
     // Store session in cookies
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const { session } = data;
     
     if (session) {
-      cookieStore.set('sb-access-token', session.access_token, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
+      cookieStore.set({
+        name: 'sb-access-token',
+        value: session.access_token,
+        maxAge: 60 * 60 * 24 * 7,
         path: '/',
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
       });
       
-      cookieStore.set('sb-refresh-token', session.refresh_token, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'sb-refresh-token', value: session.refresh_token, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
       // Set user ID in a non-HTTP-only cookie for client-side access
-      cookieStore.set('user-id', session.user.id, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'user-id', value: session.user.id, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
       // Ensure profile exists in the profiles table
       await ensureProfile(session.user.id, {
@@ -97,32 +87,14 @@ export async function registerUser(formData: RegisterFormType) {
     const { session, user } = data;
     
     if (session) {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       
-      cookieStore.set('sb-access-token', session.access_token, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'sb-access-token', value: session.access_token, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
-      cookieStore.set('sb-refresh-token', session.refresh_token, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'sb-refresh-token', value: session.refresh_token, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
       // Set user ID in a non-HTTP-only cookie for client-side access
-      cookieStore.set('user-id', session.user.id, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'user-id', value: session.user.id, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
       // Create profile in the profiles table
       await createProfile(session.user.id, {
@@ -164,11 +136,11 @@ export async function logoutUser() {
     // Sign out from Supabase Auth
     await supabase.auth.signOut();
     
-    // Clear cookies
-    const cookieStore = cookies();
-    cookieStore.delete('sb-access-token');
-    cookieStore.delete('sb-refresh-token');
-    cookieStore.delete('user-id');
+    // Clear cookies with consistent options
+    const cookieStore = await cookies();
+    cookieStore.delete({ name: 'sb-access-token', path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    cookieStore.delete({ name: 'sb-refresh-token', path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    cookieStore.delete({ name: 'user-id', path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
     
     redirect('/login');
   } catch (error) {
@@ -218,7 +190,7 @@ export async function loginWithGoogle() {
  */
 export async function getCurrentUser() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('sb-access-token')?.value;
     const refreshToken = cookieStore.get('sb-refresh-token')?.value;
     
@@ -260,32 +232,14 @@ export async function handleAuthCallback(code: string) {
     const { session } = data;
     
     if (session) {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       
-      cookieStore.set('sb-access-token', session.access_token, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'sb-access-token', value: session.access_token, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
-      cookieStore.set('sb-refresh-token', session.refresh_token, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'sb-refresh-token', value: session.refresh_token, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
       // Set user ID in a non-HTTP-only cookie for client-side access
-      cookieStore.set('user-id', session.user.id, {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: '/',
-        httpOnly: false, 
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
+      cookieStore.set({ name: 'user-id', value: session.user.id, maxAge: 60 * 60 * 24 * 7, path: '/', httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
       
       // Ensure profile exists in the profiles table for OAuth users
       await ensureProfile(session.user.id, {
@@ -376,6 +330,32 @@ export async function resetPassword(password: string) {
       success: false,
       message: 'An unexpected error occurred. Please try again.',
     };
+  }
+}
+
+/**
+ * Delete authentication cookies
+ * This function can be called from client components to handle logout
+ */
+export async function deleteAuthCookie() {
+  try {
+    // Get the cookie store - need to await this in Next.js server actions
+    const cookieStore = await cookies();
+    
+    // Clear the Supabase session cookies
+    cookieStore.delete({ name: 'sb-access-token', path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    
+    cookieStore.delete({ name: 'sb-refresh-token', path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    
+    cookieStore.delete({ name: 'user-id', path: '/', secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    
+    // Also sign out from Supabase Auth to invalidate tokens on the server side
+    await supabase.auth.signOut();
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting auth cookies:', error);
+    return { success: false };
   }
 }
 
