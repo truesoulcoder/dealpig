@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FormikProvider, Form, useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Button, Card, CardBody, Spinner, Accordion, AccordionItem } from '@heroui/react';
-import { uploadCsv } from '@/actions/ingestLeads.action';
-import ImportProgressMeter from './importProgressMeter';
+import { uploadLeadFile, parseLeadFile, getImportProgress } from '@/actions/ingestLeads.action';
+import { FaUpload, FaArrowRight } from 'react-icons/fa';
 
 interface UploadCsvFormProps {
   onImportSuccess?: () => void;
 }
 
+// Form validation schema
 const UploadCsvSchema = Yup.object().shape({
   csvFile: Yup.mixed()
     .required('A file is required')
@@ -27,110 +28,156 @@ const UploadCsvSchema = Yup.object().shape({
 });
 
 export default function UploadCsvForm({ onImportSuccess }: UploadCsvFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [uploadStats, setUploadStats] = useState<{
-    total: number;
-    success: number;
-    failed: number;
-    campaignName: string;
-    contactsCount?: number;
+  // State for upload process
+  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{
+    success: boolean;
+    fileId: string;
+    fileName: string;
+    message: string;
+    error?: string;
   } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [detailedErrors, setDetailedErrors] = useState<string[]>([]);
-  const [importId, setImportId] = useState<string | null>(null);
-
+  const [processResult, setProcessResult] = useState<{
+    success: boolean;
+    totalRows: number;
+    insertedLeads: number;
+    contactsCreated?: number;
+    message: string;
+    error?: string;
+  } | null>(null);
+  const [progress, setProgress] = useState<{
+    stage: string;
+    percentage: number;
+    message: string;
+  } | null>(null);
+  
+  // Formik setup
   const formik = useFormik({
     initialValues: {
       csvFile: null as File | null,
     },
     validationSchema: UploadCsvSchema,
-    onSubmit: async (values) => {
-      if (!values.csvFile) return;
-      
-      setIsLoading(true);
-      setUploadStats(null);
-      setError(null);
-      setDetailedErrors([]);
-      setImportId(null);
-      
+    onSubmit: handleUpload
+  });
+
+  // Set up progress polling when we have a fileId
+  useEffect(() => {
+    if (!uploadResult?.fileId || !uploadResult.success) return;
+    
+    const pollInterval = setInterval(async () => {
       try {
-        // Create FormData to send the file
-        const formData = new FormData();
-        formData.append('file', values.csvFile);
-        
-        // Use the server action to upload the CSV
-        const result = await uploadCsv(formData);
-        
-        // Set the importId for progress tracking
-        if (result.importId) {
-          setImportId(result.importId);
-        }
-        
-        if (result.success) {
-          // Get filename without extension to display as campaign name
-          const filename = values.csvFile.name;
-          const campaignName = filename.endsWith('.csv') 
-            ? filename.slice(0, -4) 
-            : filename;
-            
-          setUploadStats({
-            total: result.totalRows,
-            success: result.insertedLeads,
-            failed: result.totalRows - result.insertedLeads,
-            campaignName,
-            contactsCount: result.contactsCount // New field to track contact count
-          });
+        const progressData = await getImportProgress(uploadResult.fileId);
+        if (progressData) {
+          setProgress(progressData);
           
-          // Save errors for detailed view if any
-          if (result.errors && result.errors.length > 0) {
-            setDetailedErrors(result.errors);
-          }
-          
-          // If leads were successfully imported, call the success callback after a delay
-          if (result.insertedLeads > 0 && onImportSuccess) {
-            // Add a slight delay to allow the user to see the success message
-            setTimeout(() => {
-              onImportSuccess();
-            }, 3000);
-          }
-        } else {
-          console.error('Upload failed:', result.message);
-          setError(result.message || 'Failed to import leads. Please try again.');
-          
-          // Display detailed errors if available
-          if (result.errors && result.errors.length > 0) {
-            setDetailedErrors(result.errors);
-          }
-          
-          // Show partial stats if any rows were processed
-          if (result.totalRows > 0) {
-            setUploadStats({
-              total: result.totalRows,
-              success: result.insertedLeads,
-              failed: result.totalRows - result.insertedLeads,
-              campaignName: '',
-              contactsCount: result.contactsCount
-            });
+          if (progressData.stage === 'complete' || progressData.stage === 'error') {
+            clearInterval(pollInterval);
           }
         }
       } catch (error) {
-        console.error('Error processing CSV:', error);
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
-      } finally {
-        setIsLoading(false);
+        console.error('Error polling progress:', error);
       }
+    }, 1000);
+    
+    return () => clearInterval(pollInterval);
+  }, [uploadResult?.fileId, uploadResult?.success]);
+  
+  // Function to handle file upload (step 1)
+  async function handleUpload(values: { csvFile: File | null }) {
+    if (!values.csvFile) return;
+    
+    setIsUploading(true);
+    setUploadResult(null);
+    setProcessResult(null);
+    setProgress(null);
+    
+    try {
+      // Create FormData to send the file
+      const formData = new FormData();
+      formData.append('file', values.csvFile);
+      
+      // Upload the file to storage
+      const result = await uploadLeadFile(formData);
+      setUploadResult(result);
+    } catch (error) {
+      setUploadResult({
+        success: false,
+        fileId: '',
+        fileName: values.csvFile.name,
+        message: 'Upload failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsUploading(false);
     }
-  });
+  }
+  
+  // Function to handle file processing (step 2)
+  async function handleProcess() {
+    if (!uploadResult?.fileId) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // Process the uploaded file
+      const result = await parseLeadFile(uploadResult.fileId);
+      
+      setProcessResult({
+        success: result.success,
+        totalRows: result.totalRows,
+        insertedLeads: result.insertedLeads,
+        contactsCreated: result.contactsCreated,
+        message: result.message,
+        error: result.errors?.[0]
+      });
+      
+      // If leads were successfully imported, call the success callback after a delay
+      if (result.success && result.insertedLeads > 0 && onImportSuccess) {
+        setTimeout(() => {
+          onImportSuccess();
+        }, 3000);
+      }
+    } catch (error) {
+      setProcessResult({
+        success: false,
+        totalRows: 0,
+        insertedLeads: 0,
+        message: 'Processing failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+  
+  // Function to reset the form
+  function handleReset() {
+    formik.resetForm();
+    setUploadResult(null);
+    setProcessResult(null);
+    setProgress(null);
+  }
+
+  // Function to calculate background color for progress bar
+  function getProgressBarColor() {
+    if (!progress) return 'bg-blue-500';
+    
+    if (progress.stage === 'error') return 'bg-red-500';
+    if (progress.stage === 'complete') return 'bg-green-500';
+    return 'bg-blue-500';
+  }
 
   return (
     <Card>
       <CardBody>
         <FormikProvider value={formik}>
           <Form>
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Step 1: File Upload */}
               <div>
                 <label htmlFor="csvFile" className="block text-sm font-medium mb-1">
-                  Upload Leads CSV
+                  Step 1: Upload CSV File
                 </label>
                 <input
                   id="csvFile"
@@ -139,13 +186,12 @@ export default function UploadCsvForm({ onImportSuccess }: UploadCsvFormProps) {
                   accept=".csv"
                   onChange={(e) => {
                     formik.setFieldValue('csvFile', e.currentTarget.files?.[0] || null);
-                    // Reset states when a new file is selected
-                    setError(null);
-                    setDetailedErrors([]);
-                    setUploadStats(null);
-                    setImportId(null);
+                    setUploadResult(null);
+                    setProcessResult(null);
+                    setProgress(null);
                   }}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  disabled={isUploading || isProcessing || !!processResult}
                 />
                 {formik.errors.csvFile && formik.touched.csvFile && (
                   <p className="mt-1 text-xs text-red-500">{formik.errors.csvFile as string}</p>
@@ -153,66 +199,119 @@ export default function UploadCsvForm({ onImportSuccess }: UploadCsvFormProps) {
                 <p className="mt-1 text-xs text-gray-500">
                   Upload a CSV file with lead information. Files should include property data and contact information. Maximum file size: 50MB.
                 </p>
-                <p className="mt-1 text-xs text-blue-500">
-                  Note: We support multiple contacts per property. Up to 5 contacts can be processed for each property.
-                </p>
+                
+                <Button
+                  type="submit"
+                  color="primary"
+                  isLoading={isUploading}
+                  disabled={!formik.values.csvFile || isUploading || !!uploadResult?.success}
+                  className="mt-4"
+                  startContent={!isUploading && <FaUpload />}
+                >
+                  {isUploading ? 'Uploading...' : 'Upload CSV'}
+                </Button>
               </div>
-
-              <Button
-                type="submit"
-                color="primary"
-                isLoading={isLoading}
-                disabled={isLoading || !formik.values.csvFile}
-                className="w-full"
-                startContent={isLoading ? <Spinner size="sm" /> : undefined}
-              >
-                {isLoading ? 'Uploading...' : 'Upload CSV'}
-              </Button>
-
-              {importId && (
+              
+              {/* Upload Progress */}
+              {progress && (
                 <div className="mt-4">
-                  <ImportProgressMeter importId={importId} />
+                  <div className="mb-2 flex justify-between">
+                    <p className="text-sm font-medium">{progress.stage.charAt(0).toUpperCase() + progress.stage.slice(1)}</p>
+                    <p className="text-sm text-gray-500">{progress.percentage}%</p>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className={`h-2.5 rounded-full ${getProgressBarColor()}`}
+                      style={{ width: `${progress.percentage}%` }}
+                    ></div>
+                  </div>
+                  <p className="mt-2 text-sm">{progress.message}</p>
                 </div>
               )}
-
-              {error && (
+              
+              {/* Step 2: Process File */}
+              {uploadResult?.success && (
+                <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+                  <h3 className="text-base font-medium">Step 2: Process File</h3>
+                  <p className="mt-1 text-sm text-gray-600 mb-4">
+                    File "{uploadResult.fileName}" has been uploaded successfully. You can now process it to import the leads.
+                  </p>
+                  <Button
+                    color="success"
+                    onClick={handleProcess}
+                    isLoading={isProcessing}
+                    disabled={isProcessing || !!processResult}
+                    startContent={!isProcessing && <FaArrowRight />}
+                  >
+                    {isProcessing ? 'Processing...' : 'Process File'}
+                  </Button>
+                </div>
+              )}
+              
+              {/* Upload Error */}
+              {uploadResult && !uploadResult.success && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <h3 className="font-medium text-red-800">Import Failed</h3>
-                  <p className="mt-1 text-sm text-red-700">{error}</p>
+                  <h3 className="font-medium text-red-800">Upload Failed</h3>
+                  <p className="mt-1 text-sm text-red-700">{uploadResult.message}</p>
+                  {uploadResult.error && (
+                    <p className="mt-1 text-xs text-red-600">{uploadResult.error}</p>
+                  )}
+                  <Button
+                    color="primary"
+                    onClick={handleReset}
+                    size="sm"
+                    className="mt-2"
+                  >
+                    Try Again
+                  </Button>
                 </div>
               )}
-
-              {uploadStats && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                  <h3 className="font-medium text-green-800">Import Complete: {uploadStats.campaignName}</h3>
-                  <div className="mt-2 text-sm text-green-700">
-                    <p>Total properties: {uploadStats.total}</p>
-                    <p>Successfully imported: {uploadStats.success}</p>
-                    {uploadStats.contactsCount !== undefined && (
-                      <p>Total contacts extracted: {uploadStats.contactsCount}</p>
-                    )}
-                    <p>Average contacts per property: {uploadStats.contactsCount !== undefined && uploadStats.success > 0 
-                      ? (uploadStats.contactsCount / uploadStats.success).toFixed(1) 
-                      : 'N/A'}</p>
-                    {uploadStats.failed > 0 && (
-                      <p className="text-amber-700">Failed to import: {uploadStats.failed}</p>
-                    )}
+              
+              {/* Process Results */}
+              {processResult && (
+                <div className={`mt-4 p-3 ${processResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'} rounded-md`}>
+                  <h3 className={`font-medium ${processResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                    {processResult.success ? 'Import Completed' : 'Import Failed'}
+                  </h3>
+                  <p className={`mt-1 text-sm ${processResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                    {processResult.message}
+                  </p>
+                  
+                  {processResult.success && (
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-gray-100 p-2 rounded">
+                        <p className="text-gray-500 text-xs">Total Rows</p>
+                        <p className="font-bold">{processResult.totalRows}</p>
+                      </div>
+                      <div className="bg-gray-100 p-2 rounded">
+                        <p className="text-gray-500 text-xs">Imported Leads</p>
+                        <p className="font-bold">{processResult.insertedLeads}</p>
+                      </div>
+                      <div className="bg-gray-100 p-2 rounded">
+                        <p className="text-gray-500 text-xs">Contacts Created</p>
+                        <p className="font-bold">{processResult.contactsCreated || 0}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {processResult.error && (
+                    <Accordion className="mt-2">
+                      <AccordionItem title="View Error Details">
+                        <p className="text-xs text-red-700">{processResult.error}</p>
+                      </AccordionItem>
+                    </Accordion>
+                  )}
+                  
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      color="primary"
+                      onClick={handleReset}
+                      size="sm"
+                    >
+                      Import Another File
+                    </Button>
                   </div>
                 </div>
-              )}
-
-              {detailedErrors.length > 0 && (
-                <Accordion>
-                  <AccordionItem title="View Error Details">
-                    <div className="max-h-60 overflow-auto">
-                      <ul className="list-disc pl-5 text-xs text-red-700 space-y-1">
-                        {detailedErrors.map((err, idx) => (
-                          <li key={idx}>{err}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </AccordionItem>
-                </Accordion>
               )}
             </div>
           </Form>

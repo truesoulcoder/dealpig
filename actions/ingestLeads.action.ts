@@ -1,66 +1,142 @@
 'use server';
 
-import { createLeadSource, insertLeadsIntoDynamicTable, processLeadsFromDynamicTable } from '@/lib/database';
-import { parse as csvParse } from 'csv-parse/sync';
-import { UUID } from '@/helpers/types';
 import { createClient } from '@supabase/supabase-js';
+import { parse as csvParse } from 'csv-parse/sync';
 import { randomUUID } from 'crypto';
-
-// Import the cache and revalidate functions from Next.js
 import { revalidateTag } from 'next/cache';
+import { createDynamicLeadTable, createLeadSource, processLeadsFromDynamicTable } from '@/lib/database';
+import { UUID, LeadStatus } from '@/helpers/types';
 
-type UploadResult = {
+// Types for import process
+type FileUploadResult = {
   success: boolean;
-  message?: string;
+  message: string;
+  fileId: string;
+  fileName: string;
+  storagePath?: string;
+  error?: string;
+};
+
+type ParseResult = {
+  success: boolean;
+  message: string;
+  fileId: string;
   totalRows: number;
   insertedLeads: number;
-  contactsCount?: number; // Adding this field to track contacts created
+  contactsCreated?: number;
   errors?: string[];
   leadSourceId?: UUID;
-  storagePath?: string; // Adding field to track where the file is stored
+  sourceTableName?: string;
 };
 
-// Add a new type for progress tracking
 type ImportProgress = {
-  stage: 'parsing' | 'creating_table' | 'inserting_records' | 'processing_leads' | 'complete';
+  stage: 'uploading' | 'parsing' | 'creating_table' | 'inserting_records' | 'processing_leads' | 'complete' | 'error';
   percentage: number;
   message: string;
+  error?: string;
 };
 
-// Map to store import progress by ID
+// Maps to store state between requests since server actions are stateless
 const importProgressMap = new Map<string, ImportProgress>();
+const pendingParseMap = new Map<string, {
+  storagePath: string;
+  fileName: string;
+}>();
 
 /**
- * Store the original CSV file in Supabase storage for backup purposes
- * @param file The uploaded CSV file
- * @returns The storage path where the file is stored or null if storage fails
+ * Initialize a Supabase client with admin privileges
  */
-async function storeOriginalFile(file: File): Promise<string | null> {
-  try {
-    // Create a Supabase client for storage
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          persistSession: false
-        },
-        global: {
-          headers: {
-            'X-Supabase-Storage-Region': process.env.SUPABASE_STORAGE_REGION || 'us-east-1'
-          }
-        }
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        persistSession: false
       }
-    );
-    
+    }
+  );
+}
+
+/**
+ * Update the progress of an import operation
+ */
+function updateImportProgress(fileId: string, progress: Partial<ImportProgress>): void {
+  const currentProgress = importProgressMap.get(fileId) || {
+    stage: 'uploading',
+    percentage: 0,
+    message: 'Starting upload...'
+  };
+  
+  importProgressMap.set(fileId, {
+    ...currentProgress,
+    ...progress
+  });
+}
+
+/**
+ * Get the current progress of an import operation
+ */
+export async function getImportProgress(fileId: string): Promise<ImportProgress | null> {
+  return importProgressMap.get(fileId) || null;
+}
+
+/**
+ * STEP 1: Upload the CSV file to Supabase storage
+ * This is the first step in our two-step process
+ */
+export async function uploadLeadFile(formData: FormData): Promise<FileUploadResult> {
+  // Generate a unique ID for the file upload operation
+  const fileId = randomUUID();
+  
+  try {
+    // Initialize progress
+    updateImportProgress(fileId, {
+      stage: 'uploading',
+      percentage: 0,
+      message: 'Starting file upload...'
+    });
+
+    // Get the file from the form data
+    const file = formData.get('file') as File;
+    if (!file) {
+      return {
+        success: false,
+        fileId,
+        fileName: '',
+        message: 'No file provided',
+        error: 'No file was provided in the form data'
+      };
+    }
+
+    // Validate file type
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      return {
+        success: false,
+        fileId,
+        fileName: file.name,
+        message: 'File must be a CSV',
+        error: 'Invalid file format. Only CSV files are supported'
+      };
+    }
+
+    updateImportProgress(fileId, {
+      percentage: 30,
+      message: 'Uploading file to secure storage...'
+    });
+
+    // Initialize Supabase client
+    const supabase = getSupabaseAdmin();
+
     // Generate a unique filename to avoid collisions
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const uniqueId = randomUUID().slice(0, 8);
-    const fileName = `${timestamp}-${uniqueId}-${file.name}`;
-    
+    const uniqueId = fileId.slice(0, 8);
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileName = `${timestamp}-${uniqueId}-${safeFileName}`;
+
     // Convert file to ArrayBuffer for upload
     const arrayBuffer = await file.arrayBuffer();
-    
+
     // Upload to the lead-imports bucket
     const { data, error } = await supabase
       .storage
@@ -69,127 +145,121 @@ async function storeOriginalFile(file: File): Promise<string | null> {
         contentType: 'text/csv',
         cacheControl: '3600'
       });
-    
+
     if (error) {
-      console.error('Error storing CSV file:', error);
-      return null;
+      updateImportProgress(fileId, {
+        stage: 'error',
+        percentage: 100,
+        message: 'File upload failed',
+        error: error.message
+      });
+      
+      return {
+        success: false,
+        fileId,
+        fileName: file.name,
+        message: 'Failed to upload file to storage',
+        error: error.message
+      };
     }
-    
+
     // Construct the full storage URL to the file
-    const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URL || 'https://fzvueuydzfwtbyiumbep.supabase.co/storage/v1/s3';
-    const fullPath = `${storageUrl}/lead-imports/${data.path}`;
+    const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URL || 
+                       'https://fzvueuydzfwtbyiumbep.supabase.co/storage/v1/object/public';
+    const storagePath = `${storageUrl}/lead-imports/${data.path}`;
+
+    // Store path for later processing
+    pendingParseMap.set(fileId, {
+      storagePath,
+      fileName: file.name
+    });
     
-    return fullPath;
+    updateImportProgress(fileId, {
+      stage: 'complete',
+      percentage: 100,
+      message: 'File uploaded successfully. Ready for processing.'
+    });
+
+    return {
+      success: true,
+      fileId,
+      fileName: file.name,
+      storagePath,
+      message: 'File uploaded successfully. Click "Process File" to continue.'
+    };
   } catch (error) {
-    console.error('Failed to store original CSV file:', error);
-    return null;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    updateImportProgress(fileId, {
+      stage: 'error',
+      percentage: 100,
+      message: 'File upload failed',
+      error: errorMessage
+    });
+
+    return {
+      success: false,
+      fileId,
+      fileName: '',
+      message: 'Failed to upload file',
+      error: errorMessage
+    };
   }
 }
 
 /**
- * Get the current progress of an import operation
- * @param importId The ID of the import operation
- * @returns The current progress or null if not found
+ * STEP 2: Parse the CSV file and import the leads into the database
+ * This is the second step in our two-step process
  */
-export async function getImportProgress(importId: string): Promise<ImportProgress | null> {
-  return importProgressMap.get(importId) || null;
-}
-
-/**
- * Update the progress of an import operation
- * @param importId The ID of the import operation
- * @param progress The progress data to update
- */
-function updateImportProgress(importId: string, progress: Partial<ImportProgress>): void {
-  const current = importProgressMap.get(importId) || {
-    stage: 'parsing',
-    percentage: 0,
-    message: 'Starting import...'
-  };
-  
-  importProgressMap.set(importId, {
-    ...current,
-    ...progress
-  });
-  
-  // Progress should be automatically garbage collected after 1 hour
-  setTimeout(() => {
-    importProgressMap.delete(importId);
-  }, 60 * 60 * 1000);
-}
-
-/**
- * Server action to upload and process a CSV file containing lead data
- * Handles multiple contacts per property according to the database schema
- * @param formData The form data containing the CSV file
- * @returns Result of the import operation with an importId for tracking progress
- */
-export async function uploadCsv(formData: FormData): Promise<UploadResult & { importId?: string }> {
-  // Generate a unique ID for this import operation
-  const importId = randomUUID();
-  
+export async function parseLeadFile(fileId: string): Promise<ParseResult> {
   try {
-    // Initialize progress
-    updateImportProgress(importId, {
-      stage: 'parsing',
-      percentage: 0,
-      message: 'Starting CSV import...'
-    });
-
-    // Get the file from the form data
-    const file = formData.get('file') as File;
-    if (!file) {
+    // Check if this file has been uploaded
+    const pendingFile = pendingParseMap.get(fileId);
+    if (!pendingFile) {
       return {
         success: false,
-        message: 'No file provided',
+        fileId,
         totalRows: 0,
         insertedLeads: 0,
-        importId
+        message: 'No uploaded file found with this ID'
       };
     }
 
-    // Validate file type
-    if (!file.name.endsWith('.csv')) {
-      return {
-        success: false,
-        message: 'File must be a CSV',
-        totalRows: 0,
-        insertedLeads: 0,
-        importId
-      };
-    }
-
-    // Store the original file in Supabase storage for backup
-    const storagePath = await storeOriginalFile(file);
-    if (!storagePath) {
-      console.warn('Failed to store the original file, but continuing with import');
-    }
-
-    updateImportProgress(importId, {
-      percentage: 10,
-      message: 'Reading CSV file...'
-    });
-
-    // Read the file as text
-    const fileContent = await file.text();
+    const { storagePath, fileName } = pendingFile;
     
-    // Parse CSV content
+    // Update progress for parsing
+    updateImportProgress(fileId, {
+      stage: 'parsing',
+      percentage: 10,
+      message: 'Downloading and parsing CSV file...'
+    });
+
+    // Download the file from storage
+    const supabase = getSupabaseAdmin();
+    const response = await fetch(storagePath);
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+
+    // Parse the CSV content
+    const fileContent = await response.text();
     const records = csvParse(fileContent, {
       columns: true,
       skip_empty_lines: true,
       trim: true
     });
 
-    updateImportProgress(importId, {
+    updateImportProgress(fileId, {
       percentage: 20,
       message: 'CSV parsed successfully'
     });
 
+    // Validate we have data to process
     if (records.length === 0) {
-      updateImportProgress(importId, {
-        stage: 'complete',
+      updateImportProgress(fileId, {
+        stage: 'error',
         percentage: 100,
-        message: 'Import completed. The CSV file was empty.'
+        message: 'The CSV file is empty'
       });
       
       return {
@@ -197,292 +267,218 @@ export async function uploadCsv(formData: FormData): Promise<UploadResult & { im
         message: 'The CSV file is empty',
         totalRows: 0,
         insertedLeads: 0,
-        storagePath,
-        importId
+        fileId
       };
     }
 
-    // Extract filename without extension for table naming
-    const fileName = file.name;
-    const tableName = fileName.endsWith('.csv') ? 
+    // Create a sanitized table name from the filename
+    const baseName = fileName.endsWith('.csv') ? 
       fileName.slice(0, -4).toLowerCase().replace(/[^a-z0-9]/g, '_') : 
       fileName.toLowerCase().replace(/[^a-z0-9]/g, '_');
     
-    // Detect column types from first record
+    // Add a unique suffix to avoid collisions
+    const uniqueTableName = `${baseName}_${fileId.slice(0, 8)}`;
+    
+    // Detect column types from records
     const firstRecord = records[0];
     const columns = Object.keys(firstRecord).map(key => {
       let type = 'text';
       const value = firstRecord[key];
       
-      // Try to determine the column type
-      if (!isNaN(parseFloat(value)) && isFinite(value)) {
-        // Check if it's an integer
-        if (parseInt(value).toString() === value) {
-          type = 'integer';
-        } else {
-          type = 'numeric';
+      if (value !== null && value !== undefined) {
+        // Try to determine the column type
+        if (!isNaN(parseFloat(value)) && isFinite(value)) {
+          if (parseInt(value).toString() === value) {
+            type = 'integer';
+          } else {
+            type = 'numeric';
+          }
+        } else if (
+          /^\d{4}-\d{2}-\d{2}$/.test(value) || 
+          /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+        ) {
+          type = 'timestamp';
         }
-      } else if (
-        /^\d{4}-\d{2}-\d{2}$/.test(value) || 
-        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
-      ) {
-        type = 'timestamp';
       }
-
+      
       return { name: key, type };
     });
 
-    updateImportProgress(importId, {
+    // Create SQL column definitions
+    const columnDefinitions = columns
+      .map(col => `"${col.name.toLowerCase()}" ${col.type}`)
+      .join(', ');
+
+    updateImportProgress(fileId, {
       stage: 'creating_table',
       percentage: 30,
-      message: 'Creating database table...'
+      message: 'Creating temporary storage table...'
     });
 
     // Create a dynamic table for this import
     try {
-      await createDynamicLeadTable(tableName, columns);
+      await createDynamicLeadTable(uniqueTableName, columnDefinitions);
     } catch (error) {
-      updateImportProgress(importId, {
-        stage: 'complete',
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      updateImportProgress(fileId, {
+        stage: 'error',
         percentage: 100,
-        message: `Import failed: ${(error as Error).message}`
+        message: `Failed to create table: ${errorMessage}`
       });
       
       return {
         success: false,
-        message: 'Failed to create table for lead data',
+        message: `Failed to create table: ${errorMessage}`,
         totalRows: records.length,
         insertedLeads: 0,
-        errors: [(error as Error).message],
-        importId
+        fileId
       };
     }
-    
-    updateImportProgress(importId, {
+
+    updateImportProgress(fileId, {
       stage: 'inserting_records',
       percentage: 40,
-      message: `Inserting ${records.length} records into database...`
+      message: `Inserting ${records.length} records into temporary table...`
     });
-    
-    // Insert records into the dynamic table
+
+    // Insert records into the temporary table
     let insertedCount = 0;
     try {
-      insertedCount = await insertLeadsIntoDynamicTable(tableName, records);
+      // Batch the records to avoid overloading the database
+      const batchSize = 100;
+      const batches = [];
       
-      updateImportProgress(importId, {
+      for (let i = 0; i < records.length; i += batchSize) {
+        batches.push(records.slice(i, i + batchSize));
+      }
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const supabase = getSupabaseAdmin();
+        const { data, error } = await supabase.from(`${uniqueTableName}_leads`).insert(batch);
+        
+        if (error) throw new Error(`Batch insert error: ${error.message}`);
+        
+        insertedCount += batch.length;
+        
+        updateImportProgress(fileId, {
+          percentage: 40 + Math.floor((i + 1) / batches.length * 20),
+          message: `Inserted ${insertedCount} of ${records.length} records...`
+        });
+      }
+      
+      updateImportProgress(fileId, {
         percentage: 60,
-        message: `${insertedCount} records inserted successfully`
+        message: `${insertedCount} records inserted successfully. Processing leads...`
       });
     } catch (error) {
-      updateImportProgress(importId, {
-        stage: 'complete',
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      updateImportProgress(fileId, {
+        stage: 'error',
         percentage: 100,
-        message: `Import failed: ${(error as Error).message}`
+        message: `Failed to insert records: ${errorMessage}`
       });
       
       return {
         success: false,
-        message: 'Failed to insert lead data',
+        message: `Failed to insert records: ${errorMessage}`,
         totalRows: records.length,
-        insertedLeads: insertedCount,
-        errors: [(error as Error).message],
-        importId
+        insertedLeads: 0,
+        fileId
       };
     }
-    
-    // Map columns to standard field names for this lead source
-    const columnMap: Record<string, string> = {};
-    const knownFields = [
-      'property_address', 'property_city', 'property_state', 'property_zip',
-      'owner_name', 'mailing_address', 'mailing_city', 'mailing_state', 'mailing_zip',
-      'wholesale_value', 'market_value', 'days_on_market', 'mls_status',
-      'mls_list_date', 'mls_list_price', 'status', 'owner_type', 'property_type',
-      'beds', 'baths', 'square_footage', 'year_built', 'assessed_total'
-    ];
-    
-    // Add all contact fields
-    for (let i = 1; i <= 5; i++) {
-      knownFields.push(`contact${i}name`);
-      knownFields.push(`contact${i}firstname`);
-      knownFields.push(`contact${i}lastname`);
-      for (let j = 1; j <= 3; j++) {
-        knownFields.push(`contact${i}phone_${j}`);
-        knownFields.push(`contact${i}email_${j}`);
-      }
-    }
-
-    // Auto-map based on field names
-    Object.keys(firstRecord).forEach(key => {
-      const lowerKey = key.toLowerCase().replace(/\s+/g, '_');
-      
-      // Direct match
-      if (knownFields.includes(lowerKey)) {
-        columnMap[key] = lowerKey;
-      }
-      // Check for fuzzy matches
-      else {
-        if (lowerKey.includes('address') && !lowerKey.includes('mailing')) columnMap[key] = 'property_address';
-        else if (lowerKey.includes('city') && !lowerKey.includes('mailing')) columnMap[key] = 'property_city';
-        else if (lowerKey.includes('state') && !lowerKey.includes('mailing')) columnMap[key] = 'property_state';
-        else if (lowerKey.includes('zip') && !lowerKey.includes('mailing')) columnMap[key] = 'property_zip';
-        else if (lowerKey.includes('mailing') && lowerKey.includes('address')) columnMap[key] = 'mailing_address';
-        else if (lowerKey.includes('mailing') && lowerKey.includes('city')) columnMap[key] = 'mailing_city';
-        else if (lowerKey.includes('mailing') && lowerKey.includes('state')) columnMap[key] = 'mailing_state';
-        else if (lowerKey.includes('mailing') && lowerKey.includes('zip')) columnMap[key] = 'mailing_zip';
-        else if (lowerKey.includes('market') && lowerKey.includes('value')) columnMap[key] = 'market_value';
-        else if (lowerKey.includes('wholesale') && lowerKey.includes('value')) columnMap[key] = 'wholesale_value';
-        else if (lowerKey.includes('list') && lowerKey.includes('price')) columnMap[key] = 'mls_list_price';
-        else if (lowerKey.includes('list') && lowerKey.includes('date')) columnMap[key] = 'mls_list_date';
-        else if (lowerKey.includes('assessed')) columnMap[key] = 'assessed_total';
-        else if (lowerKey.includes('year') && lowerKey.includes('built')) columnMap[key] = 'year_built';
-        else if (lowerKey === 'beds' || lowerKey.includes('bedroom')) columnMap[key] = 'beds';
-        else if (lowerKey === 'baths' || lowerKey.includes('bathroom')) columnMap[key] = 'baths';
-        else if (lowerKey.includes('sqft') || lowerKey.includes('square_ft') || lowerKey.includes('sq_ft')) columnMap[key] = 'square_footage';
-        
-        // Handle contact fields with various formats
-        for (let i = 1; i <= 5; i++) {
-          if (lowerKey.includes(`contact${i}`) || lowerKey.includes(`owner${i}`)) {
-            if (lowerKey.includes('name') && !lowerKey.includes('first') && !lowerKey.includes('last')) {
-              columnMap[key] = `contact${i}name`;
-            }
-            else if (lowerKey.includes('first')) {
-              columnMap[key] = `contact${i}firstname`;
-            }
-            else if (lowerKey.includes('last')) {
-              columnMap[key] = `contact${i}lastname`;
-            }
-            else if (lowerKey.includes('phone') || lowerKey.includes('mobile') || lowerKey.includes('cell')) {
-              // Check if there's a specific number indicated
-              if (lowerKey.includes('1') || lowerKey.includes('primary')) {
-                columnMap[key] = `contact${i}phone_1`;
-              } else if (lowerKey.includes('2') || lowerKey.includes('secondary')) {
-                columnMap[key] = `contact${i}phone_2`;
-              } else if (lowerKey.includes('3')) {
-                columnMap[key] = `contact${i}phone_3`;
-              } else {
-                columnMap[key] = `contact${i}phone_1`; // Default to first phone
-              }
-            }
-            else if (lowerKey.includes('email')) {
-              // Check if there's a specific number indicated
-              if (lowerKey.includes('1') || lowerKey.includes('primary')) {
-                columnMap[key] = `contact${i}email_1`;
-              } else if (lowerKey.includes('2') || lowerKey.includes('secondary')) {
-                columnMap[key] = `contact${i}email_2`;
-              } else if (lowerKey.includes('3')) {
-                columnMap[key] = `contact${i}email_3`;
-              } else {
-                columnMap[key] = `contact${i}email_1`; // Default to first email
-              }
-            }
-          }
-        }
-      }
-    });
-
-    updateImportProgress(importId, {
-      percentage: 70,
-      message: 'Creating lead source record...'
-    });
 
     // Create a lead source record
-    let leadSourceId;
+    let leadSourceId: UUID;
     try {
       leadSourceId = await createLeadSource({
-        name: tableName.replace(/_/g, ' '),
-        fileName: file.name,
-        tableName,
+        name: baseName,
+        fileName,
+        tableName: uniqueTableName,
         recordCount: records.length,
-        columnMap,
-        storagePath // Pass the storage path to track the original file
+        columnMap: Object.fromEntries(columns.map(c => [c.name, c.name])),
+        storagePath
       });
     } catch (error) {
-      updateImportProgress(importId, {
-        stage: 'complete',
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      updateImportProgress(fileId, {
+        stage: 'error',
         percentage: 100,
-        message: `Import partially completed: ${(error as Error).message}`
+        message: `Failed to create lead source: ${errorMessage}`
       });
       
       return {
         success: false,
-        message: 'Failed to create lead source',
+        message: `Failed to create lead source: ${errorMessage}`,
         totalRows: records.length,
-        insertedLeads: insertedCount,
-        errors: [(error as Error).message],
-        importId
+        insertedLeads: 0,
+        fileId
       };
     }
-    
-    updateImportProgress(importId, {
+
+    updateImportProgress(fileId, {
       stage: 'processing_leads',
-      percentage: 80,
-      message: 'Processing lead records...'
+      percentage: 70,
+      message: 'Processing records into leads database...'
     });
-    
-    // Process the leads from the dynamic table into the main leads table with normalized contacts
-    let processResult = { processed: 0, contactsCreated: 0 };
+
+    // Process leads from the temporary table into the main leads table
     try {
-      processResult = await processLeadsFromDynamicTable(tableName, leadSourceId);
+      const result = await processLeadsFromDynamicTable(uniqueTableName, leadSourceId);
       
-      updateImportProgress(importId, {
+      // Clean up - remove from pending map
+      pendingParseMap.delete(fileId);
+      
+      // Update progress to complete
+      updateImportProgress(fileId, {
         stage: 'complete',
         percentage: 100,
-        message: `Import completed successfully: ${processResult.processed} leads and ${processResult.contactsCreated} contacts created`
+        message: `Import completed. ${result.processed} leads processed with ${result.contactsCreated} contacts.`
       });
+      
+      // Revalidate any cached data
+      revalidateTag('leads');
+      
+      return {
+        success: true,
+        message: `Import completed successfully. Added ${result.processed} leads with ${result.contactsCreated} contacts.`,
+        totalRows: records.length,
+        insertedLeads: result.processed,
+        contactsCreated: result.contactsCreated,
+        leadSourceId,
+        sourceTableName: uniqueTableName,
+        fileId
+      };
     } catch (error) {
-      updateImportProgress(importId, {
-        stage: 'complete',
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      updateImportProgress(fileId, {
+        stage: 'error',
         percentage: 100,
-        message: `Import partially completed: ${(error as Error).message}`
+        message: `Failed to process leads: ${errorMessage}`
       });
       
       return {
         success: false,
-        message: 'Successfully imported raw data, but failed to process all leads',
+        message: `Failed to process leads: ${errorMessage}`,
         totalRows: records.length,
-        insertedLeads: processResult.processed,
-        contactsCount: processResult.contactsCreated,
-        leadSourceId,
-        errors: [(error as Error).message],
-        importId
+        insertedLeads: 0,
+        fileId
       };
     }
-
-    // Revalidate the leads cache tag to ensure updated data is shown
-    revalidateTag('leads');
-
-    return {
-      success: true,
-      message: 'Successfully imported lead data',
-      totalRows: records.length,
-      insertedLeads: processResult.processed,
-      contactsCount: processResult.contactsCreated,
-      leadSourceId,
-      storagePath,
-      importId
-    };
   } catch (error) {
-    updateImportProgress(importId, {
-      stage: 'complete',
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    updateImportProgress(fileId, {
+      stage: 'error',
       percentage: 100,
-      message: `Import failed: ${(error as Error).message}`
+      message: `Process failed: ${errorMessage}`
     });
     
-    console.error('CSV upload error:', error);
     return {
       success: false,
-      message: 'An unexpected error occurred during CSV processing',
+      message: `An unexpected error occurred: ${errorMessage}`,
       totalRows: 0,
       insertedLeads: 0,
-      errors: [(error as Error).message],
-      importId
+      fileId
     };
   }
-}
-
-/**
- * Helper function to create a dynamic table for lead data
- */
-async function createDynamicLeadTable(tableName: string, columns: Array<{name: string, type: string}>): Promise<boolean> {
-  return await import('@/lib/database').then(db => db.createDynamicLeadTable(tableName, columns));
 }
