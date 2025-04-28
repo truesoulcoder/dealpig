@@ -271,16 +271,22 @@
   border-color: var(--leet-border) !important;
 }
 
-/* Override HeroUI Card backgrounds and borders */
+/* Force console theme on all sidebar elements */
+[data-theme='leet'] aside, 
+[data-theme='leet'] aside * {
+  background-color: var(--leet-bg) !important;
+  color: var(--leet-text) !important;
+  border-color: var(--leet-border) !important;
+  font-family: var(--leet-font) !important;
+}
+
+/* Force console theme on all Card elements */
+[data-theme='leet'] .card, 
+[data-theme='leet'] .card *,
 [data-theme='leet'] .hero-card,
-[data-theme='leet'] .card {
+[data-theme='leet'] .hero-card * {
   background-color: var(--leet-bg) !important;
   color: var(--leet-text) !important;
   border: 1px solid var(--leet-border) !important;
-  border-radius: 0 !important;
-}
-
-/* Ensure the sidebar wrapper (bg-background) uses black background */
-[data-theme='leet'] aside {
-  background-color: var(--leet-bg) !important;
+  font-family: var(--leet-font) !important;
 }
