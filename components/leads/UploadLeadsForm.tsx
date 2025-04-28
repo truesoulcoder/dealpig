@@ -269,7 +269,7 @@ export default function UploadLeadsForm() {
             </Button>
             {/* External spinner icon when loading */}
             {loading && (
-              <span className="ml-2 font-mono text-lg text-gray-400">⏳</span>
+              <span className="ml-2 font-mono text-lg text-green-400">⏳</span>
             )}
             {/* Success icon and message */}
             {!loading && message && !isError && (
@@ -291,7 +291,7 @@ export default function UploadLeadsForm() {
         {showConsole && (
         <div className="bg-black text-green-400 font-mono p-4 rounded max-h-40 overflow-auto whitespace-pre">
           {displayLogs.map((line, idx) => (
-            <div key={idx} className="transition-opacity duration-500" style={{ animation: 'fadeIn 0.5s ease-out' }}>
+            <div key={idx} className="transition-opacity duration-500" style={{ animation: 'fadeIn 1s ease-out' }}>
               {line}
             </div>
           ))}

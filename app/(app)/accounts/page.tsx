@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function SendersPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center p-8">Loading...</div>}>
+    <Suspense fallback={<div className="flex text-green-400 font-mono justify-center p-8">Loading...</div>}>
       <Accounts />
     </Suspense>
   );
