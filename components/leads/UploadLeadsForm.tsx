@@ -124,26 +124,56 @@ export default function UploadLeadsForm() {
       if (status !== 200) {
         setIsError(true);
         setUploadStatus('error');
-        // Try to parse JSON error message
-        let errMsg = `Error ${status}`;
-        try {
-          const errJson = JSON.parse(xhr.responseText);
-          if (errJson.message) errMsg = errJson.message;
-        } catch {}
-        addLog(`> Server error: ${errMsg}`);
-        setMessage(errMsg);
+        
+        // Log the actual response content for debugging
+        addLog(`> Server response: ${xhr.responseText.substring(0, 100)}...`);
+        
+        // Check if response is HTML instead of JSON
+        if (xhr.responseText.trim().startsWith('<!DOCTYPE') || 
+            xhr.responseText.trim().startsWith('<html')) {
+          addLog('> Server returned HTML instead of JSON (possible server error)');
+          setMessage('Server error occurred. Please try again later.');
+        } else {
+          // Try to parse JSON error message
+          let errMsg = `Error ${status}`;
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            if (errJson.message) errMsg = errJson.message;
+          } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            addLog(`> Failed to parse error response: ${errorMessage}`);
+          }
+          addLog(`> Server error: ${errMsg}`);
+          setMessage(errMsg);
+        }
         setLoading(false);
         return;
       }
+      
       // Refresh explorer after upload success
       fetchFiles();
+      
       // Try parsing JSON response
       let result: any;
       try {
+        // Check if response might be HTML before trying to parse
+        if (xhr.responseText.trim().startsWith('<!DOCTYPE') || 
+            xhr.responseText.trim().startsWith('<html')) {
+          addLog('> Warning: Server returned HTML instead of JSON');
+          setIsError(true);
+          setUploadStatus('error');
+          setMessage('Server returned invalid response format. Please contact support.');
+          setLoading(false);
+          return;
+        }
+        
         result = JSON.parse(xhr.responseText);
-      } catch {
+      } catch (e) {
         // No valid JSON, but since status is 200 assume success
-        addLog('> No JSON response; upload assumed successful');
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        addLog(`> JSON parse error: ${errorMessage}`);
+        addLog('> Response starts with: ' + xhr.responseText.substring(0, 50) + '...');
+        addLog('> No valid JSON response; upload assumed successful');
         setIsError(false);
         setUploadStatus('success');
         setMessage('Leads file uploaded successfully.');
@@ -155,6 +185,7 @@ export default function UploadLeadsForm() {
         setSelectedFileName('No file chosen');
         return;
       }
+      
       // If JSON parsed
       if (result.success) {
         setIsError(false);

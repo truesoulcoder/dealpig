@@ -9,8 +9,9 @@ import { SidebarItem } from "./sidebar-item";
 import { SidebarMenu } from "./sidebar-menu";
 import { useSidebarContext } from "../layout/layout-context";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
+import { AnimatedDealpig } from "../icons/AnimatedDealpig";
+import { AnimatedDealpigText } from "../icons/AnimatedDealpigText";
+import { ReportsIcon } from "../icons/sidebar/reports-icon";
 
 export const SidebarWrapper = () => {
   const pathname = usePathname();
@@ -25,19 +26,17 @@ export const SidebarWrapper = () => {
         className={Sidebar({
           collapsed: collapsed,
         })}
-      >
-        <div className={Sidebar.Header()}>
-          <Link href="/" className="block w-full">
-            <div className="relative w-full h-52">
-              <Image
-                src="/dealpig.svg"
-                alt="DealPig"
-                fill
-                style={{ objectFit: 'contain' }}
-                priority
-              />
-            </div>
-          </Link>
+>       <div className={Sidebar.Header()}>
+          {/* Replace static Image with AnimatedDealpig component */}
+          <div className="relative w-full h-full flex items-center justify-center">
+            <AnimatedDealpig />
+          </div>
+        </div>
+        <div>
+          {/* Replace static Image with AnimatedDealpigText component */}
+          <div className="relative w-full h-full flex items-center justify-center">
+            <AnimatedDealpigText />
+          </div>
         </div>
         <div className="flex flex-col justify-between h-full">
           <div className={Sidebar.Body()}>
@@ -57,7 +56,7 @@ export const SidebarWrapper = () => {
               <SidebarItem
                 isActive={pathname.includes("/leads")}
                 title="Leads"
-                icon={<CustomersIcon />}
+                icon={<ReportsIcon />}
                 href="/leads"
               />
               <SidebarItem

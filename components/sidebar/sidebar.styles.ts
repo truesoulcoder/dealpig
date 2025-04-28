@@ -1,7 +1,7 @@
 import { tv } from "@heroui/react";
 
 export const SidebarWrapper = tv({
-  base: "bg-background transition-transform h-full fixed -translate-x-full w-64 shrink-0 z-[202] overflow-y-auto border-r border-divider flex-col py-6 px-3 md:ml-0 md:flex md:static md:h-screen md:translate-x-0 ",
+  base: "bg-background transition-transform h-full fixed -translate-x-full w-64 shrink-0 z-[202] border-r border-divider flex-col py-6 px-3 md:ml-0 md:flex md:static md:h-screen md:translate-x-0 ",
 
   variants: {
     collapsed: {
@@ -15,15 +15,19 @@ export const Overlay = tv({
 });
 
 export const Header = tv({
-  base: "flex justify-center items-center py-2 px-3 mb-4 w-full",
+  base: "flex justify-center items-center w-full",
+});
+
+export const Subtitle = tv({
+  base: "flex justify-center items-center w-full",
 });
 
 export const Body = tv({
-  base: "flex flex-col gap-6 mt-2 px-2",
+  base: "flex flex-col gap-1 mt-2 px-2",
 });
 
 export const Footer = tv({
-  base: "flex items-center justify-center gap-6 pt-16 pb-8 px-8 md:pt-10 md:pb-0",
+  base: "flex justify-center items-center w-full",
 });
 
 export const Sidebar = Object.assign(SidebarWrapper, {
