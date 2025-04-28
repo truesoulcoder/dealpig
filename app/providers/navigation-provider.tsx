@@ -1,62 +1,57 @@
-"use client";
+'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode, Suspense } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import MatrixRain from "@/components/ui/MatrixRain"; // Import the rain effect
 
-interface NavigationContextType {
-  isNavigating: boolean;
-  previousPath: string | null;
-  currentPath: string;
-}
+ interface NavigationContextProps {
+   currentPath: string;
+ }
 
-const NavigationContext = createContext<NavigationContextType>({
-  isNavigating: false,
-  previousPath: null,
-  currentPath: '/',
-});
+ const NavigationContext = createContext<NavigationContextProps | undefined>(
+   undefined
+ );
 
-export function useNavigation() {
-  return useContext(NavigationContext);
-}
+ export const NavigationProvider = ({ children }: { children: React.ReactNode }) => {
+   const pathname = usePathname();
+   const [isNavigating, setIsNavigating] = useState(false);
+   let navigationTimer: NodeJS.Timeout | null = null;
 
-// Create a component that uses the search params but is wrapped in Suspense
-function NavigationProviderInner({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [previousPath, setPreviousPath] = useState<string | null>(null);
-  const [currentPath, setCurrentPath] = useState(pathname);
+   // Track route changes to trigger the effect
+   useEffect(() => {
+     const handleStart = () => {
+       setIsNavigating(true);
+       // Clear any existing timer
+       if (navigationTimer) clearTimeout(navigationTimer);
+       // Set timer to hide rain after 2 seconds
+       navigationTimer = setTimeout(() => {
+         setIsNavigating(false);
+         navigationTimer = null;
+       }, 2000);
+     };
 
-  // Track navigation changes
-  useEffect(() => {
-    if (pathname !== currentPath) {
-      setPreviousPath(currentPath);
-      setCurrentPath(pathname);
-      
-      // Brief navigation state to handle transitions
-      setIsNavigating(true);
-      const timer = setTimeout(() => {
-        setIsNavigating(false);
-      }, 300); // Short timeout to ensure proper transition
-      
-      return () => clearTimeout(timer);
-    }
-  }, [pathname, searchParams, currentPath]);
+     // For Next.js App Router, usePathname change is a good indicator
+     // We trigger on pathname change, assuming it means navigation started
+     handleStart();
 
-  return (
-    <NavigationContext.Provider value={{ isNavigating, previousPath, currentPath }}>
-      {children}
-    </NavigationContext.Provider>
-  );
-}
+     // Cleanup timer on unmount
+     return () => {
+       if (navigationTimer) clearTimeout(navigationTimer);
+     };
+   }, [pathname]); // Rerun whenever the pathname changes
 
-// Export the provider with Suspense built in
-export function NavigationProvider({ children }: { children: ReactNode }) {
-  return (
-    <Suspense fallback={null}>
-      <NavigationProviderInner>
-        {children}
-      </NavigationProviderInner>
-    </Suspense>
-  );
-}
+   return (
+     <NavigationContext.Provider value={{ currentPath: pathname }}>
+      <MatrixRain isVisible={isNavigating} />
+       {children}
+     </NavigationContext.Provider>
+   );
+ };
+
+ export const useNavigation = () => {
+   const context = useContext(NavigationContext);
+   if (context === undefined) {
+     throw new Error("useNavigation must be used within a NavigationProvider");
+   }
+   return context;
+ };
