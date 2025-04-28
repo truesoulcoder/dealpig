@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { SearchIcon } from "../icons/searchicon";
 import { BurguerButton } from "./burguer-button";
 import { UserDropdown } from "./user-dropdown";
+import ThemeToggle from "./theme-toggle";
 
 interface Props {
   children: React.ReactNode;
@@ -154,6 +155,7 @@ export const NavbarWrapper = ({ children }: Props) => {
           className="w-fit data-[justify=end]:flex-grow-0"
         >
           <NavbarContent>
+            <ThemeToggle />
             <UserDropdown />
           </NavbarContent>
         </NavbarContent>

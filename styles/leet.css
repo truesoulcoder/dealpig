@@ -1,0 +1,160 @@
+/* Leet Theme - Console-style green and black theme */
+
+/* Base styles for the leet theme */
+[data-theme='leet'] {
+  --leet-bg: #000000;
+  --leet-text: #00ff00;
+  --leet-border: #00ff00;
+  --leet-accent: #003300;
+  --leet-hover: #00cc00;
+  --leet-error: #ff0000;
+  --leet-success: #00aa00;
+  --leet-font: 'Consolas', 'Courier New', monospace;
+}
+
+/* Common component styles */
+[data-theme='leet'] .leet-component {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  border: 1px solid var(--leet-border);
+  background-color: var(--leet-bg);
+  border-radius: 0;
+}
+
+/* Button styles */
+[data-theme='leet'] .leet-btn {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  background-color: var(--leet-bg);
+  border: 1px solid var(--leet-border);
+  padding: 0.5rem 1rem;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+[data-theme='leet'] .leet-btn:hover {
+  background-color: var(--leet-text);
+  color: var(--leet-bg);
+}
+
+/* Input styles */
+[data-theme='leet'] .leet-input {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  background-color: var(--leet-bg);
+  border: 1px solid var(--leet-border);
+  padding: 0.5rem;
+  border-radius: 0;
+}
+
+[data-theme='leet'] .leet-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.3);
+}
+
+/* Table styles */
+[data-theme='leet'] .leet-table {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  border-collapse: collapse;
+  width: 100%;
+}
+
+[data-theme='leet'] .leet-table th,
+[data-theme='leet'] .leet-table td {
+  border: 1px solid var(--leet-border);
+  padding: 0.5rem;
+  text-align: left;
+}
+
+[data-theme='leet'] .leet-table th {
+  background-color: var(--leet-accent);
+}
+
+[data-theme='leet'] .leet-table tr:hover {
+  background-color: var(--leet-accent);
+}
+
+/* Card styles */
+[data-theme='leet'] .leet-card {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  background-color: var(--leet-bg);
+  border: 1px solid var(--leet-border);
+  border-radius: 0;
+  padding: 1rem;
+}
+
+/* Console/code block styles */
+[data-theme='leet'] .leet-console {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  background-color: var(--leet-bg);
+  border: 1px solid var(--leet-border);
+  padding: 1rem;
+  border-radius: 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Form label styles */
+[data-theme='leet'] .leet-label {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* Special terminal-like animations */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+[data-theme='leet'] .leet-cursor::after {
+  content: '|';
+  animation: cursor-blink 1s infinite;
+}
+
+/* Status indicators */
+[data-theme='leet'] .leet-status-success {
+  color: var(--leet-success);
+}
+
+[data-theme='leet'] .leet-status-error {
+  color: var(--leet-error);
+}
+
+/* Terminal style scrollbars */
+[data-theme='leet'] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-theme='leet'] ::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+[data-theme='leet'] ::-webkit-scrollbar-thumb {
+  background: #00ff00;
+  border: 1px solid #000000;
+}
+
+[data-theme='leet'] ::-webkit-scrollbar-thumb:hover {
+  background: #00cc00;
+}
+
+/* Override for HeroUI components when in leet theme */
+[data-theme='leet'] .hero-btn {
+  font-family: var(--leet-font);
+  color: var(--leet-text);
+  background-color: var(--leet-bg);
+  border: 1px solid var(--leet-border);
+  border-radius: 0;
+}
+
+[data-theme='leet'] .hero-btn:hover {
+  background-color: var(--leet-text);
+  color: var(--leet-bg);
+}

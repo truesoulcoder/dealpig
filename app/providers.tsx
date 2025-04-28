@@ -38,7 +38,13 @@ export function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <NextThemesProvider
       defaultTheme="dark"
-      attribute="class"
+      attribute="data-theme"
+      value={{
+        light: "light",
+        dark: "dark", 
+        leet: "leet"
+      }}
+      themes={["light", "dark", "leet"]}
       enableSystem={true}
       enableColorScheme={true}
       disableTransitionOnChange

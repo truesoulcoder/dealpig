@@ -3,8 +3,12 @@
 // Switch to fetch-based upload against API route
 import { Button } from '@heroui/react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
 
 export default function UploadLeadsForm() {
+  const { theme } = useTheme();
+  const isLeetTheme = theme === 'leet';
+  
   // Track selected file name for display
   const [selectedFileName, setSelectedFileName] = useState<string>('No file chosen');
   // Explorer state using Supabase client
@@ -218,10 +222,15 @@ export default function UploadLeadsForm() {
   // Determine logs to display: show all on error, last 5 lines on success
   const displayLogs = isError ? logs : logs.slice(-5);
 
+  // Use leet theme classes when the theme is active
+  const leetConsoleClass = isLeetTheme ? 'leet-console' : '';
+  const leetButtonClass = isLeetTheme ? 'leet-btn' : '';
+  const leetLabelClass = isLeetTheme ? 'leet-label' : '';
+
   return (
     <div className="w-full mx-auto px-4 flex flex-col gap-4">
       {/* Explorer: hierarchical file/folder tree */}
-      <div className="w-full bg-black text-green-400 font-mono p-4 rounded overflow-x-auto whitespace-pre">
+      <div className={`w-full bg-black text-green-400 font-mono p-4 rounded overflow-x-auto whitespace-pre ${isLeetTheme ? 'leet-console' : ''}`}>
         <div>lead-imports/</div>
         {loadingFiles ? (
           <div className="italic text-gray-500">Loading...</div>
@@ -237,7 +246,11 @@ export default function UploadLeadsForm() {
           <div className="flex items-center gap-4 min-w-0 w-full">
             <label
               htmlFor="fileInput"
-              className="inline-flex items-center justify-center flex-shrink-0 text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2">
+              className={`inline-flex items-center justify-center flex-shrink-0 ${
+                isLeetTheme 
+                  ? 'leet-btn' 
+                  : 'text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2'
+              }`}>
               [CHOOSE]
             </label>
             <input
@@ -252,7 +265,7 @@ export default function UploadLeadsForm() {
                 setSelectedFileName(file?.name || 'No file chosen');
               }}
             />
-            <span className="flex-1 text-gray-400 font-mono text-lg truncate">
+            <span className={`flex-1 ${isLeetTheme ? 'text-green-400 font-mono' : 'text-gray-400 font-mono'} text-lg truncate`}>
               {selectedFileName}
             </span>
           </div>
@@ -262,33 +275,36 @@ export default function UploadLeadsForm() {
               variant="flat"
               size="md"
               disabled={loading}
-              className="font-mono text-lg border border-green-400 text-green-400 bg-transparent hover:bg-green-400 hover:text-black rounded-none flex-shrink-0 h-10 !px-4 !py-2"
+              className={isLeetTheme 
+                ? 'leet-btn h-10' 
+                : 'font-mono text-lg border border-green-400 text-green-400 bg-transparent hover:bg-green-400 hover:text-black rounded-none flex-shrink-0 h-10 !px-4 !py-2'
+              }
             >
               [UPLOAD]
             </Button>
             {/* External spinner icon when loading */}
             {loading && (
-              <span className="ml-2 font-mono text-lg text-green-400">⏳</span>
+              <span className={`ml-2 font-mono text-lg ${isLeetTheme ? 'text-green-400' : 'text-green-400'}`}>⏳</span>
             )}
             {/* Success icon and message */}
             {!loading && message && !isError && (
               <span className="flex items-center ml-2">
-                <span className="text-green-400 font-mono text-lg">✓</span>
-                <span className="text-green-400 font-mono text-lg ml-1 whitespace-nowrap">{message}</span>
+                <span className={isLeetTheme ? 'leet-status-success' : 'text-green-400 font-mono text-lg'}>✓</span>
+                <span className={isLeetTheme ? 'leet-status-success ml-1' : 'text-green-400 font-mono text-lg ml-1 whitespace-nowrap'}>{message}</span>
               </span>
             )}
             {/* Error toggle icon */}
             {!loading && isError && (
               <span
                 onClick={() => setShowConsole((v) => !v)}
-                className="ml-2 cursor-pointer text-red-500 font-mono text-lg flex-shrink-0 whitespace-nowrap"
+                className={`ml-2 cursor-pointer ${isLeetTheme ? 'leet-status-error' : 'text-red-500 font-mono text-lg'} flex-shrink-0 whitespace-nowrap`}
               >{showConsole ? '[x]' : '[!] '}</span>
             )}
           </div>
         </form>
         {/* Log console, animated fade-in items */}
         {showConsole && (
-        <div className="bg-black text-green-400 font-mono p-4 rounded max-h-40 overflow-auto whitespace-pre">
+        <div className={`bg-black text-green-400 font-mono p-4 rounded max-h-40 overflow-auto whitespace-pre ${isLeetTheme ? 'leet-console' : ''}`}>
           {displayLogs.map((line, idx) => (
             <div key={idx} className="transition-opacity duration-500" style={{ animation: 'fadeIn 1s ease-out' }}>
               {line}

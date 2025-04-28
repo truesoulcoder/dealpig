@@ -5,6 +5,9 @@
 /* Import local HeroUI styles */
 @import './heroui.css';
 
+/* Import leet theme styles */
+@import './leet.css';
+
 html,
 body {
   padding: 0;
