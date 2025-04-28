@@ -9,7 +9,9 @@ export const BurguerButton = () => {
     <div
       className={StyledBurgerButton()}
       // open={collapsed}
-      onPress={setCollapsed}
+      onClick={() => setCollapsed(v => !v)}
+      role="button"
+      tabIndex={0}
     >
       <div />
       <div />

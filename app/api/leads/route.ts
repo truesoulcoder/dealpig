@@ -16,19 +16,8 @@ export async function POST(request: NextRequest) {
     }
     const file = fileField;
     const fileName = `${crypto.randomUUID()}_${file.name}`;
-    // Prevent duplicate uploads by original filename
+    // Upload file using upsert:false so existing files cause a duplicate error
     const admin = createAdminClient();
-    const { data: existingSource, error: selectError } = await admin
-      .from('lead_sources')
-      .select('id')
-      .eq('file_name', file.name)
-      .maybeSingle();
-    if (selectError) console.error('[API /leads] duplicate check error:', selectError);
-    if (existingSource) {
-      console.log('[API /leads] duplicate file detected:', file.name);
-      return NextResponse.json({ success: false, message: 'This file has already been uploaded.' }, { status: 409 });
-    }
-    console.log('[API /leads] no duplicate found, proceeding');
     console.log('[API /leads] uploading file:', fileName);
     const { error: storageError } = await admin.storage
       .from('lead-imports')

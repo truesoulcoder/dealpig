@@ -57,6 +57,7 @@
       "@tiptap/extension-underline": "^2.11.7",
       "@tiptap/react": "^2.11.7",
       "@tiptap/starter-kit": "^2.11.7",
+      "@types/ascii-art": "^1.4.3",
       "@types/html-pdf": "^3.0.3",
       "@types/papaparse": "^5.3.15",
       "@types/uuid": "^10.0.0",

@@ -29,13 +29,13 @@ export const SidebarItem = ({ icon, title, isActive, href = "" }: Props) => {
       <div
         className={clsx(
           isActive
-            ? "bg-primary-700/20 dark:bg-primary-600/20 [&_svg_path]:fill-primary-500"
-            : "hover:bg-default-100",
-          "flex gap-2 w-full min-h-[44px] h-full items-center px-3.5 rounded-xl cursor-pointer transition-all duration-150 active:scale-[0.98]"
+            ? "bg-green-400 text-black [&_svg_path]:fill-black"
+            : "border border-green-400 text-green-400 hover:bg-green-400 hover:text-black [&_svg_path]:fill-green-400",
+          "flex gap-2 w-full min-h-[40px] items-center px-4 py-2 font-mono text-lg rounded-none transition-all duration-150 cursor-pointer"
         )}
       >
         {icon}
-        <span className={clsx(isActive ? "text-primary-500" : "text-default-900")}>{title}</span>
+        <span>{title}</span>
       </div>
     </NavLink>
   );

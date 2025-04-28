@@ -27,14 +27,16 @@ export const SidebarWrapper = () => {
         })}
       >
         <div className={Sidebar.Header()}>
-          <Link href="/" className="flex items-center justify-center">
-            <Image 
-              src="/dealpig.svg" 
-              alt="DealPig" 
-              width={48} 
-              height={48}
-              priority
-            />
+          <Link href="/" className="block w-full">
+            <div className="relative w-full h-52">
+              <Image
+                src="/dealpig.svg"
+                alt="DealPig"
+                fill
+                style={{ objectFit: 'contain' }}
+                priority
+              />
+            </div>
           </Link>
         </div>
         <div className="flex flex-col justify-between h-full">
