@@ -87,6 +87,7 @@
       "node-cache": "^5.1.2",
       "node-cron": "^3.0.3",
       "nodemailer": "^6.4.11",
+      "onceui": "^0.0.34",
       "papaparse": "^5.5.2",
       "pdf-lib": "^1.17.1",
       "pizzip": "^3.1.8",
