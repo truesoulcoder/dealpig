@@ -1,3 +1,4 @@
+"use client";
 import {
   Button,
   Input,
@@ -59,11 +60,12 @@ export const AddSender = () => {
 
   // Handle Gmail OAuth
   const handleGmailAuth = async () => {
+    console.log('handleGmailAuth triggered for', { name, email, title, dailyQuota });
     if (!name || !email) {
       alert('Please enter name and email');
       return;
     }
-    
+
     setIsAuthorizing(true);
     try {
       // Redirect to Gmail OAuth flow
@@ -71,7 +73,7 @@ export const AddSender = () => {
       const encodedName = encodeURIComponent(name);
       const encodedTitle = encodeURIComponent(title);
       const encodedQuota = encodeURIComponent(dailyQuota);
-      
+
       // Redirect to OAuth flow with sender details as query params
       window.location.href = `/api/auth/gmail?email=${encodedEmail}&name=${encodedName}&title=${encodedTitle}&dailyQuota=${encodedQuota}`;
     } catch (error) {

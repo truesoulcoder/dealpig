@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
+import crypto from 'crypto';
 
+export const runtime = 'nodejs';
 export const config = {
   api: { bodyParser: false },
 };

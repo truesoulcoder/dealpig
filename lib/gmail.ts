@@ -3,10 +3,13 @@ import { Sender } from '@/helpers/types';
 
 // Configure OAuth2 client with proper scopes for email sending and profile access
 export function getOAuth2Client(redirectUrl?: string) {
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const defaultRedirect = process.env.GMAIL_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`;
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    redirectUrl || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`
+    clientId,
+    clientSecret,
+    redirectUrl || defaultRedirect
   );
 }
 
