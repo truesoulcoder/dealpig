@@ -1,5 +1,5 @@
 import UploadLeadsForm from './UploadLeadsForm'
-import LeadsTable from './LeadsTable'
+import LeadsTable from './leadsTable'
 
 export default function LeadsSection() {
   return (
