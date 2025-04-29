@@ -7,7 +7,6 @@ import { CustomersIcon } from "../icons/sidebar/customers-icon";
 import { ProductsIcon } from "../icons/sidebar/products-icon";
 import { DevIcon } from "../icons/sidebar/dev-icon";
 import { SidebarItem } from "./sidebar-item";
-import { SidebarMenu } from "./sidebar-menu";
 import { useSidebarContext } from "../layout/layout-context";
 import { usePathname } from "next/navigation";
 import { AnimatedDealpig } from "../icons/AnimatedDealpig";
@@ -40,13 +39,14 @@ export const SidebarWrapper = () => {
         </div>
         <div className="flex flex-col justify-between h-full">
           <div className={Sidebar.Body()}>
-            <SidebarItem
-              title="Home"
-              icon={<HomeIcon />}
-              isActive={pathname === "/" || pathname === "/home"}
-              href="/"
-            />
-            <SidebarMenu title="Main Menu">
+            {/* Sidebar items without title header */}
+            <div className="flex flex-col gap-0">
+              <SidebarItem
+                title="Home"
+                icon={<HomeIcon />}
+                isActive={pathname === "/" || pathname === "/home"}
+                href="/"
+              />
               <SidebarItem
                 isActive={pathname.includes("/accounts")}
                 title="Accounts"
@@ -71,7 +71,7 @@ export const SidebarWrapper = () => {
                 icon={<DevIcon />}
                 href="/templates"
               />
-            </SidebarMenu>
+            </div>
           </div>
         </div>
       </div>

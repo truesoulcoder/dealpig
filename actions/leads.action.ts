@@ -37,13 +37,14 @@ export async function uploadLeads(formData: FormData) {
   return { success: true };
 }
 
-// Fetch all leads from Supabase
-export async function getLeads() {
+// Fetch all leads or only for a given source
+export async function getLeads(sourceId?: string) {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('leads')
-    .select('*')
-    .order('created_at', { ascending: false });
+  let query = admin.from('leads').select('*');
+  if (sourceId) {
+    query = query.eq('source_id', sourceId);
+  }
+  const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
   return data;
 }
