@@ -157,10 +157,11 @@ export async function logoutUser() {
  */
 export async function loginWithGoogle() {
   try {
+    // Use the Supabase-provided callback URL
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        // No need to specify redirectTo as Supabase will use its default callback URL
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
