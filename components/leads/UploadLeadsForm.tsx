@@ -128,7 +128,17 @@ export default function UploadLeadsForm() {
       return;
     }
 
-    addLog(`Starting upload of ${file.name}...`);
+    // Check file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+    if (file.size > maxSize) {
+      setIsError(true);
+      setMessage('File is too large. Maximum size is 50MB');
+      addLog(`Error: File size (${(file.size / (1024 * 1024)).toFixed(2)}MB) exceeds limit of 50MB`);
+      setLoading(false);
+      return;
+    }
+
+    addLog(`Starting upload of ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB)...`);
     setProgress(10);
 
     try {
