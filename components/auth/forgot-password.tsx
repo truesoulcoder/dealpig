@@ -10,6 +10,7 @@ import { requestPasswordReset } from "@/actions/auth.action";
 import { MatrixBackground } from "@/components/ui/MatrixBackground";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { LetterFx } from "@/components/ui/LetterFx";
+import { SpotlightOverlay } from "@/components/ui/SpotlightOverlay";
 
 // Validation schema
 const ForgotPasswordSchema = Yup.object().shape({
@@ -69,6 +70,7 @@ export const ForgotPassword = () => {
     return (
       <>
         <MatrixBackground />
+        <SpotlightOverlay />
         <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
           <div className="mb-8 text-center">
             <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
@@ -107,6 +109,7 @@ export const ForgotPassword = () => {
   return (
     <>
       <MatrixBackground />
+      <SpotlightOverlay />
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
         <div className="mb-8 text-center">
           <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />

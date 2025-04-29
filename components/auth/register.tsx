@@ -7,16 +7,23 @@ import { Button, Input } from "@heroui/react";
 import { Formik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { MatrixBackground } from "@/components/ui/MatrixBackground";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { LetterFx } from "@/components/ui/LetterFx";
+import { SpotlightOverlay } from "@/components/ui/SpotlightOverlay";
 
 export const Register = () => {
   const router = useRouter();
   const [regError, setRegError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [verificationRequired, setVerificationRequired] = useState(false);
+  const [showText, setShowText] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowText(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const initialValues: RegisterFormType = {
     full_name: "",
@@ -59,6 +66,7 @@ export const Register = () => {
     return (
       <>
         <MatrixBackground />
+        <SpotlightOverlay />
         <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
           <div className="mb-8 text-center">
             <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
@@ -93,11 +101,24 @@ export const Register = () => {
   return (
     <>
       <MatrixBackground />
+      <SpotlightOverlay />
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
         <div className="mb-8 text-center">
           <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
-          <h1 className="text-2xl font-mono text-green-400">Create your account</h1>
-          <p className="text-green-400/80 font-mono mt-2">Join DealPig to manage your real estate deals</p>
+          {showText && (
+            <>
+              <h1 className="text-2xl font-mono text-green-400">
+                <LetterFx trigger="instant" speed="fast">
+                  Create your account
+                </LetterFx>
+              </h1>
+              <p className="text-green-400/80 font-mono mt-2">
+                <LetterFx trigger="instant" speed="fast">
+                  Join DealPig to manage your real estate deals
+                </LetterFx>
+              </p>
+            </>
+          )}
         </div>
 
         <Formik
@@ -207,7 +228,9 @@ export const Register = () => {
             </Link>
           </p>
           <p className="mt-2 text-green-400/80">
-            © {new Date().getFullYear()} DealPig - All rights reserved
+            <LetterFx trigger="instant" speed="fast">
+              © {new Date().getFullYear()} DealPig - All rights reserved
+            </LetterFx>
           </p>
         </div>
       </div>

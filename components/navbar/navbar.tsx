@@ -2,6 +2,8 @@ import { Navbar, NavbarContent, Select, SelectItem, Switch, Tooltip } from "@her
 import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import ThemeToggle from "./theme-toggle";
+import { ProfileMenu } from "@/components/ui/ProfileMenu";
+import { supabase } from "@/lib/supabase";
 
 interface Props {
   children: React.ReactNode;
@@ -10,13 +12,27 @@ interface Props {
 export const NavbarWrapper = ({ children }: Props) => {
   const { theme } = useTheme();
   const isLight = theme === 'light';
-  // Use HeroUI dark style for 'dark' and 'leet' themes
-
+  const [user, setUser] = useState<any>(null);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [isActive, setIsActive] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   
+  // Fetch user data on component mount
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser(user);
+        }
+      } catch (error) {
+        console.error('Error loading user:', error);
+      }
+    }
+    loadUser();
+  }, []);
+
   // Fetch campaigns on component mount
   useEffect(() => {
     async function loadCampaigns() {
@@ -27,7 +43,6 @@ export const NavbarWrapper = ({ children }: Props) => {
         
         setCampaigns(campaignsData || []);
         
-        // If campaigns exist, select the first active one by default
         if (campaignsData && campaignsData.length > 0) {
           const activeCampaign = campaignsData.find((c: { status: string; }) => c.status === 'ACTIVE');
           if (activeCampaign && activeCampaign.id) {
@@ -52,7 +67,6 @@ export const NavbarWrapper = ({ children }: Props) => {
   const handleCampaignStatusChange = async (newActiveState: boolean) => {
     if (!selectedCampaign) return;
     
-    // If trying to activate, we'll just update status directly since verification modal was removed
     await updateCampaignStatus(selectedCampaign, newActiveState);
   };
   
@@ -60,7 +74,6 @@ export const NavbarWrapper = ({ children }: Props) => {
   const updateCampaignStatus = async (campaignId: string, isActive: boolean) => {
     setIsActive(isActive);
     try {
-      // Call your API to update campaign status
       const response = await fetch(`/api/campaigns/${campaignId}/status`, {
         method: 'POST',
         headers: {
@@ -73,7 +86,6 @@ export const NavbarWrapper = ({ children }: Props) => {
         throw new Error('Failed to update campaign status');
       }
       
-      // Update campaigns list if successful
       const updatedCampaigns = campaigns.map(campaign => 
         campaign.id === campaignId 
           ? { ...campaign, status: isActive ? 'ACTIVE' : 'PAUSED' } 
@@ -82,12 +94,10 @@ export const NavbarWrapper = ({ children }: Props) => {
       setCampaigns(updatedCampaigns);
     } catch (error) {
       console.error('Error updating campaign status:', error);
-      // Revert UI state if API call fails
       setIsActive(!isActive);
       alert('Failed to update campaign status. Please try again.');
     }
   };
-  
 
   return (
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
@@ -100,9 +110,8 @@ export const NavbarWrapper = ({ children }: Props) => {
         }`}
       >
         <NavbarContent justify="end" className="flex items-center gap-4 px-4">
-        <Tooltip content={isActive ? 'Pause Campaign' : 'Activate Campaign'}>
-        </Tooltip>
-        <Switch
+          <Tooltip content={isActive ? 'Pause Campaign' : 'Activate Campaign'}>
+            <Switch
               size="md"
               isSelected={isActive}
               onChange={() => handleCampaignStatusChange(!isActive)}
@@ -112,7 +121,7 @@ export const NavbarWrapper = ({ children }: Props) => {
                 wrapper: isLight ? 'border-green-400' : ''
               }}
             />
-          {/* Campaign selector and status switch */}
+          </Tooltip>
           <Select
             size="sm"
             placeholder="Select campaign"
@@ -132,11 +141,10 @@ export const NavbarWrapper = ({ children }: Props) => {
           >
             {campaigns.map(c => <SelectItem key={c.id} className={isLight ? 'bg-white text-black font-mono' : ''}>{c.name}</SelectItem>)}
           </Select>
-          {/* Theme toggle */}
           <ThemeToggle />
+          {user && <ProfileMenu user={user} />}
         </NavbarContent>
       </Navbar>
-
       {children}
     </div>
   );

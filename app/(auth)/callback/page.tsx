@@ -19,14 +19,49 @@ function CallbackHandler() {
   useEffect(() => {
     console.log('🔄 Auth callback page loaded');
     console.log('📋 URL parameters:', {
+      code: searchParams.get("code"),
+      state: searchParams.get("state"),
       error: searchParams.get("error"),
       errorDescription: searchParams.get("error_description"),
       fullUrl: window.location.href
     });
 
+    // Validate domain
+    const currentDomain = window.location.hostname;
+    if (!currentDomain.includes('dealpig.vercel.app')) {
+      console.error('❌ Invalid domain:', currentDomain);
+      setError('Invalid domain. Please use dealpig.vercel.app');
+      return;
+    }
+
     const processAuth = async () => {
       try {
-        console.log('🔍 Checking for auth session...');
+        // First check if we have an error
+        if (searchParams.get("error")) {
+          throw new Error(searchParams.get("error_description") || 'Authentication failed');
+        }
+
+        // Check if we have a code parameter (OAuth flow)
+        if (searchParams.get("code")) {
+          setMessage("Completing OAuth authentication...");
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(searchParams.get("code")!);
+          
+          if (exchangeError) {
+            console.error('❌ OAuth exchange error:', exchangeError);
+            throw exchangeError;
+          }
+
+          if (data.session) {
+            console.log('✅ OAuth session established, redirecting...');
+            setMessage("Login successful! Redirecting...");
+            const redirectTo = searchParams.get("redirectTo") || "/";
+            router.push(redirectTo);
+            return;
+          }
+        }
+
+        // If no code, check for existing session
+        setMessage("Checking session...");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -35,28 +70,14 @@ function CallbackHandler() {
         }
 
         if (session) {
-          console.log('✅ Session found, redirecting to dashboard...');
+          console.log('✅ Session found, redirecting...');
           setMessage("Login successful! Redirecting...");
-          router.push("/");
+          const redirectTo = searchParams.get("redirectTo") || "/";
+          router.push(redirectTo);
           return;
         }
 
-        // If no session, try to exchange the URL hash for a session
-        setMessage("Completing authentication...");
-        const { data, error: exchangeError } = await supabase.auth.getUser();
-        
-        if (exchangeError) {
-          console.error('❌ Auth exchange error:', exchangeError);
-          throw exchangeError;
-        }
-
-        if (data.user) {
-          console.log('✅ Authentication successful, redirecting to dashboard...');
-          setMessage("Login successful! Redirecting...");
-          router.push("/");
-        } else {
-          throw new Error('No user data received');
-        }
+        throw new Error('No valid session found');
       } catch (error) {
         console.error('❌ Callback handling error:', {
           name: error instanceof Error ? error.name : 'Unknown',
@@ -67,11 +88,7 @@ function CallbackHandler() {
       }
     };
     
-    if (!searchParams.get("error")) {
-      processAuth();
-    } else {
-      setError(searchParams.get("error_description") || 'Authentication failed');
-    }
+    processAuth();
   }, [searchParams, router]);
 
   return (

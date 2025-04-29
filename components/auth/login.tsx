@@ -11,12 +11,19 @@ import { useCallback, useState, useEffect } from "react";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { MatrixBackground } from "@/components/ui/MatrixBackground";
 import { LetterFx } from "@/components/ui/LetterFx";
+import { SpotlightOverlay } from "@/components/ui/SpotlightOverlay";
 
 export const Login = () => {
   const router = useRouter();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showText, setShowText] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowText(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const initialValues: LoginFormType = {
     email: "",
@@ -29,11 +36,9 @@ export const Login = () => {
       setAuthError(null);
       
       try {
-        // Call loginUser action to authenticate
         const result = await loginUser(values);
         
         if (result?.success) {
-          // The cookie is now set in the loginUser action
           router.replace("/");
         } else {
           setAuthError(result?.message || "Invalid credentials. Please check your email and password.");
@@ -49,33 +54,21 @@ export const Login = () => {
   );
 
   const handleGoogleLogin = useCallback(async () => {
-    console.log('🚀 Starting Google login process...');
     setIsGoogleLoading(true);
     setAuthError(null);
     
     try {
-      console.log('📡 Calling loginWithGoogle action...');
       const result = await loginWithGoogle();
-      console.log('📥 Received result from loginWithGoogle:', result);
       
       if (result?.redirectUrl) {
-        console.log('✅ Got redirect URL:', result.redirectUrl);
-        // Redirect to Google OAuth consent screen
         window.location.href = result.redirectUrl;
       } else if (result?.error) {
-        console.error('❌ Login error:', result.error);
         setAuthError(result.error);
       } else {
-        console.error('❌ Unexpected result format:', result);
         setAuthError('Unexpected response from authentication service');
       }
     } catch (error) {
-      console.error('❌ Google login error:', error);
-      console.error('Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      console.error("Google login error:", error);
       setAuthError("Failed to initiate Google login. Please try again.");
     } finally {
       setIsGoogleLoading(false);
@@ -84,17 +77,18 @@ export const Login = () => {
 
   return (
     <>
-      {/* Matrix Background */}
       <MatrixBackground />
-
-      {/* Login Content */}
+      <SpotlightOverlay />
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
         <div className="mb-8 text-center">
           <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
-          <p className="text-green-400 font-mono mt-2">Log in to access your campaigns</p>
+          {showText && (
+            <LetterFx trigger="instant" speed="fast" className="text-green-400 font-mono mt-2">
+              Log in to access your campaigns
+            </LetterFx>
+          )}
         </div>
 
-        {/* Google Login Button */}
         <div className="w-full mb-6">
           <Button
             type="button"
@@ -117,22 +111,29 @@ export const Login = () => {
               )
             }
           >
-            <span className={`font-medium ${isGoogleLoading ? 'opacity-0' : ''} font-mono`}>Continue with Google</span>
+            <span className="inline-block">
+              <LetterFx trigger="hover" speed="medium">
+                Continue with Google
+              </LetterFx>
+            </span>
           </Button>
         </div>
 
-        {/* Divider */}
         <div className="w-full flex items-center mb-6">
-          <div className="flex-grow border-t border-gray-200"></div>
-          <span className="px-4 text-gray-500 text-sm font-medium">or continue with email</span>
-          <div className="flex-grow border-t border-gray-200"></div>
+          <div className="flex-grow border-t border-green-400/20"></div>
+          <span className="px-4 text-green-400/60 text-sm font-mono">
+            <LetterFx trigger="instant" speed="fast">
+              or continue with email
+            </LetterFx>
+          </span>
+          <div className="flex-grow border-t border-green-400/20"></div>
         </div>
 
         <Formik
           initialValues={initialValues}
           validationSchema={LoginSchema}
           onSubmit={handleLogin}>
-          {({ values, errors, touched, handleChange, handleSubmit, status }) => (
+          {({ values, errors, touched, handleChange, handleSubmit }) => (
             <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="w-full">
               <div className="flex flex-col gap-4 mb-4 w-full">
                 <Input
@@ -170,39 +171,51 @@ export const Login = () => {
                   }}
                 />
                 <div className="flex justify-end">
-                  <Link href="/forgot-password" className="text-sm text-primary-600 hover:underline">
-                    Forgot password?
+                  <Link href="/forgot-password" className="text-sm text-green-300 hover:text-green-200 hover:underline font-mono">
+                    <LetterFx trigger="hover" speed="fast">
+                      Forgot password?
+                    </LetterFx>
                   </Link>
                 </div>
               </div>
 
               {authError && (
-                <div className="text-red-500 mb-4 text-center p-2 bg-red-50 rounded" role="alert">
+                <div className="text-red-500 mb-4 text-center p-2 bg-red-950/50 rounded-none border border-red-500 font-mono" role="alert">
                   {authError}
                 </div>
               )}
 
               <Button
                 type="submit"
-                variant="solid"
+                variant="flat"
                 className="w-full mt-2 font-mono text-green-400 bg-black border border-green-400 rounded-none hover:bg-green-400 hover:text-black transition-colors duration-200"
                 size="lg"
                 isLoading={isLoading}
                 isDisabled={isLoading || isGoogleLoading}
-              >{isLoading ? "Logging in..." : "Login"}</Button>
+              >
+                <span className="inline-block">
+                  <LetterFx trigger="hover" speed="medium">
+                    {isLoading ? "Logging in..." : "Login"}
+                  </LetterFx>
+                </span>
+              </Button>
             </form>
           )}
         </Formik>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>
-              Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-primary-600 font-medium hover:underline">
+        <div className="mt-6 text-center text-sm font-mono">
+          <p className="text-green-400">
+            Don&apos;t have an account?{" "}
+            <Link href="/register" className="text-green-300 hover:text-green-200 hover:underline">
+              <LetterFx trigger="hover" speed="fast" className="inline-block">
                 Register here
-              </Link>
-            </p>
-          <p className="mt-2">
-            © {new Date().getFullYear()} DealPig - All rights reserved
+              </LetterFx>
+            </Link>
+          </p>
+          <p className="mt-2 text-green-400/80">
+            <LetterFx trigger="instant" speed="fast">
+              © {new Date().getFullYear()} DealPig - All rights reserved
+            </LetterFx>
           </p>
         </div>
       </div>
