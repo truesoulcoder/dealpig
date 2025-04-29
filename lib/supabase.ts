@@ -23,7 +23,10 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
           google: {
             background: '#10B981',
             iconUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dealpig.svg`,
-            buttonText: 'Continue with Google'
+            buttonText: 'Continue with Google',
+            displayName: 'DealPig',
+            logoUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dealpig.svg`,
+            brandName: 'DealPig'
           }
         }
       }

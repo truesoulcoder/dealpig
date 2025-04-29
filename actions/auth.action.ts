@@ -167,6 +167,11 @@ export async function loginWithGoogle() {
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
+          include_granted_scopes: 'true',
+          scope: 'email profile https://www.googleapis.com/auth/gmail.send',
+          display: 'popup',
+          response_type: 'code',
+          state: 'dealpig'
         },
       },
     });
