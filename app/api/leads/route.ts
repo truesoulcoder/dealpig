@@ -61,75 +61,97 @@ export async function POST(request: NextRequest) {
     // Upload file using upsert:false so existing files cause a duplicate error
     const admin = createAdminClient();
     console.log('[API /leads] Uploading file to storage...');
+    console.log('[API /leads] Storage client initialized:', !!admin.storage);
     
-    const { error: storageError } = await admin.storage
-      .from('lead-imports')
-      .upload(fileName, buffer, { 
-        contentType: 'text/csv',
-        upsert: false,
-        cacheControl: '3600'
-      });
-
-    if (storageError) {
-      console.error('[API /leads] Storage upload error:', storageError);
-      return NextResponse.json(
-        { success: false, message: `Storage error: ${storageError.message}` },
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    console.log('[API /leads] File uploaded successfully');
-
-    // Record file metadata in lead_sources
-    const { data: newSource, error: dbError } = await admin
-      .from('lead_sources')
-      .insert({
-        name: fileName,
-        file_name: file.name,
-        last_imported: new Date().toISOString(),
-        record_count: 0,
-        is_active: true,
-      })
-      .select('id')
-      .single();
-
-    if (dbError || !newSource) {
-      console.error('[API /leads] Database error:', dbError);
-      return NextResponse.json(
-        { success: false, message: `Database error: ${dbError?.message}` },
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    const sourceId = newSource.id;
-    console.log('[API /leads] Created lead source:', sourceId);
-
     try {
-      // Ingest raw rows and normalize into leads
-      console.log('[API /leads] Starting lead ingestion...');
-      const { count } = await ingestLeadSource(sourceId);
-      console.log('[API /leads] Ingested', count, 'leads');
+      const { data, error: storageError } = await admin.storage
+        .from('lead-imports')
+        .upload(fileName, buffer, { 
+          contentType: 'text/csv',
+          upsert: false,
+          cacheControl: '3600'
+        });
 
-      console.log('[API /leads] Normalizing leads...');
-      await normalizeLeadsForSource(sourceId);
-      console.log('[API /leads] Lead normalization complete');
+      console.log('[API /leads] Upload response data:', data);
+      
+      if (storageError) {
+        console.error('[API /leads] Storage upload error:', storageError);
+        console.error('[API /leads] Error details:', {
+          message: storageError.message,
+          name: storageError.name
+        });
+        return NextResponse.json(
+          { success: false, message: `Storage error: ${storageError.message}` },
+          { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
 
-      return NextResponse.json(
-        { success: true, count, message: `Successfully processed ${count} leads` },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-    } catch (ingestionError) {
-      console.error('[API /leads] Lead ingestion error:', ingestionError);
+      console.log('[API /leads] File uploaded successfully to path:', data?.path);
+
+      // Record file metadata in lead_sources
+      const { data: newSource, error: dbError } = await admin
+        .from('lead_sources')
+        .insert({
+          name: fileName,
+          file_name: file.name,
+          last_imported: new Date().toISOString(),
+          record_count: 0,
+          is_active: true,
+        })
+        .select('id')
+        .single();
+
+      if (dbError || !newSource) {
+        console.error('[API /leads] Database error:', dbError);
+        return NextResponse.json(
+          { success: false, message: `Database error: ${dbError?.message}` },
+          { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      const sourceId = newSource.id;
+      console.log('[API /leads] Created lead source:', sourceId);
+
+      try {
+        // Ingest raw rows and normalize into leads
+        console.log('[API /leads] Starting lead ingestion...');
+        const { count } = await ingestLeadSource(sourceId);
+        console.log('[API /leads] Ingested', count, 'leads');
+
+        console.log('[API /leads] Normalizing leads...');
+        await normalizeLeadsForSource(sourceId);
+        console.log('[API /leads] Lead normalization complete');
+
+        return NextResponse.json(
+          { success: true, count, message: `Successfully processed ${count} leads` },
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+      } catch (ingestionError) {
+        console.error('[API /leads] Lead ingestion error:', ingestionError);
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}` 
+          },
+          { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+    } catch (err) {
+      console.error('[API /leads] Unexpected error:', err);
       return NextResponse.json(
         { 
           success: false, 
-          message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}` 
+          message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
         },
         { 
           status: 500,

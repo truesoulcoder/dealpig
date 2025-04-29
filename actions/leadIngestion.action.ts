@@ -1,67 +1,103 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase';
-import { Client } from 'pg';
 import Papa from 'papaparse';
 import crypto from 'crypto';
 
 // Parses CSV from storage for a given lead_source ID and ingests into a raw table
 export async function ingestLeadSource(sourceId: string) {
   const admin = createAdminClient();
+  console.log('[LeadIngestion] Starting ingestion for source:', sourceId);
+  
   // Fetch source info
   const { data: sourceData, error: srcErr } = await admin
     .from('lead_sources')
     .select('name')
     .eq('id', sourceId)
     .single();
-  if (srcErr || !sourceData) throw new Error(srcErr?.message || 'Source not found');
+    
+  if (srcErr || !sourceData) {
+    console.error('[LeadIngestion] Source fetch error:', srcErr);
+    throw new Error(srcErr?.message || 'Source not found');
+  }
+  
   const fileName = sourceData.name;
+  console.log('[LeadIngestion] Processing file:', fileName);
 
   // Download CSV from storage
   const { data: fileBlob, error: blobErr } = await admin.storage
     .from('lead-imports')
     .download(fileName);
-  if (blobErr || !fileBlob) throw new Error(blobErr?.message || 'Failed to download file');
+    
+  if (blobErr || !fileBlob) {
+    console.error('[LeadIngestion] File download error:', blobErr);
+    throw new Error(blobErr?.message || 'Failed to download file');
+  }
+  
   const text = await fileBlob.text();
+  console.log('[LeadIngestion] File downloaded, size:', text.length);
 
   // Parse CSV into JSON rows
   const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
   if (parsed.errors.length) {
-    console.error('CSV parse errors:', parsed.errors);
+    console.error('[LeadIngestion] CSV parse errors:', parsed.errors);
     throw new Error('Failed to parse CSV');
   }
+  
   const rows = parsed.data;
+  console.log('[LeadIngestion] Parsed rows:', rows.length);
 
   // Build raw table name
   const rawTable = `raw_${sourceId.replace(/-/g, '_')}`;
+  console.log('[LeadIngestion] Creating raw table:', rawTable);
 
-  // Connect to Postgres directly to create raw table and insert rows
-  const pg = new Client({ connectionString: process.env.DATABASE_URL });
-  await pg.connect();
   try {
     // Create table if not exists with TEXT columns for each header
     const cols = Object.keys(rows[0] || {}).map((col) => `"${col}" TEXT`).join(', ');
-    await pg.query(`CREATE TABLE IF NOT EXISTS "${rawTable}" (${cols});`);
-
-    // Insert rows
-    for (const row of rows) {
-      const keys = Object.keys(row);
-      const vals = keys.map((k) => row[k]);
-      const placeholders = keys.map((_, i) => `$${i+1}`).join(', ');
-      await pg.query(
-        `INSERT INTO "${rawTable}" (${keys.map((k) => `"${k}"`).join(',')}) VALUES (${placeholders});`,
-        vals
-      );
+    const createTableQuery = `CREATE TABLE IF NOT EXISTS "${rawTable}" (${cols});`;
+    
+    const { error: createError } = await admin.rpc('exec_sql', { query: createTableQuery });
+    if (createError) {
+      console.error('[LeadIngestion] Table creation error:', createError);
+      throw new Error(`Failed to create table: ${createError.message}`);
     }
-    // Update record_count and table_name in lead_sources
-    await admin
+
+    // Insert rows in batches
+    const batchSize = 100;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const keys = Object.keys(rows[0]);
+      const values = batch.map(row => keys.map(k => row[k]));
+      
+      const { error: insertError } = await admin
+        .from(rawTable)
+        .insert(values.map(vals => Object.fromEntries(keys.map((k, i) => [k, vals[i]]))));
+        
+      if (insertError) {
+        console.error('[LeadIngestion] Batch insert error:', insertError);
+        throw new Error(`Failed to insert batch: ${insertError.message}`);
+      }
+      
+      console.log(`[LeadIngestion] Inserted batch ${i / batchSize + 1}/${Math.ceil(rows.length / batchSize)}`);
+    }
+
+    // Update source record count
+    const { error: updateError } = await admin
       .from('lead_sources')
-      .update({ record_count: rows.length, table_name: rawTable })
+      .update({ record_count: rows.length })
       .eq('id', sourceId);
-  } finally {
-    await pg.end();
+      
+    if (updateError) {
+      console.error('[LeadIngestion] Update record count error:', updateError);
+      throw new Error(`Failed to update record count: ${updateError.message}`);
+    }
+
+    console.log('[LeadIngestion] Successfully processed', rows.length, 'rows');
+    return { count: rows.length };
+  } catch (err) {
+    console.error('[LeadIngestion] Unexpected error:', err);
+    throw err;
   }
-  return { success: true, count: rows.length };
 }
 
 // Normalizes raw rows: splits multi-contact fields into individual leads in 'leads' table
