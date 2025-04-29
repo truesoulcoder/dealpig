@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS senders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR NOT NULL,
     email VARCHAR NOT NULL UNIQUE,
-    title VARCHAR NOT NULL,
+    title VARCHAR,
     daily_quota INTEGER DEFAULT 50,
     emails_sent INTEGER DEFAULT 0,
     last_sent_at TIMESTAMPTZ,

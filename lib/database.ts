@@ -81,6 +81,7 @@ export async function createSender(senderData: {
   email: string;
   title?: string;
   daily_quota: number;
+  user_id?: string;
 }): Promise<UUID> {
   try {
     // Use admin client for better permissions in production
@@ -93,6 +94,7 @@ export async function createSender(senderData: {
         title: senderData.title || '',
         daily_quota: senderData.daily_quota || 100,
         emails_sent: 0,
+        user_id: senderData.user_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })

@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         email,
         title: title || undefined,
         daily_quota: parseInt(dailyQuota),
+        user_id: effectiveUserId,
       });
     } catch (dbError) {
       console.error('Error creating sender in database:', dbError);
