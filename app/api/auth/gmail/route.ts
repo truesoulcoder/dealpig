@@ -48,16 +48,10 @@ export async function GET(request: NextRequest) {
     console.log(`Sender created with ID: ${senderId}`);
     
     // Store sender ID in session for the callback - use cookieStore after awaiting
-    cookieStore.set('pending-sender-id', senderId, {
-      path: '/',
-      httpOnly: true,
-      maxAge: 60 * 15, // 15 minutes
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    });
     
     // Get OAuth URL and redirect to Google consent screen
-    const authUrl = getAuthUrl();
+    // Pass the sender ID as state parameter in OAuth URL
+    const authUrl = getAuthUrl(senderId);
     console.log(`Redirecting to Google OAuth: ${authUrl}`);
     
     return NextResponse.redirect(authUrl);

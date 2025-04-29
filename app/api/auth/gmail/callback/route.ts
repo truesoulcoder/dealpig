@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     // Get the authorization code from the query parameters
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
+    const state = searchParams.get('state'); // Get the state parameter which contains our sender ID
     
     if (!code) {
       const error = searchParams.get('error') || 'Missing authorization code';
@@ -30,13 +31,12 @@ export async function GET(request: NextRequest) {
       tokenExpiry: tokens.expiry_date 
     });
     
-    // Get pending sender ID from cookie
-    const cookieStore = await cookies();
-    const pendingSenderId = cookieStore.get('pending-sender-id')?.value;
+    // Use the state parameter as our sender ID
+    const pendingSenderId = state;
     
     if (!pendingSenderId) {
-      console.error('No pending sender ID found in cookies');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('No pending sender found')}`);
+      console.error('No sender ID found in state parameter');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('OAuth state missing sender ID')}`);
     }
     
     console.log(`Processing tokens for sender ID: ${pendingSenderId}`);
@@ -69,9 +69,6 @@ export async function GET(request: NextRequest) {
       });
       
       console.log('Successfully saved tokens to database for sender');
-      
-      // Clear the pending sender ID cookie
-      cookieStore.delete('pending-sender-id');
       
       // Redirect back to the accounts page with success message
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?success=true`);

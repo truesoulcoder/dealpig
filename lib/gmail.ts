@@ -14,7 +14,7 @@ export function getOAuth2Client(redirectUrl?: string) {
 }
 
 // Generate authorization URL for initial OAuth consent
-export function getAuthUrl() {
+export function getAuthUrl(state?: string) {
   const oauth2Client = getOAuth2Client();
   
   const scopes = [
@@ -23,11 +23,18 @@ export function getAuthUrl() {
     'https://www.googleapis.com/auth/userinfo.profile', // Access to user's profile
   ];
   
-  return oauth2Client.generateAuthUrl({
+  const authUrlOptions: any = {
     access_type: 'offline', // Get a refresh token for future access
     prompt: 'consent', // Force showing the consent screen
     scope: scopes,
-  });
+  };
+  
+  // Add state parameter if provided (will contain our sender ID)
+  if (state) {
+    authUrlOptions.state = state;
+  }
+  
+  return oauth2Client.generateAuthUrl(authUrlOptions);
 }
 
 // Exchange auth code for tokens after user grants permission
