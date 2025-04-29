@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { MatrixBackground } from "@/components/ui/MatrixBackground";
-import { Background } from "@/components/ui/Background";
 import { LetterFx } from "@/components/ui/LetterFx";
 
 export const Login = () => {
@@ -87,23 +86,6 @@ export const Login = () => {
     <>
       {/* Matrix Background */}
       <MatrixBackground />
-      
-      {/* Illumination mask */}
-      <Background
-        mask={{
-          cursor: true,
-          radius: 300 // Adjust this value to change the size of the illuminated area
-        }}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'black',
-          zIndex: 1
-        }}
-      />
 
       {/* Login Content */}
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">

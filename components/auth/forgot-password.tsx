@@ -8,7 +8,6 @@ import Link from "next/link";
 import { RequestPasswordResetFormType } from "@/helpers/types";
 import { requestPasswordReset } from "@/actions/auth.action";
 import { MatrixBackground } from "@/components/ui/MatrixBackground";
-import { Background } from "@/components/ui/Background";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { LetterFx } from "@/components/ui/LetterFx";
 
@@ -70,21 +69,6 @@ export const ForgotPassword = () => {
     return (
       <>
         <MatrixBackground />
-        <Background
-          mask={{
-            cursor: true,
-            radius: 300
-          }}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'black',
-            zIndex: 1
-          }}
-        />
         <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
           <div className="mb-8 text-center">
             <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
@@ -123,21 +107,6 @@ export const ForgotPassword = () => {
   return (
     <>
       <MatrixBackground />
-      <Background
-        mask={{
-          cursor: true,
-          radius: 300
-        }}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'black',
-          zIndex: 1
-        }}
-      />
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
         <div className="mb-8 text-center">
           <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />

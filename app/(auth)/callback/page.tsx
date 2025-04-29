@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from "@/lib/supabase";
 import { MatrixBackground } from "@/components/ui/MatrixBackground";
-import { Background } from "@/components/ui/Background";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { LetterFx } from "@/components/ui/LetterFx";
 
@@ -78,21 +77,6 @@ function CallbackHandler() {
   return (
     <>
       <MatrixBackground />
-      <Background
-        mask={{
-          cursor: true,
-          radius: 300
-        }}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'black',
-          zIndex: 1
-        }}
-      />
       <div className="relative z-10">
         {error ? (
           <div className="p-4 border border-red-500 bg-black/50 rounded-none mb-6">
