@@ -118,27 +118,12 @@ export default function UploadLeadsForm() {
       return;
     }
 
-    // Upload directly from browser to Supabase storage
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const fileName = `${crypto.randomUUID()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from('lead-imports')
-      .upload(fileName, file, { upsert: false });
-    if (uploadError) {
-      setIsError(true);
-      setMessage(uploadError.message);
-      setLoading(false);
-      return;
-    }
-
-    // Notify server to record file metadata
+    // Send file directly to our API which will handle upload and ingestion
+    const payload = new FormData();
+    payload.append('file', file);
     const res = await fetch('/api/leads', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: fileName, file_name: file.name }),
+      body: payload,
     });
     let result: any;
     try {
@@ -151,7 +136,7 @@ export default function UploadLeadsForm() {
     }
     if (!res.ok || !result.success) {
       setIsError(true);
-      setMessage(result.message || 'Failed to record upload.');
+      setMessage(result.message || 'Failed to upload leads file.');
     } else {
       setMessage('Leads file uploaded successfully.');
       form.reset();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import crypto from 'crypto';
+import { Buffer } from 'buffer';
 import { ingestLeadSource, normalizeLeadsForSource } from '@/actions/leadIngestion.action';
 export const runtime = 'nodejs';
 export const config = {
@@ -18,12 +19,15 @@ export async function POST(request: NextRequest) {
     }
     const file = fileField;
     const fileName = `${crypto.randomUUID()}_${file.name}`;
+    // Convert File (Blob) to Buffer for Supabase upload
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     // Upload file using upsert:false so existing files cause a duplicate error
     const admin = createAdminClient();
     console.log('[API /leads] uploading file:', fileName);
     const { error: storageError } = await admin.storage
       .from('lead-imports')
-      .upload(fileName, file, { contentType: file.type, upsert: false });
+      .upload(fileName, buffer, { contentType: file.type, upsert: false });
     console.log('[API /leads] storage upload error:', storageError);
     if (storageError) {
       return NextResponse.json({ success: false, message: storageError.message }, { status: 500 });
