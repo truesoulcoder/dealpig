@@ -4,6 +4,8 @@
 import { Button } from '@heroui/react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { createBrowserClient } from '@supabase/ssr';
+import crypto from 'crypto';
 
 export default function UploadLeadsForm() {
   const { theme } = useTheme();
@@ -102,121 +104,61 @@ export default function UploadLeadsForm() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setShowConsole(true); // show log console during upload
-    const formEl = e.currentTarget; // capture form element for reset
+    if (loading) return;
     setLoading(true);
     setMessage(null);
-    setProgress(0);
-    setLogs([]);
     setIsError(false);
-    const formData = new FormData(e.currentTarget);
-    const file = formData.get('file') as File;
-    addLog(`> Starting upload: ${file.name}`);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/leads');
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setProgress(percent);
-        addLog(`> Upload progress: ${percent}%`);
-      }
-    };
-    xhr.onload = () => {
-      const status = xhr.status;
-      addLog(`> Upload complete with status ${status}`);
-      if (status !== 200) {
-        setIsError(true);
-        setUploadStatus('error');
-        
-        // Log the actual response content for debugging
-        addLog(`> Server response: ${xhr.responseText.substring(0, 100)}...`);
-        
-        // Check if response is HTML instead of JSON
-        if (xhr.responseText.trim().startsWith('<!DOCTYPE') || 
-            xhr.responseText.trim().startsWith('<html')) {
-          addLog('> Server returned HTML instead of JSON (possible server error)');
-          setMessage('Server error occurred. Please try again later.');
-        } else {
-          // Try to parse JSON error message
-          let errMsg = `Error ${status}`;
-          try {
-            const errJson = JSON.parse(xhr.responseText);
-            if (errJson.message) errMsg = errJson.message;
-          } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : String(e);
-            addLog(`> Failed to parse error response: ${errorMessage}`);
-          }
-          addLog(`> Server error: ${errMsg}`);
-          setMessage(errMsg);
-        }
-        setLoading(false);
-        return;
-      }
-      
-      // Refresh explorer after upload success
-      fetchFiles();
-      
-      // Try parsing JSON response
-      let result: any;
-      try {
-        // Check if response might be HTML before trying to parse
-        if (xhr.responseText.trim().startsWith('<!DOCTYPE') || 
-            xhr.responseText.trim().startsWith('<html')) {
-          addLog('> Warning: Server returned HTML instead of JSON');
-          setIsError(true);
-          setUploadStatus('error');
-          setMessage('Server returned invalid response format. Please contact support.');
-          setLoading(false);
-          return;
-        }
-        
-        result = JSON.parse(xhr.responseText);
-      } catch (e) {
-        // No valid JSON, but since status is 200 assume success
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        addLog(`> JSON parse error: ${errorMessage}`);
-        addLog('> Response starts with: ' + xhr.responseText.substring(0, 50) + '...');
-        addLog('> No valid JSON response; upload assumed successful');
-        setIsError(false);
-        setUploadStatus('success');
-        setMessage('Leads file uploaded successfully.');
-        formEl.reset();
-        fetchFiles();
-        setLoading(false);
-        // Hide console and clear selected file name on success
-        setShowConsole(false);
-        setSelectedFileName('No file chosen');
-        return;
-      }
-      
-      // If JSON parsed
-      if (result.success) {
-        setIsError(false);
-        setUploadStatus('success');
-        addLog('> Server response: Success');
-        setMessage('Leads file uploaded successfully.');
-        formEl.reset();
-        fetchFiles();
-        // Hide console and clear selected file name on success
-        setShowConsole(false);
-        setSelectedFileName('No file chosen');
-      } else {
-        setIsError(true);
-        setUploadStatus('error');
-        const errMsg = xhr.status === 409 ? 'This file has already been uploaded.' : result.message || 'Upload failed.';
-        addLog(`> Server error: ${errMsg}`);
-        setMessage(errMsg);
-      }
+    const form = e.currentTarget as HTMLFormElement;
+    const fileInput = form.querySelector('input[type=file]') as HTMLInputElement;
+    const file = fileInput.files?.[0];
+    if (!file) {
+      setMessage('No file selected');
       setLoading(false);
-    };
-    xhr.onerror = () => {
+      return;
+    }
+
+    // Upload directly from browser to Supabase storage
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const fileName = `${crypto.randomUUID()}_${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('lead-imports')
+      .upload(fileName, file, { upsert: false });
+    if (uploadError) {
       setIsError(true);
-      addLog('> Network error during upload');
-      setMessage('Network error during upload.');
+      setMessage(uploadError.message);
       setLoading(false);
-    };
-    xhr.send(formData);
+      return;
+    }
+
+    // Notify server to record file metadata
+    const res = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: fileName, file_name: file.name }),
+    });
+    let result: any;
+    try {
+      result = await res.json();
+    } catch {
+      setIsError(true);
+      setMessage('Server response was not valid JSON');
+      setLoading(false);
+      return;
+    }
+    if (!res.ok || !result.success) {
+      setIsError(true);
+      setMessage(result.message || 'Failed to record upload.');
+    } else {
+      setMessage('Leads file uploaded successfully.');
+      form.reset();
+      setSelectedFileName('No file chosen');
+      fetchFiles();
+    }
+    setLoading(false);
   };
 
   // Determine logs to display: show all on error, last 5 lines on success
