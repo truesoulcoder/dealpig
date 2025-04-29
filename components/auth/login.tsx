@@ -47,20 +47,33 @@ export const Login = () => {
   );
 
   const handleGoogleLogin = useCallback(async () => {
+    console.log('🚀 Starting Google login process...');
     setIsGoogleLoading(true);
     setAuthError(null);
     
     try {
+      console.log('📡 Calling loginWithGoogle action...');
       const result = await loginWithGoogle();
+      console.log('📥 Received result from loginWithGoogle:', result);
       
       if (result?.redirectUrl) {
+        console.log('✅ Got redirect URL:', result.redirectUrl);
         // Redirect to Google OAuth consent screen
         window.location.href = result.redirectUrl;
       } else if (result?.error) {
+        console.error('❌ Login error:', result.error);
         setAuthError(result.error);
+      } else {
+        console.error('❌ Unexpected result format:', result);
+        setAuthError('Unexpected response from authentication service');
       }
     } catch (error) {
-      console.error("Google login error:", error);
+      console.error('❌ Google login error:', error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       setAuthError("Failed to initiate Google login. Please try again.");
     } finally {
       setIsGoogleLoading(false);

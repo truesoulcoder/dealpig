@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { createBrowserClient } from '@supabase/ssr';
 import crypto from 'crypto';
+import ProgressConsole from './ProgressConsole';
 
 export default function UploadLeadsForm() {
   const { theme } = useTheme();
@@ -210,101 +211,80 @@ export default function UploadLeadsForm() {
   const leetLabelClass = isLeetTheme ? 'leet-label' : '';
 
   return (
-    <div className="w-full mx-auto px-4 flex flex-col gap-4">
-      {/* Explorer: hierarchical file/folder tree */}
-      <div className={`w-full bg-black text-green-400 font-mono p-4 rounded overflow-x-auto whitespace-pre ${isLeetTheme ? 'leet-console' : ''}`}>
-        <div>lead-imports/</div>
-        {loadingFiles ? (
-          <div className="italic text-gray-500">Loading...</div>
-        ) : files.length === 0 ? (
-          <div className="italic text-gray-500">No files in bucket</div>
-        ) : (
-          renderTree(fileTree)
-        )}
-      </div>
-      {/* Upload form and logs */}
-      <div className="flex flex-col gap-4">
-        <form onSubmit={handleSubmit} encType="multipart/form-data" className="flex flex-col gap-4">
-          <div className="flex items-center gap-4 min-w-0 w-full">
-            <label
-              htmlFor="fileInput"
-              className={`inline-flex items-center justify-center flex-shrink-0 ${
-                isLeetTheme 
-                  ? 'leet-btn' 
-                  : 'text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2'
-              }`}>
-              [CHOOSE]
-            </label>
-            <input
-              id="fileInput"
-              type="file"
-              name="file"
-              accept=".csv"
-              required
-              className="hidden"
-              onChange={(e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                setSelectedFileName(file?.name || 'No file chosen');
-              }}
-            />
-            <span className={`flex-1 ${isLeetTheme ? 'text-green-400 font-mono' : 'text-gray-400 font-mono'} text-lg truncate`}>
-              {selectedFileName}
-            </span>
-          </div>
-          
-          {/* Progress bar */}
-          {loading && (
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="bg-green-400 h-2.5 rounded-full transition-all duration-300" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
+    <div className="w-full mx-auto px-4">
+      <div className="grid grid-cols-3 gap-4">
+        {/* Explorer: hierarchical file/folder tree */}
+        <div className={`
+          bg-black text-green-400 font-mono p-4 rounded 
+          overflow-x-auto whitespace-pre h-[400px] overflow-y-auto
+          ${isLeetTheme ? 'leet-console border border-green-400' : ''}
+        `}>
+          <div className="font-bold mb-2">lead-imports/</div>
+          {loadingFiles ? (
+            <div className="italic text-gray-500">Loading...</div>
+          ) : files.length === 0 ? (
+            <div className="italic text-gray-500">No files in bucket</div>
+          ) : (
+            renderTree(fileTree)
           )}
-          
-          <div className="flex items-center gap-2">
+        </div>
+
+        {/* Upload form */}
+        <div className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} encType="multipart/form-data" className="flex flex-col gap-4">
+            <div className="flex items-center gap-4 min-w-0 w-full">
+              <label
+                htmlFor="fileInput"
+                className={`inline-flex items-center justify-center flex-shrink-0 ${
+                  isLeetTheme 
+                    ? 'leet-btn' 
+                    : 'text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2'
+                }`}>
+                [CHOOSE]
+              </label>
+              <input
+                id="fileInput"
+                type="file"
+                name="file"
+                accept=".csv"
+                required
+                className="hidden"
+                onChange={(e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  setSelectedFileName(file?.name || 'No file chosen');
+                }}
+              />
+              <span className={`flex-1 ${isLeetTheme ? 'text-green-400 font-mono' : 'text-gray-400 font-mono'} text-lg truncate`}>
+                {selectedFileName}
+              </span>
+            </div>
+
             <Button
               type="submit"
-              variant="flat"
-              size="md"
               disabled={loading}
-              className={isLeetTheme 
-                ? 'leet-btn h-10' 
-                : 'font-mono text-lg border border-green-400 text-green-400 bg-transparent hover:bg-green-400 hover:text-black rounded-none flex-shrink-0 h-10 !px-4 !py-2'
-              }
+              className={`w-full ${leetButtonClass}`}
             >
-              [UPLOAD]
+              {loading ? 'UPLOADING...' : 'UPLOAD'}
             </Button>
-            {/* External spinner icon when loading */}
-            {loading && (
-              <span className={`ml-2 font-mono text-lg ${isLeetTheme ? 'text-green-400' : 'text-green-400'}`}>⏳</span>
-            )}
-            {/* Success icon and message */}
-            {!loading && message && !isError && (
-              <span className="flex items-center ml-2">
-                <span className={isLeetTheme ? 'leet-status-success' : 'text-green-400 font-mono text-lg'}>✓</span>
-                <span className={isLeetTheme ? 'leet-status-success ml-1' : 'text-green-400 font-mono text-lg ml-1 whitespace-nowrap'}>{message}</span>
-              </span>
-            )}
-            {/* Error toggle icon */}
-            {!loading && isError && (
-              <span
-                onClick={() => setShowConsole((v) => !v)}
-                className={`ml-2 cursor-pointer ${isLeetTheme ? 'leet-status-error' : 'text-red-500 font-mono text-lg'} flex-shrink-0 whitespace-nowrap`}
-              >{showConsole ? '[x]' : '[!] '}</span>
-            )}
-          </div>
-        </form>
-        {/* Log console, animated fade-in items */}
-        {showConsole && (
-          <div className={`bg-black text-green-400 font-mono p-4 rounded max-h-40 overflow-auto whitespace-pre ${isLeetTheme ? 'leet-console' : ''}`}>
-            {displayLogs.map((line, idx) => (
-              <div key={idx} className="transition-opacity duration-500" style={{ animation: 'fadeIn 1s ease-out' }}>
-                {line}
-              </div>
-            ))}
-          </div>
-        )}
+          </form>
+
+          {message && (
+            <div className={`p-4 rounded ${
+              isError 
+                ? 'bg-red-100 text-red-700 border border-red-300' 
+                : 'bg-green-100 text-green-700 border border-green-300'
+            }`}>
+              {message}
+            </div>
+          )}
+        </div>
+
+        {/* Progress Console */}
+        <ProgressConsole 
+          logs={logs}
+          progress={progress}
+          className="h-[400px]"
+        />
       </div>
     </div>
   );

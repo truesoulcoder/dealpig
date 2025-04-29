@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import crypto from 'crypto';
 import { Buffer } from 'buffer';
-import { ingestLeadSource, normalizeLeadsForSource } from '@/actions/leadIngestion.action';
+import { ingestLeadSource, normalizeLeadsForSource, isDuplicateFile } from '@/actions/leadIngestion.action';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +13,17 @@ export const config = {
       sizeLimit: '50mb',
     },
   },
+};
+
+// Helper function to create consistent responses
+const createResponse = (data: any, status: number = 200) => {
+  return new NextResponse(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 };
 
 export async function POST(request: NextRequest) {
@@ -50,16 +61,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fileName = `${crypto.randomUUID()}_${file.name}`;
-    console.log('[API /leads] Generated file name:', fileName);
-
-    // Convert File (Blob) to Buffer for Supabase upload
+    // Convert File to Buffer for duplicate checking
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    
+    // Check for duplicate content
+    const admin = createAdminClient();
+    const isDuplicate = await isDuplicateFile(admin, buffer, file.name);
+    if (isDuplicate) {
+      return NextResponse.json(
+        { success: false, message: 'This file appears to be a duplicate of an existing import' },
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const fileName = file.name;
+    console.log('[API /leads] Generated file name:', fileName);
     console.log('[API /leads] File size:', buffer.length, 'bytes');
     
     // Upload file using upsert:false so existing files cause a duplicate error
-    const admin = createAdminClient();
     console.log('[API /leads] Uploading file to storage...');
     console.log('[API /leads] Storage client initialized:', !!admin.storage);
     
@@ -80,12 +103,9 @@ export async function POST(request: NextRequest) {
           message: storageError.message,
           name: storageError.name
         });
-        return NextResponse.json(
+        return createResponse(
           { success: false, message: `Storage error: ${storageError.message}` },
-          { 
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-          }
+          500
         );
       }
 
@@ -100,18 +120,16 @@ export async function POST(request: NextRequest) {
           last_imported: new Date().toISOString(),
           record_count: 0,
           is_active: true,
+          storage_path: data?.path || `lead-imports/${fileName}`,
         })
         .select('id')
         .single();
 
       if (dbError || !newSource) {
         console.error('[API /leads] Database error:', dbError);
-        return NextResponse.json(
+        return createResponse(
           { success: false, message: `Database error: ${dbError?.message}` },
-          { 
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-          }
+          500
         );
       }
 
@@ -128,49 +146,60 @@ export async function POST(request: NextRequest) {
         await normalizeLeadsForSource(sourceId);
         console.log('[API /leads] Lead normalization complete');
 
-        return NextResponse.json(
-          { success: true, count, message: `Successfully processed ${count} leads` },
-          { headers: { 'Content-Type': 'application/json' } }
+        return createResponse(
+          { 
+            success: true, 
+            count, 
+            message: `Successfully processed ${count} leads`,
+            logs: [
+              `Starting ingestion for ${file.name}`,
+              `File size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`,
+              `Parsed ${count} rows`,
+              `Created table: ${fileName.replace(/\.[^/.]+$/, '')}`,
+              `Successfully processed all leads`
+            ]
+          },
+          200
         );
       } catch (ingestionError) {
         console.error('[API /leads] Lead ingestion error:', ingestionError);
-        return NextResponse.json(
+        return createResponse(
           { 
             success: false, 
-            message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}` 
+            message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}`,
+            logs: [
+              `Error during ingestion: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}`
+            ]
           },
-          { 
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-          }
+          500
         );
       }
 
     } catch (err) {
       console.error('[API /leads] Unexpected error:', err);
-      return NextResponse.json(
+      return createResponse(
         { 
           success: false, 
-          message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
+          message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          logs: [
+            `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`
+          ]
         },
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
+        500
       );
     }
 
   } catch (err) {
     console.error('[API /leads] Unexpected error:', err);
-    return NextResponse.json(
+    return createResponse(
       { 
         success: false, 
-        message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
+        message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        logs: [
+          `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`
+        ]
       },
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+      500
     );
   }
 }

@@ -1,5 +1,4 @@
-import { LetterFx } from '../ui/once-ui/components/LetterFx';
-import { HoloFx } from '../ui/once-ui/components/HoloFx';
+import { LetterFx } from '../ui/LetterFx';
 import React from "react";
 import { useSidebarContext } from "../layout/layout-context";
 import clsx from "clsx";
@@ -41,13 +40,7 @@ export const SidebarItem = ({ icon, title, isActive, href = '' }: Props) => {
 
   return (
     <NavLink href={href} onClick={handleClick} prefetch>
-      {isActive ? (
-        <HoloFx>
-          {content}
-        </HoloFx>
-      ) : (
-        content
-      )}
+      {content}
     </NavLink>
   );
 };

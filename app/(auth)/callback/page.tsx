@@ -4,6 +4,7 @@ import { handleAuthCallback } from '@/actions/auth.action';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { supabase } from "@/lib/supabase";
 
 // Client component that uses searchParams
 function CallbackHandler() {
@@ -12,31 +13,61 @@ function CallbackHandler() {
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    // Extract the code from the URL
-    const code = searchParams.get('code');
-    
-    if (!code) {
-      setError('No authorization code found');
-      return;
-    }
-    
+    console.log('🔄 Auth callback page loaded');
+    console.log('📋 URL parameters:', {
+      error: searchParams.get("error"),
+      errorDescription: searchParams.get("error_description"),
+      fullUrl: window.location.href
+    });
+
     const processAuth = async () => {
       try {
-        const result = await handleAuthCallback(code);
+        console.log('🔍 Checking for auth session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (result.error) {
-          setError(result.error);
-        } else {
-          // Redirect to the dashboard after successful authentication
-          router.replace('/');
+        console.log('📥 Session check result:', {
+          hasSession: !!session,
+          hasError: !!sessionError,
+          errorMessage: sessionError?.message
+        });
+
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          throw sessionError;
         }
-      } catch (err) {
-        console.error('Error processing authentication:', err);
-        setError('Failed to process authentication. Please try again.');
+
+        if (!session) {
+          console.log('⚠️ No session found, checking URL hash...');
+          // If no session, try to exchange the URL hash for a session
+          const { data, error: hashError } = await supabase.auth.getUser();
+          
+          console.log('📥 Hash exchange result:', {
+            hasData: !!data,
+            hasError: !!hashError,
+            errorMessage: hashError?.message
+          });
+
+          if (hashError) {
+            console.error('❌ Hash exchange error:', hashError);
+            throw hashError;
+          }
+        }
+
+        console.log('✅ Authentication successful, redirecting to dashboard...');
+        router.push("/");
+      } catch (error) {
+        console.error('❌ Callback handling error:', {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        router.push("/login?error=Authentication failed");
       }
     };
     
-    processAuth();
+    if (!searchParams.get("error")) {
+      processAuth();
+    }
   }, [searchParams, router]);
 
   return (

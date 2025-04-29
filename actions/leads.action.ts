@@ -1,7 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase';
-import { Database } from '@/helpers/types';
+import { Database, Lead, LeadSource } from '@/helpers/types';
 // Server action to handle leads file upload
 export async function uploadLeads(formData: FormData) {
   console.log('[uploadLeads] server action called');
@@ -100,4 +100,20 @@ export async function deleteLead(leadId: string): Promise<void> {
     console.error('Error deleting lead:', error);
     throw error;
   }
+}
+
+export async function getLeadSources(): Promise<LeadSource[]> {
+  const supabase = createAdminClient();
+  
+  const { data, error } = await supabase
+    .from('lead_sources')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    console.error('Error fetching lead sources:', error);
+    throw error;
+  }
+  
+  return data || [];
 }
