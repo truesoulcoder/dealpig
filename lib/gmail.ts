@@ -6,7 +6,7 @@ export function getOAuth2Client(redirectUrl?: string) {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    redirectUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/gmail/callback`
+    redirectUrl || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`
   );
 }
 

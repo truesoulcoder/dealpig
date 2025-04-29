@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const title = searchParams.get('title');
     const dailyQuota = searchParams.get('dailyQuota') ?? '100';
     
+    console.log(`Starting Gmail OAuth flow for: ${name} <${email}>`);
+    
     // Validate required parameters
     if (!email || !name) {
       return NextResponse.json(
@@ -25,11 +27,14 @@ export async function GET(request: NextRequest) {
     const userId = cookieStore.get('user-id')?.value;
     
     if (!userId) {
+      console.error('No user ID found in cookies');
       return NextResponse.json(
         { error: 'User not authenticated' },
         { status: 401 }
       );
     }
+    
+    console.log(`Creating sender record for user ID: ${userId}`);
     
     // Create the sender in the database
     const senderId = await createSender({
@@ -39,6 +44,8 @@ export async function GET(request: NextRequest) {
       daily_quota: parseInt(dailyQuota),
       user_id: userId,
     });
+    
+    console.log(`Sender created with ID: ${senderId}`);
     
     // Store sender ID in session for the callback - use cookieStore after awaiting
     cookieStore.set('pending-sender-id', senderId, {
@@ -51,10 +58,11 @@ export async function GET(request: NextRequest) {
     
     // Get OAuth URL and redirect to Google consent screen
     const authUrl = getAuthUrl();
+    console.log(`Redirecting to Google OAuth: ${authUrl}`);
     
     return NextResponse.redirect(authUrl);
   } catch (error) {
     console.error('Error initiating Gmail OAuth:', error);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to initiate Gmail authentication')}`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to initiate Gmail authentication')}`);
   }
 }

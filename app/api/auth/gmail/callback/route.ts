@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTokens, getUserInfo } from '@/lib/gmail';
-import { updateSenderTokens } from '@/lib/database';
+import { updateSenderTokens, getSenderById } from '@/lib/database';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
@@ -11,33 +11,56 @@ export async function GET(request: NextRequest) {
     
     if (!code) {
       const error = searchParams.get('error') || 'Missing authorization code';
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent(error)}`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent(error)}`);
     }
+    
+    console.log('Received auth code from Google, exchanging for tokens...');
     
     // Exchange the code for access and refresh tokens
     const tokens = await getTokens(code);
     
     if (!tokens || !tokens.access_token) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to obtain access token')}`);
+      console.error('Failed to obtain tokens from Google:', tokens);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to obtain access token')}`);
     }
     
-    // Get pending sender ID from cookie - await the cookies() function
+    console.log('Got tokens successfully:', { 
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      tokenExpiry: tokens.expiry_date 
+    });
+    
+    // Get pending sender ID from cookie
     const cookieStore = await cookies();
     const pendingSenderId = cookieStore.get('pending-sender-id')?.value;
     
     if (!pendingSenderId) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('No pending sender found')}`);
+      console.error('No pending sender ID found in cookies');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('No pending sender found')}`);
     }
     
-    // Verify that the authorized email matches the one we're expecting
-    // This prevents users from authenticating with a different Gmail account
+    console.log(`Processing tokens for sender ID: ${pendingSenderId}`);
+    
     try {
+      // Verify the sender exists
+      const sender = await getSenderById(pendingSenderId);
+      if (!sender) {
+        console.error(`Sender with ID ${pendingSenderId} not found in database`);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Sender not found in database')}`);
+      }
+      
+      console.log(`Found sender: ${sender.name} <${sender.email}>`);
+      
+      // Get user info from Google to verify email
       const userInfo = await getUserInfo(tokens.access_token);
       const primaryEmail = userInfo.emailAddresses?.find(email => email.metadata?.primary)?.value;
       
       if (!primaryEmail) {
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Could not retrieve email from Google account')}`);
+        console.error('Could not retrieve email from Google account');
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Could not retrieve email from Google account')}`);
       }
+      
+      console.log(`Google account email: ${primaryEmail}`);
       
       // Store the tokens in the database for the sender
       await updateSenderTokens(pendingSenderId, {
@@ -45,17 +68,19 @@ export async function GET(request: NextRequest) {
         refresh_token: tokens.refresh_token || '',
       });
       
+      console.log('Successfully saved tokens to database for sender');
+      
       // Clear the pending sender ID cookie
       cookieStore.delete('pending-sender-id');
       
       // Redirect back to the accounts page with success message
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?success=true`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?success=true`);
     } catch (error) {
-      console.error('Error verifying user email:', error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to verify email')}`);
+      console.error('Error during token processing:', error);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed during token processing: ' + (error instanceof Error ? error.message : String(error)))}`);
     }
   } catch (error) {
     console.error('Error completing Gmail OAuth:', error);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/app/accounts?error=${encodeURIComponent('Failed to complete Gmail authentication')}`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to complete Gmail authentication')}`);
   }
 }
