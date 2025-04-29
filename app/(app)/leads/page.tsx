@@ -1,10 +1,9 @@
-import UploadLeadsForm from '../../../components/leads/UploadLeadsForm';
+import LeadsSection from '../../../components/leads';
 
 export default function LeadsPage() {
   return (
     <div className="w-full min-w-full max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl text-green-400 font-mono mb-4">Upload Leads</h1>
-      <UploadLeadsForm />
+      <LeadsSection />
     </div>
   );
 }
