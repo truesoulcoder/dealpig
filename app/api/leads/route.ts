@@ -29,13 +29,25 @@ export async function POST(request: NextRequest) {
     
     if (!(fileField instanceof File)) {
       console.error('[API /leads] Invalid file type received:', typeof fileField);
-      return NextResponse.json({ success: false, message: 'No file uploaded' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'No file uploaded' },
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const file = fileField;
     if (!file.name.endsWith('.csv')) {
       console.error('[API /leads] Invalid file format - must be CSV');
-      return NextResponse.json({ success: false, message: 'Only CSV files are supported' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'Only CSV files are supported' },
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const fileName = `${crypto.randomUUID()}_${file.name}`;
@@ -60,10 +72,13 @@ export async function POST(request: NextRequest) {
 
     if (storageError) {
       console.error('[API /leads] Storage upload error:', storageError);
-      return NextResponse.json({ 
-        success: false, 
-        message: `Storage error: ${storageError.message}` 
-      }, { status: 500 });
+      return NextResponse.json(
+        { success: false, message: `Storage error: ${storageError.message}` },
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     console.log('[API /leads] File uploaded successfully');
@@ -83,35 +98,57 @@ export async function POST(request: NextRequest) {
 
     if (dbError || !newSource) {
       console.error('[API /leads] Database error:', dbError);
-      return NextResponse.json({ 
-        success: false, 
-        message: `Database error: ${dbError?.message}` 
-      }, { status: 500 });
+      return NextResponse.json(
+        { success: false, message: `Database error: ${dbError?.message}` },
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const sourceId = newSource.id;
     console.log('[API /leads] Created lead source:', sourceId);
 
-    // Ingest raw rows and normalize into leads
-    console.log('[API /leads] Starting lead ingestion...');
-    const { count } = await ingestLeadSource(sourceId);
-    console.log('[API /leads] Ingested', count, 'leads');
+    try {
+      // Ingest raw rows and normalize into leads
+      console.log('[API /leads] Starting lead ingestion...');
+      const { count } = await ingestLeadSource(sourceId);
+      console.log('[API /leads] Ingested', count, 'leads');
 
-    console.log('[API /leads] Normalizing leads...');
-    await normalizeLeadsForSource(sourceId);
-    console.log('[API /leads] Lead normalization complete');
+      console.log('[API /leads] Normalizing leads...');
+      await normalizeLeadsForSource(sourceId);
+      console.log('[API /leads] Lead normalization complete');
 
-    return NextResponse.json({ 
-      success: true, 
-      count,
-      message: `Successfully processed ${count} leads`
-    });
+      return NextResponse.json(
+        { success: true, count, message: `Successfully processed ${count} leads` },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (ingestionError) {
+      console.error('[API /leads] Lead ingestion error:', ingestionError);
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}` 
+        },
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
   } catch (err) {
     console.error('[API /leads] Unexpected error:', err);
-    return NextResponse.json({ 
-      success: false, 
-      message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
-    }, { status: 500 });
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
+      },
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 }
