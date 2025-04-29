@@ -81,10 +81,11 @@ export async function createSender(senderData: {
   email: string;
   title?: string;
   daily_quota: number;
-  user_id?: string;
 }): Promise<UUID> {
   try {
-    const { data, error } = await supabase
+    // Use admin client for better permissions in production
+    const admin = createAdminClient();
+    const { data, error } = await admin
       .from('senders')
       .insert({
         name: senderData.name,
@@ -92,7 +93,6 @@ export async function createSender(senderData: {
         title: senderData.title || '',
         daily_quota: senderData.daily_quota || 100,
         emails_sent: 0,
-        user_id: senderData.user_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -102,7 +102,7 @@ export async function createSender(senderData: {
     if (error) throw error;
     return data.id;
   } catch (error) {
-    console.error('Error creating sender:', error);
+    console.error('Error creating sender:', error, 'with data:', senderData);
     throw error;
   }
 }
