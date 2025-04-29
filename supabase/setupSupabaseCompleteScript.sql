@@ -720,12 +720,51 @@ GRANT EXECUTE ON FUNCTION public.create_policy_if_not_exists(text, text, text, t
 -- Apply policies using the helper function
 
 -- Profiles table policies
-PERFORM public.create_policy_if_not_exists('Users can view their own profile', 'profiles', 'SELECT', 'auth.uid() = id');
-PERFORM public.create_policy_if_not_exists('Users can update their own profile', 'profiles', 'UPDATE', 'auth.uid() = id', 'auth.uid() = id');
-PERFORM public.create_policy_if_not_exists('Service role can manage all profiles', 'profiles', 'ALL', 'auth.role() = ''service_role''');
--- Note: INSERT policy for profiles is often handled by the handle_new_user trigger (SECURITY DEFINER)
--- Adding an explicit INSERT policy might be needed depending on direct insert requirements.
--- SELECT public.create_policy_if_not_exists('Allow authenticated insert own profile', 'profiles', 'INSERT', 'auth.uid() = id');
+DO $$
+BEGIN
+  -- First, ensure RLS is enabled on profiles table
+  ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+  -- Create 'Service role can manage all profiles' policy
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'profiles' 
+    AND policyname = 'Service role can manage all profiles'
+  ) THEN
+    CREATE POLICY "Service role can manage all profiles" 
+    ON public.profiles 
+    USING (auth.role() = 'service_role');
+  END IF;
+
+  -- Create 'Users can update their own profile' policy
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'profiles' 
+    AND policyname = 'Users can update their own profile'
+  ) THEN
+    CREATE POLICY "Users can update their own profile" 
+    ON public.profiles 
+    FOR UPDATE
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
+  END IF;
+
+  -- Create 'Users can view their own profile' policy
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+    AND tablename = 'profiles' 
+    AND policyname = 'Users can view their own profile'
+  ) THEN
+    CREATE POLICY "Users can view their own profile" 
+    ON public.profiles 
+    FOR SELECT
+    USING (auth.uid() = id);
+  END IF;
+END
+$$;
 
 -- Generic policies for most tables (Authenticated users can perform CRUD)
 DO $$
