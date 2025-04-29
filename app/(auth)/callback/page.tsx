@@ -5,12 +5,17 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { supabase } from "@/lib/supabase";
+import { MatrixBackground } from "@/components/ui/MatrixBackground";
+import { Background } from "@/components/ui/Background";
+import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
+import { LetterFx } from "@/components/ui/LetterFx";
 
 // Client component that uses searchParams
 function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string>("Authenticating...");
   
   useEffect(() => {
     console.log('🔄 Auth callback page loaded');
@@ -25,71 +30,94 @@ function CallbackHandler() {
         console.log('🔍 Checking for auth session...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        console.log('📥 Session check result:', {
-          hasSession: !!session,
-          hasError: !!sessionError,
-          errorMessage: sessionError?.message
-        });
-
         if (sessionError) {
           console.error('❌ Session error:', sessionError);
           throw sessionError;
         }
 
-        if (!session) {
-          console.log('⚠️ No session found, checking URL hash...');
-          // If no session, try to exchange the URL hash for a session
-          const { data, error: hashError } = await supabase.auth.getUser();
-          
-          console.log('📥 Hash exchange result:', {
-            hasData: !!data,
-            hasError: !!hashError,
-            errorMessage: hashError?.message
-          });
-
-          if (hashError) {
-            console.error('❌ Hash exchange error:', hashError);
-            throw hashError;
-          }
+        if (session) {
+          console.log('✅ Session found, redirecting to dashboard...');
+          setMessage("Login successful! Redirecting...");
+          router.push("/");
+          return;
         }
 
-        console.log('✅ Authentication successful, redirecting to dashboard...');
-        router.push("/");
+        // If no session, try to exchange the URL hash for a session
+        setMessage("Completing authentication...");
+        const { data, error: exchangeError } = await supabase.auth.getUser();
+        
+        if (exchangeError) {
+          console.error('❌ Auth exchange error:', exchangeError);
+          throw exchangeError;
+        }
+
+        if (data.user) {
+          console.log('✅ Authentication successful, redirecting to dashboard...');
+          setMessage("Login successful! Redirecting...");
+          router.push("/");
+        } else {
+          throw new Error('No user data received');
+        }
       } catch (error) {
         console.error('❌ Callback handling error:', {
           name: error instanceof Error ? error.name : 'Unknown',
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined
         });
-        router.push("/login?error=Authentication failed");
+        setError('Authentication failed. Please try logging in again.');
       }
     };
     
     if (!searchParams.get("error")) {
       processAuth();
+    } else {
+      setError(searchParams.get("error_description") || 'Authentication failed');
     }
   }, [searchParams, router]);
 
   return (
     <>
-      {error ? (
-        <div className="p-4 border border-red-300 bg-red-50 rounded-md mb-6">
-          <h2 className="text-lg font-semibold text-red-700 mb-2">Authentication Error</h2>
-          <p className="text-red-600">{error}</p>
-          <button
-            onClick={() => router.push('/login')}
-            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-          >
-            Return to Login
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center">
-          <div className="w-16 h-16 border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin mb-6"></div>
-          <h2 className="text-xl font-semibold mb-2">Completing authentication...</h2>
-          <p className="text-gray-500">You'll be redirected shortly</p>
-        </div>
-      )}
+      <MatrixBackground />
+      <Background
+        mask={{
+          cursor: true,
+          radius: 300
+        }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'black',
+          zIndex: 1
+        }}
+      />
+      <div className="relative z-10">
+        {error ? (
+          <div className="p-4 border border-red-500 bg-black/50 rounded-none mb-6">
+            <h2 className="text-lg font-mono text-red-500 mb-2">Authentication Error</h2>
+            <p className="text-red-400 font-mono">{error}</p>
+            <button
+              onClick={() => router.push('/login')}
+              className="mt-4 px-4 py-2 bg-black border border-green-400 text-green-400 font-mono hover:bg-green-400 hover:text-black transition-colors rounded-none"
+            >
+              <LetterFx trigger="hover" speed="fast">
+                Return to Login
+              </LetterFx>
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-16 h-16 border-4 border-black border-t-green-400 rounded-full animate-spin mb-6"></div>
+            <h2 className="text-xl font-mono text-green-400 mb-2">
+              <LetterFx trigger="instant" speed="fast">
+                {message}
+              </LetterFx>
+            </h2>
+          </div>
+        )}
+      </div>
     </>
   );
 }
@@ -98,18 +126,15 @@ export default function AuthCallback() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <div className="w-full max-w-md text-center">
-        <Image
-          src="/dealpig.svg"
-          alt="DealPig Logo"
-          width={250}
-          height={70}
-          className="mx-auto mb-8"
-          priority
-        />
-
-        <Suspense fallback={<div className="flex flex-col items-center justify-center">
-            <div className="w-16 h-16 border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin mb-6"></div>
-            <h2 className="text-xl font-semibold mb-2">Loading...</h2>
+        <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-8" />
+        <Suspense fallback={
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-16 h-16 border-4 border-black border-t-green-400 rounded-full animate-spin mb-6"></div>
+            <h2 className="text-xl font-mono text-green-400 mb-2">
+              <LetterFx trigger="instant" speed="fast">
+                Loading...
+              </LetterFx>
+            </h2>
           </div>
         }>
           <CallbackHandler />

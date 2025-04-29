@@ -157,19 +157,13 @@ export async function logoutUser() {
  */
 export async function loginWithGoogle() {
   console.log('🔍 Starting loginWithGoogle action...');
-  console.log('📋 Environment check:', {
-    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasSupabaseAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  });
-
+  
   try {
     console.log('🔑 Initiating Supabase OAuth sign-in with Google...');
-    // Use the Supabase-provided callback URL
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // No need to specify redirectTo as Supabase will use its default callback URL
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -181,15 +175,10 @@ export async function loginWithGoogle() {
       hasData: !!data,
       hasError: !!error,
       url: data?.url,
-      errorMessage: error?.message,
     });
 
     if (error) {
-      console.error('❌ Supabase OAuth error:', {
-        message: error.message,
-        status: error.status,
-        name: error.name,
-      });
+      console.error('❌ Supabase OAuth error:', error);
       return {
         error: error.message,
       };
@@ -202,16 +191,12 @@ export async function loginWithGoogle() {
       };
     }
 
-    console.log('✅ Successfully got redirect URL');
+    console.log('✅ Successfully got redirect URL:', data.url);
     return {
       redirectUrl: data.url,
     };
   } catch (error) {
-    console.error('❌ Unexpected error in loginWithGoogle:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    console.error('❌ Unexpected error in loginWithGoogle:', error);
     return {
       error: 'Failed to initiate Google login',
     };
