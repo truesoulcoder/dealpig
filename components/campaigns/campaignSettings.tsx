@@ -347,7 +347,8 @@ export default function CampaignForm() {
                     value={selectedLeadSource}
                   >
                     {leadSources.map((source) => (
-                      <SelectItem key={source.id} value={source.id}>
+                      <SelectItem key={source.id}>
+                        {source.id}
                         {source.file_name.replace(/\.[^/.]+$/, '')} ({source.record_count} leads)
                       </SelectItem>
                     ))}
@@ -369,6 +370,7 @@ export default function CampaignForm() {
                   >
                     {emailTemplates.map((template) => (
                       <SelectItem key={template.id}>
+                        {template.id}
                         {template.name}
                       </SelectItem>
                     ))}
@@ -387,8 +389,6 @@ export default function CampaignForm() {
                       Attach Purchase Offer Document
                     </label>
                   </div>
-
-                  {attachDocument && (
                     <Select
                       placeholder="Select document template"
                       onChange={(e) => setSelectedDocTemplate(e.target.value)}
@@ -397,11 +397,11 @@ export default function CampaignForm() {
                     >
                       {docTemplates.map((template) => (
                         <SelectItem key={template.id}>
+                          {template.id}
                           {template.name}
                         </SelectItem>
                       ))}
                     </Select>
-                  )}
                 </div>
               </div>
 
