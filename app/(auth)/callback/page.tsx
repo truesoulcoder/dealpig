@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { MatrixBackground } from '@/components/ui/MatrixBackground';
 import { DealpigText as AnimatedDealpigText } from '@/components/icons/AnimatedDealpigText';
 import { LetterFx } from '@/components/ui/LetterFx';
-import { handleAuthCallback } from '@/actions/auth.action';
 
 export default function CallbackHandler() {
   const router = useRouter();
@@ -40,10 +38,18 @@ export default function CallbackHandler() {
           throw new Error('No authorization code received');
         }
 
-        // Process the auth callback
-        const result = await handleAuthCallback(code);
-        if (result.error) {
-          throw new Error(result.error);
+        // Exchange the code for session
+        const response = await fetch('/api/auth/callback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to authenticate');
         }
 
         // Get the redirect path
