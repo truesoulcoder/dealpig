@@ -37,26 +37,38 @@ export async function GET(request: NextRequest) {
     console.log(`Creating sender record for user ID: ${userId}`);
     
     // Create the sender in the database
-    const senderId = await createSender({
-      name,
-      email,
-      title: title || undefined,
-      daily_quota: parseInt(dailyQuota),
-      user_id: userId,
-    });
+    let senderId;
+    try {
+      senderId = await createSender({
+        name,
+        email,
+        title: title || undefined,
+        daily_quota: parseInt(dailyQuota),
+        user_id: userId,
+      });
+    } catch (dbError) {
+      console.error('Error creating sender in database:', dbError);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to create sender record')}`);
+    }
     
     console.log(`Sender created with ID: ${senderId}`);
     
-    // Store sender ID in session for the callback - use cookieStore after awaiting
-    
     // Get OAuth URL and redirect to Google consent screen
-    // Pass the sender ID as state parameter in OAuth URL
-    const authUrl = getAuthUrl(senderId);
-    console.log(`Redirecting to Google OAuth: ${authUrl}`);
+    let authUrl;
+    try {
+      // Pass the sender ID as state parameter in OAuth URL
+      authUrl = getAuthUrl(senderId);
+      console.log(`Redirecting to Google OAuth: ${authUrl}`);
+    } catch (oauthError) {
+      console.error('Error generating Google OAuth URL:', oauthError);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to connect to Google OAuth: ' + (oauthError instanceof Error ? oauthError.message : String(oauthError)))}`);
+    }
     
     return NextResponse.redirect(authUrl);
   } catch (error) {
     console.error('Error initiating Gmail OAuth:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error details:', errorMessage);
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to initiate Gmail authentication')}`);
   }
 }

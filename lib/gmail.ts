@@ -6,6 +6,20 @@ export function getOAuth2Client(redirectUrl?: string) {
   const clientId = process.env.GMAIL_CLIENT_ID;
   const clientSecret = process.env.GMAIL_CLIENT_SECRET;
   const defaultRedirect = process.env.GMAIL_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`;
+  
+  // Debug environment variables
+  console.log('OAuth2 client environment variables:');
+  console.log(`GMAIL_CLIENT_ID exists: ${!!process.env.GMAIL_CLIENT_ID}`);
+  console.log(`GMAIL_CLIENT_SECRET exists: ${!!process.env.GMAIL_CLIENT_SECRET}`);
+  console.log(`GMAIL_REDIRECT_URI: ${process.env.GMAIL_REDIRECT_URI}`);
+  console.log(`NEXT_PUBLIC_APP_URL: ${process.env.NEXT_PUBLIC_APP_URL}`);
+  console.log(`Using redirect URL: ${redirectUrl || defaultRedirect}`);
+  
+  if (!clientId || !clientSecret) {
+    console.error('Missing Gmail API credentials in environment variables');
+    throw new Error('Missing Gmail API credentials');
+  }
+
   return new google.auth.OAuth2(
     clientId,
     clientSecret,
