@@ -3,10 +3,8 @@ import { createAdminClient } from '@/lib/supabase';
 import crypto from 'crypto';
 import { Buffer } from 'buffer';
 import { ingestLeadSource, normalizeLeadsForSource } from '@/actions/leadIngestion.action';
+
 export const runtime = 'nodejs';
-export const config = {
-  api: { bodyParser: false },
-};
 
 export async function POST(request: NextRequest) {
   console.log('[API /leads] POST handler called');
@@ -14,25 +12,48 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const fileField = formData.get('file');
     console.log('[API /leads] formData file:', fileField);
+    
     if (!(fileField instanceof File)) {
+      console.error('[API /leads] Invalid file type received');
       return NextResponse.json({ success: false, message: 'No file uploaded' }, { status: 400 });
     }
+
     const file = fileField;
+    if (!file.name.endsWith('.csv')) {
+      console.error('[API /leads] Invalid file format - must be CSV');
+      return NextResponse.json({ success: false, message: 'Only CSV files are supported' }, { status: 400 });
+    }
+
     const fileName = `${crypto.randomUUID()}_${file.name}`;
+    console.log('[API /leads] Generated file name:', fileName);
+
     // Convert File (Blob) to Buffer for Supabase upload
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    
     // Upload file using upsert:false so existing files cause a duplicate error
     const admin = createAdminClient();
-    console.log('[API /leads] uploading file:', fileName);
+    console.log('[API /leads] Uploading file to storage...');
+    
     const { error: storageError } = await admin.storage
       .from('lead-imports')
-      .upload(fileName, buffer, { contentType: file.type, upsert: false });
-    console.log('[API /leads] storage upload error:', storageError);
+      .upload(fileName, buffer, { 
+        contentType: 'text/csv',
+        upsert: false,
+        cacheControl: '3600'
+      });
+
     if (storageError) {
-      return NextResponse.json({ success: false, message: storageError.message }, { status: 500 });
+      console.error('[API /leads] Storage upload error:', storageError);
+      return NextResponse.json({ 
+        success: false, 
+        message: `Storage error: ${storageError.message}` 
+      }, { status: 500 });
     }
-    // record file metadata in lead_sources
+
+    console.log('[API /leads] File uploaded successfully');
+
+    // Record file metadata in lead_sources
     const { data: newSource, error: dbError } = await admin
       .from('lead_sources')
       .insert({
@@ -44,17 +65,38 @@ export async function POST(request: NextRequest) {
       })
       .select('id')
       .single();
+
     if (dbError || !newSource) {
-      return NextResponse.json({ success: false, message: dbError?.message }, { status: 500 });
+      console.error('[API /leads] Database error:', dbError);
+      return NextResponse.json({ 
+        success: false, 
+        message: `Database error: ${dbError?.message}` 
+      }, { status: 500 });
     }
+
     const sourceId = newSource.id;
-    // ingest raw rows and normalize into leads
-    console.log('[API /leads] ingesting source:', sourceId);
+    console.log('[API /leads] Created lead source:', sourceId);
+
+    // Ingest raw rows and normalize into leads
+    console.log('[API /leads] Starting lead ingestion...');
     const { count } = await ingestLeadSource(sourceId);
+    console.log('[API /leads] Ingested', count, 'leads');
+
+    console.log('[API /leads] Normalizing leads...');
     await normalizeLeadsForSource(sourceId);
-    return NextResponse.json({ success: true, count });
+    console.log('[API /leads] Lead normalization complete');
+
+    return NextResponse.json({ 
+      success: true, 
+      count,
+      message: `Successfully processed ${count} leads`
+    });
+
   } catch (err) {
-    console.error('[API /leads] unexpected error:', err);
-    return NextResponse.json({ success: false, message: 'Unexpected server error' }, { status: 500 });
+    console.error('[API /leads] Unexpected error:', err);
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Unexpected server error' 
+    }, { status: 500 });
   }
 }

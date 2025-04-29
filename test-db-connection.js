@@ -2,9 +2,9 @@
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Display URL (but mask credentials)
 console.log('🔑 Environment Check:');
@@ -13,89 +13,49 @@ console.log(`Anon Key: ${supabaseAnonKey ? '✅ Found (masked)' : '❌ Missing'}
 console.log(`Service Role Key: ${supabaseServiceRoleKey ? '✅ Found (masked)' : '❌ Missing'}`);
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('\n❌ ERROR: Missing required Supabase environment variables!');
-  console.log(`
-Create a .env file in your project root with:
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-  `);
+  console.error('❌ Missing required environment variables:');
+  console.error('- NEXT_PUBLIC_SUPABASE_URL');
+  console.error('- NEXT_PUBLIC_SUPABASE_ANON_KEY');
   process.exit(1);
 }
-
-// Create Supabase client
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Create admin client with service role for privileged operations
-const adminClient = createClient(
-  supabaseUrl,
-  supabaseServiceRoleKey || '',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    }
-  }
-);
 
 async function testDatabaseConnection() {
   console.log('\n🔍 Testing Supabase database connection...');
   
   try {
-    // Test 1: Basic connection check
-    console.log('Attempting connection...');
-    const { data, error: connectionError } = await supabase.from('profiles').select('count(*)', { count: 'exact', head: true });
+    // Test anonymous client connection
+    const anonClient = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('\nTesting anonymous client connection...');
     
-    if (connectionError) {
-      console.error(`❌ Connection failed: ${connectionError.message}`);
-      console.error('Details:', connectionError);
-      return;
+    const { data: anonData, error: anonError } = await anonClient.from('lead_sources').select('count').single();
+    
+    if (anonError) {
+      console.log(`❌ Anonymous client - ERROR: ${anonError.message}`);
+    } else {
+      console.log('✅ Anonymous client - CONNECTED');
     }
-    
-    console.log('✅ Connection test successful!');
 
-    // Test 2: Check if tables created in setup script exist
-    const tables = [
-      'profiles', 'leads', 'contacts', 'lead_sources', 
-      'senders', 'templates', 'campaigns', 
-      'campaign_senders', 'campaign_leads', 'emails'
-    ];
-    
-    console.log('\n📋 Checking tables...');
-    
-    for (const table of tables) {
-      console.log(`Checking table "${table}"...`);
-      const { error } = await supabase.from(table).select('count(*)', { count: 'exact', head: true });
-      if (error) {
-        console.log(`❌ Table "${table}" - MISSING OR ERROR: ${error.message}`);
-      } else {
-        console.log(`✅ Table "${table}" - EXISTS`);
-      }
-    }
-    
-    // Test 3: Check if functions exist (using service role)
-    console.log('\n🔧 Checking functions...');
-    
-    if (!supabaseServiceRoleKey) {
-      console.log('⚠️ Skipping function test - SUPABASE_SERVICE_ROLE_KEY not provided');
-    } else {
-      console.log('Testing function "get_table_columns"...');
-      const { data: functions, error: functionsError } = await adminClient.rpc('get_table_columns');
+    // Test admin client connection if service role key is available
+    if (supabaseServiceRoleKey) {
+      console.log('\nTesting admin client connection...');
+      const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+
+      // Test database access
+      const { data: adminData, error: adminError } = await adminClient.from('lead_sources').select('count').single();
       
-      if (functionsError) {
-        console.log(`❌ Function "get_table_columns" - ERROR: ${functionsError.message}`);
+      if (adminError) {
+        console.log(`❌ Admin client database access - ERROR: ${adminError.message}`);
       } else {
-        console.log('✅ Function "get_table_columns" - EXISTS');
+        console.log('✅ Admin client database access - CONNECTED');
       }
-    }
-    
-    // Test 4: Check storage buckets
-    console.log('\n📁 Checking storage buckets...');
-    
-    if (!supabaseServiceRoleKey) {
-      console.log('⚠️ Skipping storage test - SUPABASE_SERVICE_ROLE_KEY not provided');
-    } else {
-      console.log('Listing storage buckets...');
+
+      // Test storage access
+      console.log('\nTesting storage access...');
       const { data: buckets, error: bucketsError } = await adminClient.storage.listBuckets();
       
       if (bucketsError) {
@@ -112,6 +72,21 @@ async function testDatabaseConnection() {
           }
         }
       }
+
+      // Test table access
+      console.log('\nTesting table access...');
+      const tables = ['leads', 'lead_sources', 'contacts', 'campaigns', 'campaign_leads'];
+      
+      for (const table of tables) {
+        const { error: tableError } = await adminClient.from(table).select('count').single();
+        if (tableError) {
+          console.log(`❌ Table "${table}" access - ERROR: ${tableError.message}`);
+        } else {
+          console.log(`✅ Table "${table}" access - CONNECTED`);
+        }
+      }
+    } else {
+      console.log('\n⚠️ Skipping admin client tests - SUPABASE_SERVICE_ROLE_KEY not provided');
     }
     
     console.log('\n✨ Database connection tests complete!');
@@ -123,6 +98,8 @@ async function testDatabaseConnection() {
     console.log('1. Invalid Supabase URL or API keys');
     console.log('2. Network connectivity issues');
     console.log('3. Supabase project is not running or accessible');
+    console.log('4. RLS policies might be blocking access');
+    process.exit(1);
   }
 }
 

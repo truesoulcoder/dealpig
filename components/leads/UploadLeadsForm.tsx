@@ -108,42 +108,79 @@ export default function UploadLeadsForm() {
     setLoading(true);
     setMessage(null);
     setIsError(false);
+    setLogs([]); // Clear previous logs
+    setProgress(0);
 
     const form = e.currentTarget as HTMLFormElement;
     const fileInput = form.querySelector('input[type=file]') as HTMLInputElement;
     const file = fileInput.files?.[0];
+    
     if (!file) {
       setMessage('No file selected');
       setLoading(false);
       return;
     }
 
-    // Send file directly to our API which will handle upload and ingestion
-    const payload = new FormData();
-    payload.append('file', file);
-    const res = await fetch('/api/leads', {
-      method: 'POST',
-      body: payload,
-    });
-    let result: any;
-    try {
-      result = await res.json();
-    } catch {
+    if (!file.name.endsWith('.csv')) {
       setIsError(true);
-      setMessage('Server response was not valid JSON');
+      setMessage('Only CSV files are supported');
       setLoading(false);
       return;
     }
-    if (!res.ok || !result.success) {
+
+    addLog(`Starting upload of ${file.name}...`);
+    setProgress(10);
+
+    try {
+      // Send file directly to our API which will handle upload and ingestion
+      const payload = new FormData();
+      payload.append('file', file);
+      
+      addLog('Uploading file to server...');
+      setProgress(20);
+      
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        body: payload,
+      });
+      
+      setProgress(40);
+      addLog('Processing file...');
+      
+      let result: any;
+      try {
+        result = await res.json();
+      } catch (err) {
+        setIsError(true);
+        setMessage('Server response was not valid JSON');
+        addLog('Error: Invalid server response');
+        setLoading(false);
+        return;
+      }
+
+      setProgress(60);
+      
+      if (!res.ok || !result.success) {
+        setIsError(true);
+        setMessage(result.message || 'Failed to upload leads file.');
+        addLog(`Error: ${result.message || 'Failed to upload leads file.'}`);
+      } else {
+        setMessage(result.message || 'Leads file uploaded successfully.');
+        addLog('File uploaded successfully');
+        addLog(`Processed ${result.count || 0} leads`);
+        setProgress(100);
+        form.reset();
+        setSelectedFileName('No file chosen');
+        fetchFiles();
+      }
+    } catch (err) {
       setIsError(true);
-      setMessage(result.message || 'Failed to upload leads file.');
-    } else {
-      setMessage('Leads file uploaded successfully.');
-      form.reset();
-      setSelectedFileName('No file chosen');
-      fetchFiles();
+      setMessage('Network error occurred');
+      addLog('Error: Network error during upload');
+      console.error('Upload error:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Determine logs to display: show all on error, last 5 lines on success
@@ -196,6 +233,17 @@ export default function UploadLeadsForm() {
               {selectedFileName}
             </span>
           </div>
+          
+          {/* Progress bar */}
+          {loading && (
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-green-400 h-2.5 rounded-full transition-all duration-300" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          )}
+          
           <div className="flex items-center gap-2">
             <Button
               type="submit"
@@ -231,13 +279,13 @@ export default function UploadLeadsForm() {
         </form>
         {/* Log console, animated fade-in items */}
         {showConsole && (
-        <div className={`bg-black text-green-400 font-mono p-4 rounded max-h-40 overflow-auto whitespace-pre ${isLeetTheme ? 'leet-console' : ''}`}>
-          {displayLogs.map((line, idx) => (
-            <div key={idx} className="transition-opacity duration-500" style={{ animation: 'fadeIn 1s ease-out' }}>
-              {line}
-            </div>
-          ))}
-        </div>
+          <div className={`bg-black text-green-400 font-mono p-4 rounded max-h-40 overflow-auto whitespace-pre ${isLeetTheme ? 'leet-console' : ''}`}>
+            {displayLogs.map((line, idx) => (
+              <div key={idx} className="transition-opacity duration-500" style={{ animation: 'fadeIn 1s ease-out' }}>
+                {line}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
