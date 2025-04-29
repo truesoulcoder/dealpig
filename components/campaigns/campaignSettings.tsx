@@ -347,8 +347,8 @@ export default function CampaignForm() {
                     value={selectedLeadSource}
                   >
                     {leadSources.map((source) => (
-                      <SelectItem key={source.id}>
-                        {source.name} ({source.record_count} leads)
+                      <SelectItem key={source.id} value={source.id}>
+                        {source.file_name.replace(/\.[^/.]+$/, '')} ({source.record_count} leads)
                       </SelectItem>
                     ))}
                   </Select>

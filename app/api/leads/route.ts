@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import crypto from 'crypto';
-
+import { ingestLeadSource, normalizeLeadsForSource } from '@/actions/leadIngestion.action';
 export const runtime = 'nodejs';
 export const config = {
   api: { bodyParser: false },
@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
     if (storageError) {
       return NextResponse.json({ success: false, message: storageError.message }, { status: 500 });
     }
-    const { error: dbError } = await admin
+    // record file metadata in lead_sources
+    const { data: newSource, error: dbError } = await admin
       .from('lead_sources')
       .insert({
         name: fileName,
@@ -36,12 +37,18 @@ export async function POST(request: NextRequest) {
         last_imported: new Date().toISOString(),
         record_count: 0,
         is_active: true,
-      });
-    console.log('[API /leads] DB insert error:', dbError);
-    if (dbError) {
-      return NextResponse.json({ success: false, message: dbError.message }, { status: 500 });
+      })
+      .select('id')
+      .single();
+    if (dbError || !newSource) {
+      return NextResponse.json({ success: false, message: dbError?.message }, { status: 500 });
     }
-    return NextResponse.json({ success: true });
+    const sourceId = newSource.id;
+    // ingest raw rows and normalize into leads
+    console.log('[API /leads] ingesting source:', sourceId);
+    const { count } = await ingestLeadSource(sourceId);
+    await normalizeLeadsForSource(sourceId);
+    return NextResponse.json({ success: true, count });
   } catch (err) {
     console.error('[API /leads] unexpected error:', err);
     return NextResponse.json({ success: false, message: 'Unexpected server error' }, { status: 500 });
