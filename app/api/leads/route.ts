@@ -6,15 +6,29 @@ import { ingestLeadSource, normalizeLeadsForSource } from '@/actions/leadIngesti
 
 export const runtime = 'nodejs';
 
+// Increase the body size limit for file uploads
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 export async function POST(request: NextRequest) {
   console.log('[API /leads] POST handler called');
   try {
+    // Log request headers for debugging
+    console.log('[API /leads] Request headers:', Object.fromEntries(request.headers.entries()));
+    
     const formData = await request.formData();
+    console.log('[API /leads] FormData keys:', Array.from(formData.keys()));
+    
     const fileField = formData.get('file');
     console.log('[API /leads] formData file:', fileField);
     
     if (!(fileField instanceof File)) {
-      console.error('[API /leads] Invalid file type received');
+      console.error('[API /leads] Invalid file type received:', typeof fileField);
       return NextResponse.json({ success: false, message: 'No file uploaded' }, { status: 400 });
     }
 
@@ -30,6 +44,7 @@ export async function POST(request: NextRequest) {
     // Convert File (Blob) to Buffer for Supabase upload
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    console.log('[API /leads] File size:', buffer.length, 'bytes');
     
     // Upload file using upsert:false so existing files cause a duplicate error
     const admin = createAdminClient();
@@ -96,7 +111,7 @@ export async function POST(request: NextRequest) {
     console.error('[API /leads] Unexpected error:', err);
     return NextResponse.json({ 
       success: false, 
-      message: 'Unexpected server error' 
+      message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
     }, { status: 500 });
   }
 }

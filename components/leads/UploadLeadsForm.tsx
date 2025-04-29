@@ -142,6 +142,9 @@ export default function UploadLeadsForm() {
       const res = await fetch('/api/leads', {
         method: 'POST',
         body: payload,
+        headers: {
+          // Don't set Content-Type header - let the browser set it with the boundary
+        }
       });
       
       setProgress(40);
@@ -149,11 +152,16 @@ export default function UploadLeadsForm() {
       
       let result: any;
       try {
+        const contentType = res.headers.get('content-type');
+        if (!contentType?.includes('application/json')) {
+          throw new Error(`Invalid content type: ${contentType}`);
+        }
         result = await res.json();
       } catch (err) {
+        console.error('Response parsing error:', err);
         setIsError(true);
         setMessage('Server response was not valid JSON');
-        addLog('Error: Invalid server response');
+        addLog(`Error: Invalid server response - ${err instanceof Error ? err.message : 'Unknown error'}`);
         setLoading(false);
         return;
       }
@@ -174,10 +182,10 @@ export default function UploadLeadsForm() {
         fetchFiles();
       }
     } catch (err) {
+      console.error('Upload error:', err);
       setIsError(true);
       setMessage('Network error occurred');
-      addLog('Error: Network error during upload');
-      console.error('Upload error:', err);
+      addLog(`Error: Network error during upload - ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
