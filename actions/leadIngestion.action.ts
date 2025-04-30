@@ -1,6 +1,7 @@
-import { admin } from '@/lib/supabaseClient';
+import createClient from './lib/supabase/client';
+const admin = createClient; // Adjust this if `admin` is a specific instance or function
 // Make sure NormalizedLead type is correctly defined, potentially in @/types/supabase or @/helpers/types
-import { LeadSource, NormalizedLead } from '@/types/supabase';
+import { LeadSource, NormalizedLead } from '@/helpers/types';
 import { PostgrestError } from '@supabase/supabase-js';
 import * as crypto from 'crypto'; // For UUID generation
 import Papa from 'papaparse';
@@ -152,7 +153,7 @@ export async function normalizeLeadsForSource(
       // --- Final Validation (after mapping and coercion) ---
       for (const field of requiredFields) {
           if (normalizedLead[field] === null || normalizedLead[field] === undefined || String(normalizedLead[field]).trim() === '') {
-              console.warn(`[NormalizeLeads] Missing or empty required field "${field}" after normalization for raw lead ID ${rawLead.id}. Skipping insertion for this lead.`);
+              console.warn(`[NormalizeLeads] Missing or empty required field "${String(field)}" after normalization for raw lead ID ${rawLead.id}. Skipping insertion for this lead.`);
               skipLead = true;
               break; // Stop checking this lead
           }
@@ -208,12 +209,12 @@ export async function normalizeLeadsForSource(
         batchInsertError = currentBatchError; // Store the first error encountered
         console.error(`[NormalizeLeads] Batch insert error object (Batch ${Math.floor(i / BATCH_SIZE) + 1}):`, batchInsertError);
         console.error(`[NormalizeLeads] Batch insert error (JSON):`, JSON.stringify(batchInsertError, null, 2));
-        console.error(`[NormalizeLeads] Batch insert error (toString):`, batchInsertError.toString());
+        console.error(`[NormalizeLeads] Batch insert error (toString):`, batchInsertError ? batchInsertError.toString() : 'null');
         console.error('[NormalizeLeads] Batch Insert Error Details:', {
-            message: batchInsertError.message,
-            details: batchInsertError.details,
-            hint: batchInsertError.hint,
-            code: batchInsertError.code,
+            message: batchInsertError?.message || 'Unknown error',
+            details: batchInsertError?.details,
+            hint: batchInsertError?.hint,
+            code: batchInsertError?.code,
         });
         // Log first few records of the failing batch for debugging
         console.error('[NormalizeLeads] Failing Batch Data Sample (first 5 records):', JSON.stringify(batch.slice(0, 5), null, 2));
