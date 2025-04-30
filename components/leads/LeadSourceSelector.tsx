@@ -1,10 +1,9 @@
 "use client";
 
+import { Select } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { Select, SelectItem, Skeleton } from "@heroui/react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type { LeadSource } from "@/helpers/types";
-import type { Selection } from "@heroui/react";
 
 interface LeadSourceSelectorProps {
   value?: string;
@@ -23,6 +22,7 @@ export default function LeadSourceSelector({
 }: LeadSourceSelectorProps) {
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     async function fetchLeadSources() {
@@ -48,38 +48,29 @@ export default function LeadSourceSelector({
     fetchLeadSources();
   }, []);
 
-  const handleSelectionChange = (keys: Selection) => {
+  const handleSelect = (selectedId: string) => {
     if (!onSelect) return;
     
-    const selectedId = Array.from(keys)[0] as string;
     const selectedSource = leadSources.find(source => source.id === selectedId);
     if (selectedSource) {
       onSelect(selectedSource.id, selectedSource.storage_path);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className={className} style={style}>
-        <Skeleton className="h-10 w-full rounded-lg" />
-      </div>
-    );
-  }
+  const options = leadSources.map(source => ({
+    label: source.name,
+    value: source.id,
+  }));
 
   return (
     <Select
-      label="Lead Source"
-      placeholder={placeholder}
-      selectedKeys={value ? [value] : []}
+      options={options}
+      value={value}
+      onSelect={handleSelect}
       className={className}
       style={style}
-      onSelectionChange={handleSelectionChange}
-    >
-      {leadSources.map((source) => (
-        <SelectItem key={source.id}>
-          {source.name || source.file_name.split('.')[0]}
-        </SelectItem>
-      ))}
-    </Select>
+      emptyState={isLoading ? "Loading..." : "No lead sources found"}
+      searchable
+    />
   );
 } 

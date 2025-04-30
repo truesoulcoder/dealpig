@@ -28,6 +28,52 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Leads table (core table for standardized lead data)
+CREATE TABLE IF NOT EXISTS public.leads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    property_address VARCHAR,
+    property_city VARCHAR,
+    property_state VARCHAR,
+    property_zip VARCHAR,
+    owner_name VARCHAR,
+    mailing_address VARCHAR,
+    mailing_city VARCHAR,
+    mailing_state VARCHAR,
+    mailing_zip VARCHAR,
+    wholesale_value NUMERIC,
+    market_value NUMERIC,
+    days_on_market INTEGER,
+    mls_status VARCHAR,
+    mls_list_date VARCHAR,
+    mls_list_price NUMERIC,
+    status VARCHAR DEFAULT 'NEW',
+    source_id UUID, -- FK added later
+    assigned_to UUID,
+    owner_type VARCHAR,
+    property_type VARCHAR,
+    beds VARCHAR,
+    baths VARCHAR,
+    square_footage VARCHAR,
+    year_built VARCHAR,
+    assessed_total NUMERIC,
+    last_contacted_at TIMESTAMPTZ,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    source_record_id UUID -- Reference to the record ID in the dynamic source table
+);
+
+-- Contacts table (for normalized contact data from leads)
+CREATE TABLE IF NOT EXISTS public.contacts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR NOT NULL,
+    email VARCHAR NOT NULL,
+    lead_id UUID NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
+    is_primary BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Lead Sources table (updated to support dynamic tables)
 CREATE TABLE IF NOT EXISTS public.lead_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -107,24 +153,22 @@ CREATE TABLE IF NOT EXISTS public.campaign_senders (
     UNIQUE(campaign_id, sender_id)
 );
 
--- Campaign Leads junction table (modified to reference dynamic lead tables)
+-- Campaign Leads junction table
 CREATE TABLE IF NOT EXISTS public.campaign_leads (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     campaign_id UUID NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
-    lead_source_id UUID NOT NULL REFERENCES public.lead_sources(id) ON DELETE CASCADE,
-    lead_record_id UUID NOT NULL,
+    lead_id UUID NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
     status VARCHAR DEFAULT 'PENDING', -- 'PENDING', 'SCHEDULED', 'PROCESSED', 'ERROR'
     processed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(campaign_id, lead_source_id, lead_record_id)
+    UNIQUE(campaign_id, lead_id)
 );
 
--- Emails table (modified to reference dynamic lead tables)
+-- Emails table
 CREATE TABLE IF NOT EXISTS public.emails (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    lead_source_id UUID NOT NULL REFERENCES public.lead_sources(id) ON DELETE CASCADE,
-    lead_record_id UUID NOT NULL,
+    lead_id UUID NOT NULL REFERENCES public.leads(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES public.senders(id) ON DELETE CASCADE,
     campaign_id UUID REFERENCES public.campaigns(id) ON DELETE SET NULL,
     subject VARCHAR NOT NULL,
@@ -153,15 +197,33 @@ CREATE TABLE IF NOT EXISTS public.email_events (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Create foreign key references
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_lead_source' 
+    AND table_name = 'leads'
+  ) THEN
+    ALTER TABLE public.leads ADD CONSTRAINT fk_lead_source
+      FOREIGN KEY (source_id) REFERENCES public.lead_sources(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_campaign_leads_campaign_id ON public.campaign_leads(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_campaign_leads_lead_source_id ON public.campaign_leads(lead_source_id);
-CREATE INDEX IF NOT EXISTS idx_campaign_leads_status ON public.campaign_leads(status);
-CREATE INDEX IF NOT EXISTS idx_campaign_senders_campaign_id ON public.campaign_senders(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_emails_lead_source_id ON public.emails(lead_source_id);
+CREATE INDEX IF NOT EXISTS idx_leads_status ON public.leads(status);
+CREATE INDEX IF NOT EXISTS idx_leads_source_id ON public.leads(source_id);
+CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads(created_at);
+CREATE INDEX IF NOT EXISTS idx_leads_source_record_id ON public.leads(source_record_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_lead_id ON public.contacts(lead_id);
+CREATE INDEX IF NOT EXISTS idx_emails_lead_id ON public.emails(lead_id);
 CREATE INDEX IF NOT EXISTS idx_emails_sender_id ON public.emails(sender_id);
 CREATE INDEX IF NOT EXISTS idx_emails_status ON public.emails(status);
 CREATE INDEX IF NOT EXISTS idx_emails_tracking_id ON public.emails(tracking_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_leads_campaign_id ON public.campaign_leads(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_leads_status ON public.campaign_leads(status);
+CREATE INDEX IF NOT EXISTS idx_campaign_senders_campaign_id ON public.campaign_senders(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_email_events_email_id ON public.email_events(email_id);
 CREATE INDEX IF NOT EXISTS idx_email_events_campaign_id ON public.email_events(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_email_events_event_type ON public.email_events(event_type);
@@ -228,6 +290,8 @@ $$;
 
 -- Step 5: Enable Row Level Security on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lead_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.senders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
@@ -718,8 +782,7 @@ DECLARE
   tbl text;
   auth_expr text := 'auth.role() IN (''authenticated'', ''service_role'')';
 BEGIN
-  -- Updated array to remove 'leads' and 'contacts' tables
-  FOREACH tbl IN ARRAY ARRAY['lead_sources', 'senders', 'templates', 'campaigns', 'campaign_senders', 'campaign_leads', 'emails', 'email_events']
+  FOREACH tbl IN ARRAY ARRAY['leads', 'contacts', 'lead_sources', 'senders', 'templates', 'campaigns', 'campaign_senders', 'campaign_leads', 'emails', 'email_events']
   LOOP
     -- SELECT policy (only needs USING clause)
     PERFORM public.create_policy_if_not_exists(

@@ -1,110 +1,88 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { handleAuthCallback } from '@/actions/auth.action';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MatrixBackground } from '@/components/ui/MatrixBackground';
-import { DealpigText as AnimatedDealpigText } from '@/components/icons/AnimatedDealpigText';
-import { LetterFx } from '@/components/ui/LetterFx';
+import Image from 'next/image';
 
-export default function CallbackHandler() {
+// Client component that uses searchParams
+function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticating, setIsAuthenticating] = useState(true);
-  const [isSuccess, setIsSuccess] = useState(false);
-
+  
   useEffect(() => {
+    // Extract the code from the URL
+    const code = searchParams.get('code');
+    
+    if (!code) {
+      setError('No authorization code found');
+      return;
+    }
+    
     const processAuth = async () => {
       try {
-        // Log URL parameters for debugging
-        console.log('URL Parameters:', {
-          code: searchParams.get('code'),
-          error: searchParams.get('error'),
-          error_description: searchParams.get('error_description'),
-          state: searchParams.get('state'),
-          redirectTo: searchParams.get('redirectTo')
-        });
-
-        // Check for OAuth errors first
-        const oauthError = searchParams.get('error');
-        if (oauthError) {
-          const errorDescription = searchParams.get('error_description');
-          throw new Error(`OAuth Error: ${oauthError}${errorDescription ? ` - ${errorDescription}` : ''}`);
-        }
-
-        // Get the authorization code
-        const code = searchParams.get('code');
-        if (!code) {
-          throw new Error('No authorization code received');
-        }
-
-        // Exchange the code for session
-        const response = await fetch('/api/auth/callback', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ code }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to authenticate');
-        }
-
-        // Get the redirect path
-        const redirectTo = searchParams.get('redirectTo') || '/';
+        const result = await handleAuthCallback(code);
         
-        // Set success state and redirect
-        setIsSuccess(true);
-        setTimeout(() => {
-          router.push(redirectTo);
-        }, 1500);
-
+        if (result.error) {
+          setError(result.error);
+        } else {
+          // Redirect to the dashboard after successful authentication
+          router.replace('/');
+        }
       } catch (err) {
-        console.error('Auth callback error:', err);
-        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      } finally {
-        setIsAuthenticating(false);
+        console.error('Error processing authentication:', err);
+        setError('Failed to process authentication. Please try again.');
       }
     };
-
+    
     processAuth();
-  }, [router, searchParams]);
+  }, [searchParams, router]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
-      <MatrixBackground />
-      <div className="relative z-10 w-full max-w-md px-4 py-8 space-y-8">
-        <div className="text-center">
-          <AnimatedDealpigText />
+    <>
+      {error ? (
+        <div className="p-4 border border-red-300 bg-red-50 rounded-md mb-6">
+          <h2 className="text-lg font-semibold text-red-700 mb-2">Authentication Error</h2>
+          <p className="text-red-600">{error}</p>
+          <button
+            onClick={() => router.push('/login')}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+          >
+            Return to Login
+          </button>
         </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin mb-6"></div>
+          <h2 className="text-xl font-semibold mb-2">Completing authentication...</h2>
+          <p className="text-gray-500">You'll be redirected shortly</p>
+        </div>
+      )}
+    </>
+  );
+}
 
-        {error ? (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-            <LetterFx trigger="instant" speed="fast" className="text-red-500">
-              {error}
-            </LetterFx>
-            <button
-              onClick={() => router.push('/login')}
-              className="mt-4 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded-lg transition-colors"
-            >
-              Return to Login
-            </button>
+export default function AuthCallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <div className="w-full max-w-md text-center">
+        <Image
+          src="/dealpig.svg"
+          alt="DealPig Logo"
+          width={250}
+          height={70}
+          className="mx-auto mb-8"
+          priority
+        />
+
+        <Suspense fallback={<div className="flex flex-col items-center justify-center">
+            <div className="w-16 h-16 border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin mb-6"></div>
+            <h2 className="text-xl font-semibold mb-2">Loading...</h2>
           </div>
-        ) : isAuthenticating ? (
-          <div className="text-center">
-            <LetterFx trigger="instant" speed="fast" className="text-green-500">
-              Authenticating...
-            </LetterFx>
-          </div>
-        ) : isSuccess ? (
-          <div className="text-center">
-            <LetterFx trigger="instant" speed="fast" className="text-green-500">
-              Login successful! Redirecting...
-            </LetterFx>
-          </div>
-        ) : null}
+        }>
+          <CallbackHandler />
+        </Suspense>
       </div>
     </div>
   );

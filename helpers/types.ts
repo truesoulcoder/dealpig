@@ -25,55 +25,84 @@ export interface Profile {
   created_at: Timestamp;
 }
 
-// Metadata types for lead sources
-export interface LeadSourceMetadata {
-  table_name: string;
-  file_hash: string;
-  column_types: Record<string, string>;
-}
-
 // Lead types
 export interface Lead {
   id: UUID;
-  // Property Information
   property_address: string | null;
   property_city: string | null;
   property_state: string | null;
   property_zip: string | null;
+  owner_name: string | null;
+  mailing_address: string | null;
+  mailing_city: string | null;
+  mailing_state: string | null;
+  mailing_zip: string | null;
+  wholesale_value: number | null;
+  market_value: number | null;
+  days_on_market: number | null;
+  mls_status: string | null;
+  mls_list_date: string | null;
+  mls_list_price: number | null;
+  status: string;
+  source_id: UUID | null;
+  assigned_to: UUID | null;
+  owner_type: string | null;
   property_type: string | null;
   beds: number | null;
   baths: number | null;
   square_footage: number | null;
   year_built: number | null;
-  
-  // Valuation
-  wholesale_value: number | null;
-  market_value: number | null;
   assessed_total: number | null;
-  
-  // MLS Information
-  days_on_market: number | null;
-  mls_status: string | null;
-  mls_list_date: string | null;
-  mls_list_price: number | null;
-  
-  // Owner Information
-  owner_name: string | null;
-  owner_email: string | null;
-  owner_type: string | null;  // 'OWNER' or 'AGENT'
-  
-  // Mailing Information
-  mailing_address: string | null;
-  mailing_city: string | null;
-  mailing_state: string | null;
-  mailing_zip: string | null;
-  
-  // System Fields
-  status: string;
-  source_id: UUID | null;
-  assigned_to: UUID | null;
   last_contacted_at: Timestamp | null;
   notes: string | null;
+  
+  // Contact fields
+  contact1name: string | null;
+  contact1firstname: string | null;
+  contact1lastname: string | null;
+  contact1phone_1: string | null;
+  contact1phone_2: string | null;
+  contact1phone_3: string | null;
+  contact1email_1: string | null;
+  contact1email_2: string | null;
+  contact1email_3: string | null;
+  contact2name: string | null;
+  contact2firstname: string | null;
+  contact2lastname: string | null;
+  contact2phone_1: string | null;
+  contact2phone_2: string | null;
+  contact2phone_3: string | null;
+  contact2email_1: string | null;
+  contact2email_2: string | null;
+  contact2email_3: string | null;
+  contact3name: string | null;
+  contact3firstname: string | null;
+  contact3lastname: string | null;
+  contact3phone_1: string | null;
+  contact3phone_2: string | null;
+  contact3phone_3: string | null;
+  contact3email_1: string | null;
+  contact3email_2: string | null;
+  contact3email_3: string | null;
+  contact4name: string | null;
+  contact4firstname: string | null;
+  contact4lastname: string | null;
+  contact4phone_1: string | null;
+  contact4phone_2: string | null;
+  contact4phone_3: string | null;
+  contact4email_1: string | null;
+  contact4email_2: string | null;
+  contact4email_3: string | null;
+  contact5name: string | null;
+  contact5firstname: string | null;
+  contact5lastname: string | null;
+  contact5phone_1: string | null;
+  contact5phone_2: string | null;
+  contact5phone_3: string | null;
+  contact5email_1: string | null;
+  contact5email_2: string | null;
+  contact5email_3: string | null;
+  
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -94,11 +123,10 @@ export interface LeadSource {
   id: UUID;
   name: string;
   file_name: string;
-  storage_path: string;  // Path in storage bucket where the file is stored
-  last_imported: Timestamp | null;
-  record_count: number | null;
+  storage_path: string;  // Table name where the leads are stored
+  last_imported: Timestamp;
+  record_count: number;
   is_active: boolean;
-  metadata: LeadSourceMetadata | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -255,11 +283,10 @@ export type Database = {
       };
       lead_sources: {
         Row: LeadSource;
-        Insert: Omit<LeadSource, 'created_at' | 'updated_at' | 'is_active' | 'id' | 'record_count'> & { 
+        Insert: Omit<LeadSource, 'created_at' | 'updated_at' | 'is_active' | 'id'> & { 
           id?: UUID;
           is_active?: boolean;
-          record_count?: number;
-          metadata?: LeadSourceMetadata;
+          storage_path: string;  // Required field for insert
           created_at?: Timestamp;
           updated_at?: Timestamp;
         };
