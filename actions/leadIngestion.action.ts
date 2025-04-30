@@ -139,17 +139,10 @@ export async function ingestLeadSource(sourceId: string) {
         .insert(values.map(vals => Object.fromEntries(keys.map((k, i) => [k, vals[i]]))));
         
       if (insertError) {
-        console.error('[LeadIngestion] Batch insert error details:', {
-          error: insertError,
-          batchSize: batch.length,
-          batchIndex: i / batchSize + 1,
-          totalBatches: Math.ceil(rows.length / batchSize),
-          firstRow: batch[0],
-          lastRow: batch[batch.length - 1]
-        });
-        throw new Error(`Failed to insert batch ${i / batchSize + 1}: ${insertError.message || 'Unknown error'}`);
+        console.error('[LeadIngestion] Batch insert error:', insertError);
+        throw new Error(`Failed to insert batch: ${insertError.message}`);
       }
-
+      
       console.log(`[LeadIngestion] Inserted batch ${i / batchSize + 1}/${Math.ceil(rows.length / batchSize)}`);
     }
 
@@ -181,15 +174,14 @@ export async function ingestLeadSource(sourceId: string) {
 // Normalizes raw rows: splits multi-contact fields into individual leads in 'leads' table
 export async function normalizeLeadsForSource(sourceId: string) {
   const admin = createAdminClient();
-  const BATCH_SIZE = 100; // Process 100 leads at a time
-  
+
   // Get the source info including metadata
   const { data: sourceData, error: srcErr } = await admin
     .from('lead_sources')
     .select('file_name, metadata')
     .eq('id', sourceId)
     .single();
-    
+
   if (srcErr || !sourceData) {
     throw new Error(srcErr?.message || 'Source not found');
   }
@@ -201,14 +193,12 @@ export async function normalizeLeadsForSource(sourceId: string) {
   }
 
   let inserted = 0;
-  let currentBatch: any[] = [];
-  
   try {
     // Fetch all raw rows using Supabase client
     const { data: rawRows, error: fetchError } = await admin
       .from(rawTable)
       .select('*');
-      
+
     if (fetchError) {
       throw new Error(`Failed to fetch raw rows: ${fetchError.message}`);
     }
@@ -217,122 +207,78 @@ export async function normalizeLeadsForSource(sourceId: string) {
       return { success: true, inserted: 0 };
     }
 
-    console.log(`[NormalizeLeads] Processing ${rawRows.length} properties...`);
-
-    // Process each property row
+    // Process each row
     for (const row of rawRows) {
-      // Base property data that will be included with each contact
-      const propertyData = {
-        property_address: row.PropertyAddress,
-        property_city: row.PropertyCity,
-        property_state: row.PropertyState,
-        property_zip: row.PropertyPostalCode,
-        property_type: row.PropertyType,
-        baths: row.Baths,
-        beds: row.Beds,
-        year_built: row.YearBuilt,
-        square_footage: row.SquareFootage,
-        wholesale_value: row.WholesaleValue,
-        assessed_total: row.AssessedTotal,
-        mls_status: row.MLS_Curr_Status,
-        days_on_market: row.MLS_Curr_DaysOnMarket,
-        source_id: sourceId
-      };
+      const leads = [];
 
-      // Process regular contacts (1-5)
+      // Extract contact information for up to 5 contacts
       for (let i = 1; i <= 5; i++) {
-        const contactName = row[`Contact${i}Name`];
-        const contactEmail = row[`Contact${i}Email_1`];
-        
+        const nameKey = `Contact${i}Name`;
+        const emailKey = `Contact${i}Email_1`;
+        const contactName = row[nameKey];
+        const contactEmail = row[emailKey];
+
         if (contactName && contactEmail) {
-          // Create lead record for this contact
-          currentBatch.push({ 
-            ...propertyData,
-            owner_name: contactName,
-            owner_email: contactEmail,
-            contact_type: 'OWNER'
+          leads.push({
+            uuid: crypto.randomUUID(),
+            contact_name: contactName,
+            contact_email: contactEmail,
+            property_address: row.PropertyAddress,
+            property_city: row.PropertyCity,
+            property_state: row.PropertyState,
+            property_postal_code: row.PropertyPostalCode,
+            property_type: row.PropertyType,
+            baths: row.Baths,
+            beds: row.Beds,
+            year_built: row.YearBuilt,
+            square_footage: row.SquareFootage,
+            wholesale_value: row.WholesaleValue,
+            assessed_total: row.AssessedTotal,
+            mls_curr_status: row.MLS_Curr_Status,
+            mls_curr_days_on_market: row.MLS_Curr_DaysOnMarket,
+            source_id: sourceId
           });
-
-          // Insert batch if it reaches the size limit
-          if (currentBatch.length >= BATCH_SIZE) {
-            const { error: insertError } = await admin
-              .from('leads')
-              .insert(currentBatch);
-              
-            if (insertError) {
-              console.error('[NormalizeLeads] Batch insert error:', insertError);
-              // Log the problematic batch for debugging
-              console.error('[NormalizeLeads] Failed batch:', {
-                size: currentBatch.length,
-                first: currentBatch[0],
-                last: currentBatch[currentBatch.length - 1]
-              });
-            } else {
-              inserted += currentBatch.length;
-              console.log(`[NormalizeLeads] Inserted batch of ${currentBatch.length} leads. Total: ${inserted}`);
-            }
-            
-            currentBatch = []; // Clear the batch
-          }
         }
       }
 
-      // Process MLS agent if present
-      const agentName = row.MLS_Curr_ListAgentName;
-      const agentEmail = row.MLS_Curr_ListAgentEmail;
-      
-      if (agentName && agentEmail) {
-        // Create lead record for the agent
-        currentBatch.push({ 
-          ...propertyData,
-          owner_name: agentName,
-          owner_email: agentEmail,
-          contact_type: 'AGENT'
+      // Add MLS agent as a lead
+      if (row.MLS_Curr_ListAgentName && row.MLS_Curr_ListAgentEmail) {
+        leads.push({
+          uuid: crypto.randomUUID(),
+          contact_name: row.MLS_Curr_ListAgentName,
+          contact_email: row.MLS_Curr_ListAgentEmail,
+          property_address: row.PropertyAddress,
+          property_city: row.PropertyCity,
+          property_state: row.PropertyState,
+          property_postal_code: row.PropertyPostalCode,
+          property_type: row.PropertyType,
+          baths: row.Baths,
+          beds: row.Beds,
+          year_built: row.YearBuilt,
+          square_footage: row.SquareFootage,
+          wholesale_value: row.WholesaleValue,
+          assessed_total: row.AssessedTotal,
+          mls_curr_status: row.MLS_Curr_Status,
+          mls_curr_days_on_market: row.MLS_Curr_DaysOnMarket,
+          source_id: sourceId
         });
+      }
 
-        // Insert batch if it reaches the size limit
-        if (currentBatch.length >= BATCH_SIZE) {
-          const { error: insertError } = await admin
-            .from('leads')
-            .insert(currentBatch);
-            
-          if (insertError) {
-            console.error('[NormalizeLeads] Batch insert error:', insertError);
-            console.error('[NormalizeLeads] Failed batch:', {
-              size: currentBatch.length,
-              first: currentBatch[0],
-              last: currentBatch[currentBatch.length - 1]
-            });
-          } else {
-            inserted += currentBatch.length;
-            console.log(`[NormalizeLeads] Inserted batch of ${currentBatch.length} leads. Total: ${inserted}`);
-          }
-          
-          currentBatch = []; // Clear the batch
+      // Insert leads into the normalized_leads table
+      for (const lead of leads) {
+        const { error: insertError } = await admin
+          .from('normalized_leads')
+          .insert(lead);
+
+        if (insertError) {
+          console.error('Insert lead error:', insertError);
+          continue; // Skip this lead but continue with others
         }
+
+        inserted++;
       }
     }
 
-    // Insert any remaining leads in the final batch
-    if (currentBatch.length > 0) {
-      const { error: insertError } = await admin
-        .from('leads')
-        .insert(currentBatch);
-        
-      if (insertError) {
-        console.error('[NormalizeLeads] Final batch insert error:', insertError);
-        console.error('[NormalizeLeads] Failed batch:', {
-          size: currentBatch.length,
-          first: currentBatch[0],
-          last: currentBatch[currentBatch.length - 1]
-        });
-      } else {
-        inserted += currentBatch.length;
-        console.log(`[NormalizeLeads] Inserted final batch of ${currentBatch.length} leads. Total: ${inserted}`);
-      }
-    }
-    
-    console.log(`[NormalizeLeads] Completed processing. Total leads inserted: ${inserted}`);
     return { success: true, inserted };
   } catch (err) {
     console.error('[NormalizeLeads] Error:', err);
