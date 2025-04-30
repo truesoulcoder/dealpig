@@ -1,16 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/helpers/types';
+import type { Database } from '@/types/supabase';
 
-// Initialize Supabase client with environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables!');
+  throw new Error('Missing Supabase environment variables');
 }
 
-// Create Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Singleton instance with proper typing
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  }
+});
+
+// Factory function for cases where a new instance is needed
+export const createSupabaseClient = () => {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+};
 
 // Create authenticated admin client (for server-side operations)
 export const createAdminClient = () => {
@@ -28,6 +39,11 @@ export const createAdminClient = () => {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+      },
+      global: {
+        headers: {
+          'x-client-info': 'supabase-js-node/2.49.4'
+        }
       }
     }
   );

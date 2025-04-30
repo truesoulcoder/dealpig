@@ -40,13 +40,7 @@ export const SidebarItem = ({ icon, title, isActive, href = '' }: Props) => {
 
   return (
     <NavLink href={href} onClick={handleClick} prefetch>
-      {isActive ? (
-        <LetterFx>
-          {content}
-        </LetterFx>
-      ) : (
-        content
-      )}
+      {content}
     </NavLink>
   );
 };

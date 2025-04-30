@@ -25,84 +25,55 @@ export interface Profile {
   created_at: Timestamp;
 }
 
+// Metadata types for lead sources
+export interface LeadSourceMetadata {
+  table_name: string;
+  file_hash: string;
+  column_types: Record<string, string>;
+}
+
 // Lead types
 export interface Lead {
   id: UUID;
+  // Property Information
   property_address: string | null;
   property_city: string | null;
   property_state: string | null;
   property_zip: string | null;
-  owner_name: string | null;
-  mailing_address: string | null;
-  mailing_city: string | null;
-  mailing_state: string | null;
-  mailing_zip: string | null;
+  property_type: string | null;
+  beds: number | null;
+  baths: number | null;
+  square_footage: number | null;
+  year_built: number | null;
+  
+  // Valuation
   wholesale_value: number | null;
   market_value: number | null;
+  assessed_total: number | null;
+  
+  // MLS Information
   days_on_market: number | null;
   mls_status: string | null;
   mls_list_date: string | null;
   mls_list_price: number | null;
+  
+  // Owner Information
+  owner_name: string | null;
+  owner_email: string | null;
+  owner_type: string | null;  // 'OWNER' or 'AGENT'
+  
+  // Mailing Information
+  mailing_address: string | null;
+  mailing_city: string | null;
+  mailing_state: string | null;
+  mailing_zip: string | null;
+  
+  // System Fields
   status: string;
   source_id: UUID | null;
   assigned_to: UUID | null;
-  owner_type: string | null;
-  property_type: string | null;
-  beds: string | null;
-  baths: string | null;
-  square_footage: string | null;
-  year_built: string | null;
-  assessed_total: number | null;
   last_contacted_at: Timestamp | null;
   notes: string | null;
-  
-  // Contact fields
-  contact1name: string | null;
-  contact1firstname: string | null;
-  contact1lastname: string | null;
-  contact1phone_1: string | null;
-  contact1phone_2: string | null;
-  contact1phone_3: string | null;
-  contact1email_1: string | null;
-  contact1email_2: string | null;
-  contact1email_3: string | null;
-  contact2name: string | null;
-  contact2firstname: string | null;
-  contact2lastname: string | null;
-  contact2phone_1: string | null;
-  contact2phone_2: string | null;
-  contact2phone_3: string | null;
-  contact2email_1: string | null;
-  contact2email_2: string | null;
-  contact2email_3: string | null;
-  contact3name: string | null;
-  contact3firstname: string | null;
-  contact3lastname: string | null;
-  contact3phone_1: string | null;
-  contact3phone_2: string | null;
-  contact3phone_3: string | null;
-  contact3email_1: string | null;
-  contact3email_2: string | null;
-  contact3email_3: string | null;
-  contact4name: string | null;
-  contact4firstname: string | null;
-  contact4lastname: string | null;
-  contact4phone_1: string | null;
-  contact4phone_2: string | null;
-  contact4phone_3: string | null;
-  contact4email_1: string | null;
-  contact4email_2: string | null;
-  contact4email_3: string | null;
-  contact5name: string | null;
-  contact5firstname: string | null;
-  contact5lastname: string | null;
-  contact5phone_1: string | null;
-  contact5phone_2: string | null;
-  contact5phone_3: string | null;
-  contact5email_1: string | null;
-  contact5email_2: string | null;
-  contact5email_3: string | null;
-  
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -123,9 +94,11 @@ export interface LeadSource {
   id: UUID;
   name: string;
   file_name: string;
-  last_imported: Timestamp;
-  record_count: number;
+  storage_path: string;  // Path in storage bucket where the file is stored
+  last_imported: Timestamp | null;
+  record_count: number | null;
   is_active: boolean;
+  metadata: LeadSourceMetadata | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -282,9 +255,11 @@ export type Database = {
       };
       lead_sources: {
         Row: LeadSource;
-        Insert: Omit<LeadSource, 'created_at' | 'updated_at' | 'is_active' | 'id'> & { 
+        Insert: Omit<LeadSource, 'created_at' | 'updated_at' | 'is_active' | 'id' | 'record_count'> & { 
           id?: UUID;
           is_active?: boolean;
+          record_count?: number;
+          metadata?: LeadSourceMetadata;
           created_at?: Timestamp;
           updated_at?: Timestamp;
         };
@@ -431,3 +406,60 @@ export enum CampaignLeadStatus {
   PROCESSED = "PROCESSED",
   ERROR = "ERROR",
 }
+
+// Lead field mappings for templates and email personalization
+export const LEAD_TEMPLATE_FIELDS = {
+  // Contact Information
+  OWNER_NAME: 'owner_name',        // From Contact#Name or MLS_Curr_ListAgentName
+  OWNER_EMAIL: 'owner_email',      // From Contact#Email_1 or MLS_Curr_ListAgentEmail
+  CONTACT_TYPE: 'contact_type',    // 'OWNER' or 'AGENT'
+
+  // Property Details
+  PROPERTY_ADDRESS: 'property_address',  // From PropertyAddress
+  PROPERTY_CITY: 'property_city',        // From PropertyCity
+  PROPERTY_STATE: 'property_state',      // From PropertyState
+  PROPERTY_ZIP: 'property_zip',          // From PropertyPostalCode
+  PROPERTY_TYPE: 'property_type',        // From PropertyType
+  
+  // Property Metrics
+  BEDS: 'beds',                    // From Beds
+  BATHS: 'baths',                  // From Baths
+  YEAR_BUILT: 'year_built',        // From YearBuilt
+  SQUARE_FOOTAGE: 'square_footage', // From SquareFootage
+  
+  // Valuation
+  WHOLESALE_VALUE: 'wholesale_value',   // From WholesaleValue
+  ASSESSED_TOTAL: 'assessed_total',     // From AssessedTotal
+  
+  // MLS Information
+  MLS_STATUS: 'mls_status',            // From MLS_Curr_Status
+  DAYS_ON_MARKET: 'days_on_market',    // From MLS_Curr_DaysOnMarket
+} as const;
+
+// Type for template variables
+export type LeadTemplateField = keyof typeof LEAD_TEMPLATE_FIELDS;
+
+// Example template usage:
+// Dear {{OWNER_NAME}},
+// I noticed your property at {{PROPERTY_ADDRESS}} in {{PROPERTY_CITY}} has been listed for {{DAYS_ON_MARKET}} days.
+// This {{BEDS}} bedroom, {{BATHS}} bathroom home built in {{YEAR_BUILT}} ...
+
+// Documentation for template creators
+export const TEMPLATE_FIELD_DESCRIPTIONS = {
+  OWNER_NAME: 'The name of the property owner or listing agent',
+  OWNER_EMAIL: 'The email address of the property owner or listing agent',
+  CONTACT_TYPE: 'Whether this contact is an owner or agent',
+  PROPERTY_ADDRESS: 'The street address of the property',
+  PROPERTY_CITY: 'The city where the property is located',
+  PROPERTY_STATE: 'The state where the property is located',
+  PROPERTY_ZIP: 'The postal code of the property',
+  PROPERTY_TYPE: 'The type of property (e.g., Single Family, Multi-Family)',
+  BEDS: 'Number of bedrooms',
+  BATHS: 'Number of bathrooms',
+  YEAR_BUILT: 'Year the property was built',
+  SQUARE_FOOTAGE: 'Total square footage of the property',
+  WHOLESALE_VALUE: 'Estimated wholesale value of the property',
+  ASSESSED_TOTAL: 'Total assessed value of the property',
+  MLS_STATUS: 'Current MLS listing status',
+  DAYS_ON_MARKET: 'Number of days the property has been on the market'
+} as const;

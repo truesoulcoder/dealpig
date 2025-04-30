@@ -156,30 +156,52 @@ export async function logoutUser() {
  * Initiate Google OAuth login
  */
 export async function loginWithGoogle() {
+  console.log('🔍 Starting loginWithGoogle action...');
+  
   try {
-    // Use the Supabase-provided callback URL
+    console.log('🔑 Initiating Supabase OAuth sign-in with Google...');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // No need to specify redirectTo as Supabase will use its default callback URL
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
+          include_granted_scopes: 'true',
+          scope: 'email profile',
+          display: 'popup',
+          response_type: 'code',
+          state: 'dealpig'
         },
       },
     });
 
+    console.log('📥 Received response from Supabase:', {
+      hasData: !!data,
+      hasError: !!error,
+      url: data?.url,
+    });
+
     if (error) {
+      console.error('❌ Supabase OAuth error:', error);
       return {
         error: error.message,
       };
     }
 
+    if (!data?.url) {
+      console.error('❌ No redirect URL received from Supabase');
+      return {
+        error: 'Failed to get authentication URL',
+      };
+    }
+
+    console.log('✅ Successfully got redirect URL:', data.url);
     return {
       redirectUrl: data.url,
     };
   } catch (error) {
-    console.error('Google login error:', error);
+    console.error('❌ Unexpected error in loginWithGoogle:', error);
     return {
       error: 'Failed to initiate Google login',
     };

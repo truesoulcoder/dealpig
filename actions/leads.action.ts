@@ -1,7 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase';
-import { Database } from '@/helpers/types';
+import { Database, Lead, LeadSource } from '@/helpers/types';
 // Server action to handle leads file upload
 export async function uploadLeads(formData: FormData) {
   console.log('[uploadLeads] server action called');
@@ -26,9 +26,21 @@ export async function uploadLeads(formData: FormData) {
   }
   console.log('[uploadLeads] storage upload succeeded');
   // Record the upload in lead_sources table
+  const createdAt = new Date().toISOString();
+  const storagePath = `lead-imports/${fileName}`;
+
   const { error: dbError } = await admin
     .from('lead_sources')
-    .insert({ name: fileName, file_name: file.name, record_count: 0, is_active: true });
+    .insert({
+      name: fileName,
+      file_name: file.name,
+      record_count: 0,
+      is_active: true,
+      storage_path: storagePath,
+      last_imported: createdAt,
+      created_at: createdAt,
+      updated_at: createdAt
+    });
   console.log('[uploadLeads] db insert returned error:', dbError);
   if (dbError) {
     return { success: false, message: dbError.message };
@@ -100,4 +112,20 @@ export async function deleteLead(leadId: string): Promise<void> {
     console.error('Error deleting lead:', error);
     throw error;
   }
+}
+
+export async function getLeadSources(): Promise<LeadSource[]> {
+  const supabase = createAdminClient();
+  
+  const { data, error } = await supabase
+    .from('lead_sources')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    console.error('Error fetching lead sources:', error);
+    throw error;
+  }
+  
+  return data || [];
 }

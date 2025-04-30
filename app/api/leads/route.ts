@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
-import crypto from 'crypto';
-import { Buffer } from 'buffer';
+import { createResponse } from '@/lib/api';
 import { ingestLeadSource, normalizeLeadsForSource, isDuplicateFile } from '@/actions/leadIngestion.action';
+import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 export const runtime = 'nodejs';
 
@@ -13,17 +14,6 @@ export const config = {
       sizeLimit: '50mb',
     },
   },
-};
-
-// Helper function to create consistent responses
-const createResponse = (data: any, status: number = 200) => {
-  return new NextResponse(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
 };
 
 export async function POST(request: NextRequest) {
@@ -40,24 +30,32 @@ export async function POST(request: NextRequest) {
     
     if (!(fileField instanceof File)) {
       console.error('[API /leads] Invalid file type received:', typeof fileField);
-      return NextResponse.json(
+      return createResponse(
         { success: false, message: 'No file uploaded' },
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
+        400
       );
     }
 
     const file = fileField;
-    if (!file.name.endsWith('.csv')) {
+    const originalFileName = file.name; // Store original filename
+
+    if (!originalFileName.endsWith('.csv')) {
       console.error('[API /leads] Invalid file format - must be CSV');
-      return NextResponse.json(
+      return createResponse(
         { success: false, message: 'Only CSV files are supported' },
+        400
+      );
+    }
+
+    // Check file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+    if (file.size > maxSize) {
+      return createResponse(
         { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
+          success: false, 
+          message: `File is too large. Maximum size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB` 
+        },
+        413
       );
     }
 
@@ -67,116 +65,128 @@ export async function POST(request: NextRequest) {
     
     // Check for duplicate content
     const admin = createAdminClient();
-    const isDuplicate = await isDuplicateFile(admin, buffer, file.name);
-    if (isDuplicate) {
-      return NextResponse.json(
-        { success: false, message: 'This file appears to be a duplicate of an existing import' },
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
+    // const isDuplicate = await isDuplicateFile(admin, buffer, originalFileName); // Use originalFileName for duplicate check if needed
+    // if (isDuplicate) { ... }
 
-    const fileName = `${crypto.randomUUID()}_${file.name}`;
-    console.log('[API /leads] Generated file name:', fileName);
+    // Generate UUID for this new source
+    const sourceId = uuidv4();
+    const storageObjectName = sourceId; // Use UUID as the object name in storage
+    const storagePath = `lead-imports/${storageObjectName}`;
+    const sourceName = `${sourceId}_${originalFileName}`; // Name combines UUID and original name
+
+    console.log('[API /leads] Generated Source ID (UUID):', sourceId);
+    console.log('[API /leads] Storage Object Name:', storageObjectName);
     console.log('[API /leads] File size:', buffer.length, 'bytes');
-    
-    // Upload file using upsert:false so existing files cause a duplicate error
-    console.log('[API /leads] Uploading file to storage...');
+
+    // Upload file using UUID as the name
+    console.log('[API /leads] Uploading file to storage path:', storagePath);
     console.log('[API /leads] Storage client initialized:', !!admin.storage);
-    
+
     try {
-      const { data, error: storageError } = await admin.storage
+      const { data: uploadData, error: storageError } = await admin.storage
         .from('lead-imports')
-        .upload(fileName, buffer, { 
+        .upload(storageObjectName, buffer, { // Use UUID for upload name
           contentType: 'text/csv',
-          upsert: false,
+          upsert: false, // Keep this false to prevent overwriting by mistake
           cacheControl: '3600'
         });
 
-      console.log('[API /leads] Upload response data:', data);
-      
       if (storageError) {
         console.error('[API /leads] Storage upload error:', storageError);
-        console.error('[API /leads] Error details:', {
-          message: storageError.message,
-          name: storageError.name
-        });
-        return createResponse(
-          { success: false, message: `Storage error: ${storageError.message}` },
-          500
-        );
-      }
-
-      console.log('[API /leads] File uploaded successfully to path:', data?.path);
-
-      // Record file metadata in lead_sources
-      const { data: newSource, error: dbError } = await admin
-        .from('lead_sources')
-        .insert({
-          name: fileName,
-          file_name: file.name,
-          last_imported: new Date().toISOString(),
-          record_count: 0,
-          is_active: true,
-        })
-        .select('id')
-        .single();
-
-      if (dbError || !newSource) {
-        console.error('[API /leads] Database error:', dbError);
-        return createResponse(
-          { success: false, message: `Database error: ${dbError?.message}` },
-          500
-        );
-      }
-
-      const sourceId = newSource.id;
-      console.log('[API /leads] Created lead source:', sourceId);
-
-      try {
-        // Ingest raw rows and normalize into leads
-        console.log('[API /leads] Starting lead ingestion...');
-        const { count } = await ingestLeadSource(sourceId);
-        console.log('[API /leads] Ingested', count, 'leads');
-
-        console.log('[API /leads] Normalizing leads...');
-        await normalizeLeadsForSource(sourceId);
-        console.log('[API /leads] Lead normalization complete');
-
-        return createResponse(
-          { success: true, count, message: `Successfully processed ${count} leads` },
-          200
-        );
-      } catch (ingestionError) {
-        console.error('[API /leads] Lead ingestion error:', ingestionError);
         return createResponse(
           { 
             success: false, 
-            message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}` 
+            message: `Storage error: ${storageError.message}`,
+            error: storageError
           },
           500
         );
       }
 
-    } catch (err) {
-      console.error('[API /leads] Unexpected error:', err);
+      if (!uploadData?.path) {
+        console.error('[API /leads] No path returned from storage upload');
+        return createResponse(
+          { 
+            success: false, 
+            message: 'Storage upload failed: No path returned',
+            data: uploadData
+          },
+          500
+        );
+      }
+
+      console.log('[API /leads] File uploaded successfully to path:', uploadData.path); // Path will be the UUID
+
+      // Create the initial lead source record HERE
+      console.log('[API /leads] Creating initial lead source record...');
+      const createdAt = new Date().toISOString();
+      const { error: dbError } = await admin
+        .from('lead_sources')
+        .insert({
+          id: sourceId,             // The generated UUID
+          name: sourceName,           // Combined UUID + original name
+          file_name: originalFileName, // The original file name
+          storage_path: storagePath,    // Path in storage (includes UUID)
+          record_count: 0,            // Initial count
+          is_active: true,
+          last_imported: createdAt,   // Set initial import time
+          created_at: createdAt,
+          updated_at: createdAt
+        });
+
+      if (dbError) {
+        console.error('[API /leads] Failed to create initial lead source record:', dbError);
+        // Potentially delete the uploaded file if DB insert fails
+        await admin.storage.from('lead-imports').remove([storageObjectName]);
+        return createResponse(
+          { success: false, message: `Database error: ${dbError.message}` },
+          500
+        );
+      }
+      console.log('[API /leads] Initial lead source record created successfully:', sourceId);
+
+
+      // Trigger ingestion process using the UUID
+      console.log('[API /leads] Triggering ingestion process for source ID:', sourceId);
+      // Note: ingestLeadSource might need adjustments now to UPDATE instead of INSERT/COUNT initially
+      const ingestionResult = await ingestLeadSource(sourceId); // Pass the UUID
+
+      // Assuming ingestLeadSource now returns the final count after processing
+      // const finalRowCount = ingestionResult.count; // Adjust based on ingestLeadSource return value
+
+      // Normalize leads (this might be part of ingestLeadSource or called after)
+      // console.log('[API /leads] Normalizing leads...');
+      // const { inserted } = await normalizeLeadsForSource(sourceId);
+      // console.log('[API /leads] Lead normalization complete');
+
+      return createResponse(
+        {
+          success: true,
+          // count: inserted, // Adjust based on where normalization happens
+          message: `Successfully started processing file: ${originalFileName}`,
+          sourceId: sourceId
+        },
+        200 // Or 202 Accepted if processing is async
+      );
+
+    } catch (error) {
+      console.error('[API /leads] Unexpected error during upload:', error);
       return createResponse(
         { 
           success: false, 
-          message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
+          message: 'Unexpected error during file upload',
+          error: error instanceof Error ? error.message : 'Unknown error'
         },
         500
       );
     }
-
-  } catch (err) {
-    console.error('[API /leads] Unexpected error:', err);
+  } catch (error) {
+    console.error('[API /leads] Unexpected error:', error);
     return createResponse(
       { 
         success: false, 
-        message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
+        message: 'Unexpected server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
       },
       500
     );

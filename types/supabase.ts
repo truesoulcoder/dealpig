@@ -11,7 +11,6 @@ export interface Database {
             file_hash: string;
             column_types: Record<string, string>;
             record_count?: number;
-            storage_path?: string;  // added storage path to metadata
           };
           last_imported: string;
           created_at?: string;
@@ -26,7 +25,6 @@ export interface Database {
             file_hash: string;
             column_types: Record<string, string>;
             record_count?: number;
-            storage_path?: string;  // added storage path
           };
           last_imported?: string;
           created_at?: string;
@@ -41,7 +39,6 @@ export interface Database {
             file_hash?: string;
             column_types?: Record<string, string>;
             record_count?: number;
-            storage_path?: string;  // added storage path
           };
           last_imported?: string;
           created_at?: string;

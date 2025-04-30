@@ -133,7 +133,7 @@ const LetterFx = forwardRef<HTMLSpanElement, LetterFxProps>(
         ref={ref}
         className={classNames(className)}
         style={style}
-        onMouseOver={trigger === "hover" ? eventHandler : undefined}
+        onMouseEnter={trigger === "hover" ? eventHandler : undefined}
       >
         {text}
       </span>
