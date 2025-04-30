@@ -48,10 +48,10 @@ export interface Lead {
   assigned_to: UUID | null;
   owner_type: string | null;
   property_type: string | null;
-  beds: number | null;
-  baths: number | null;
-  square_footage: number | null;
-  year_built: number | null;
+  beds: string | null;
+  baths: string | null;
+  square_footage: string | null;
+  year_built: string | null;
   assessed_total: number | null;
   last_contacted_at: Timestamp | null;
   notes: string | null;
@@ -123,7 +123,6 @@ export interface LeadSource {
   id: UUID;
   name: string;
   file_name: string;
-  storage_path: string;  // Table name where the leads are stored
   last_imported: Timestamp;
   record_count: number;
   is_active: boolean;
@@ -286,7 +285,6 @@ export type Database = {
         Insert: Omit<LeadSource, 'created_at' | 'updated_at' | 'is_active' | 'id'> & { 
           id?: UUID;
           is_active?: boolean;
-          storage_path: string;  // Required field for insert
           created_at?: Timestamp;
           updated_at?: Timestamp;
         };
@@ -433,60 +431,3 @@ export enum CampaignLeadStatus {
   PROCESSED = "PROCESSED",
   ERROR = "ERROR",
 }
-
-// Lead field mappings for templates and email personalization
-export const LEAD_TEMPLATE_FIELDS = {
-  // Contact Information
-  OWNER_NAME: 'owner_name',        // From Contact#Name or MLS_Curr_ListAgentName
-  OWNER_EMAIL: 'owner_email',      // From Contact#Email_1 or MLS_Curr_ListAgentEmail
-  CONTACT_TYPE: 'contact_type',    // 'OWNER' or 'AGENT'
-
-  // Property Details
-  PROPERTY_ADDRESS: 'property_address',  // From PropertyAddress
-  PROPERTY_CITY: 'property_city',        // From PropertyCity
-  PROPERTY_STATE: 'property_state',      // From PropertyState
-  PROPERTY_ZIP: 'property_zip',          // From PropertyPostalCode
-  PROPERTY_TYPE: 'property_type',        // From PropertyType
-  
-  // Property Metrics
-  BEDS: 'beds',                    // From Beds
-  BATHS: 'baths',                  // From Baths
-  YEAR_BUILT: 'year_built',        // From YearBuilt
-  SQUARE_FOOTAGE: 'square_footage', // From SquareFootage
-  
-  // Valuation
-  WHOLESALE_VALUE: 'wholesale_value',   // From WholesaleValue
-  ASSESSED_TOTAL: 'assessed_total',     // From AssessedTotal
-  
-  // MLS Information
-  MLS_STATUS: 'mls_status',            // From MLS_Curr_Status
-  DAYS_ON_MARKET: 'days_on_market',    // From MLS_Curr_DaysOnMarket
-} as const;
-
-// Type for template variables
-export type LeadTemplateField = keyof typeof LEAD_TEMPLATE_FIELDS;
-
-// Example template usage:
-// Dear {{OWNER_NAME}},
-// I noticed your property at {{PROPERTY_ADDRESS}} in {{PROPERTY_CITY}} has been listed for {{DAYS_ON_MARKET}} days.
-// This {{BEDS}} bedroom, {{BATHS}} bathroom home built in {{YEAR_BUILT}} ...
-
-// Documentation for template creators
-export const TEMPLATE_FIELD_DESCRIPTIONS = {
-  OWNER_NAME: 'The name of the property owner or listing agent',
-  OWNER_EMAIL: 'The email address of the property owner or listing agent',
-  CONTACT_TYPE: 'Whether this contact is an owner or agent',
-  PROPERTY_ADDRESS: 'The street address of the property',
-  PROPERTY_CITY: 'The city where the property is located',
-  PROPERTY_STATE: 'The state where the property is located',
-  PROPERTY_ZIP: 'The postal code of the property',
-  PROPERTY_TYPE: 'The type of property (e.g., Single Family, Multi-Family)',
-  BEDS: 'Number of bedrooms',
-  BATHS: 'Number of bathrooms',
-  YEAR_BUILT: 'Year the property was built',
-  SQUARE_FOOTAGE: 'Total square footage of the property',
-  WHOLESALE_VALUE: 'Estimated wholesale value of the property',
-  ASSESSED_TOTAL: 'Total assessed value of the property',
-  MLS_STATUS: 'Current MLS listing status',
-  DAYS_ON_MARKET: 'Number of days the property has been on the market'
-} as const;

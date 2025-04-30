@@ -209,12 +209,12 @@ export async function normalizeLeadsForSource(sourceId: string) {
 
     // Process each row
     for (const row of rawRows) {
+      // Extract up to 6 leads (5 contacts + 1 MLS agent)
       const leads = [];
 
-      // Extract contact information for up to 5 contacts
       for (let i = 1; i <= 5; i++) {
-        const nameKey = `Contact${i}Name`;
-        const emailKey = `Contact${i}Email_1`;
+        const nameKey = `contact${i}name`;
+        const emailKey = `contact${i}email`;
         const contactName = row[nameKey];
         const contactEmail = row[emailKey];
 

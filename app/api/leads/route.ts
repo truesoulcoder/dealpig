@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fileName = file.name;
+    const fileName = `${crypto.randomUUID()}_${file.name}`;
     console.log('[API /leads] Generated file name:', fileName);
     console.log('[API /leads] File size:', buffer.length, 'bytes');
     
@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
           last_imported: new Date().toISOString(),
           record_count: 0,
           is_active: true,
-          storage_path: data?.path || `lead-imports/${fileName}`,
         })
         .select('id')
         .single();
@@ -147,18 +146,7 @@ export async function POST(request: NextRequest) {
         console.log('[API /leads] Lead normalization complete');
 
         return createResponse(
-          { 
-            success: true, 
-            count, 
-            message: `Successfully processed ${count} leads`,
-            logs: [
-              `Starting ingestion for ${file.name}`,
-              `File size: ${(buffer.length / 1024 / 1024).toFixed(2)} MB`,
-              `Parsed ${count} rows`,
-              `Created table: ${fileName.replace(/\.[^/.]+$/, '')}`,
-              `Successfully processed all leads`
-            ]
-          },
+          { success: true, count, message: `Successfully processed ${count} leads` },
           200
         );
       } catch (ingestionError) {
@@ -166,10 +154,7 @@ export async function POST(request: NextRequest) {
         return createResponse(
           { 
             success: false, 
-            message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}`,
-            logs: [
-              `Error during ingestion: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}`
-            ]
+            message: `Lead ingestion error: ${ingestionError instanceof Error ? ingestionError.message : 'Unknown error'}` 
           },
           500
         );
@@ -180,10 +165,7 @@ export async function POST(request: NextRequest) {
       return createResponse(
         { 
           success: false, 
-          message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          logs: [
-            `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`
-          ]
+          message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
         },
         500
       );
@@ -194,10 +176,7 @@ export async function POST(request: NextRequest) {
     return createResponse(
       { 
         success: false, 
-        message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        logs: [
-          `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`
-        ]
+        message: `Unexpected server error: ${err instanceof Error ? err.message : 'Unknown error'}` 
       },
       500
     );
