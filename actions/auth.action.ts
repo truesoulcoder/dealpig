@@ -168,7 +168,7 @@ export async function loginWithGoogle() {
           access_type: 'offline',
           prompt: 'consent',
           include_granted_scopes: 'true',
-          scope: 'email profile https://www.googleapis.com/auth/gmail.send',
+          scope: 'email profile',
           display: 'popup',
           response_type: 'code',
           state: 'dealpig'

@@ -30,6 +30,11 @@ const nextConfig = {
     ignoreDuringBuilds: true,
     dirs: ['pages', 'components', 'app', 'utils', 'lib']
   },
+
+  // Configure server settings
+  serverRuntimeConfig: {
+    maxBodySize: '50mb',
+  },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

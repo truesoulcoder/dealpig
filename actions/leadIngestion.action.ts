@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase';
 import Papa from 'papaparse';
 import crypto from 'crypto';
 import { Client } from 'pg';
+import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to get clean table name from file name
 async function getUniqueTableName(admin: any, fileName: string, attempt: number = 0): Promise<string> {
@@ -68,215 +69,146 @@ export async function isDuplicateFile(admin: any, fileBuffer: Buffer, fileName: 
   return false;
 }
 
-function inferColumnType(values: any[]): string {
-  // Skip null/undefined values
-  const nonNullValues = values.filter(v => v != null);
-  if (nonNullValues.length === 0) return 'TEXT';
+// Helper function to infer column type from sample values
+function inferColumnType(values: (string | null)[]): string {
+  // Filter out null/empty values
+  const nonEmptyValues = values.filter((v): v is string => v != null && v !== '');
+  if (nonEmptyValues.length === 0) return 'TEXT';
 
-  // Check if all values are numbers
-  if (nonNullValues.every(v => !isNaN(Number(v)))) {
-    // Check if all values are integers
-    if (nonNullValues.every(v => Number.isInteger(Number(v)))) {
-      return 'INTEGER';
-    }
-    return 'NUMERIC';
+  // Check if column name suggests it's a phone number
+  const columnNameLower = values[0]?.toLowerCase() || '';
+  if (columnNameLower.includes('phone') || columnNameLower.includes('mobile') || columnNameLower.includes('fax')) {
+    return 'TEXT';
   }
 
-  // Check if all values are valid dates
-  if (nonNullValues.every(v => !isNaN(Date.parse(v)))) {
-    return 'TIMESTAMPTZ';
+  // Check if values match phone number pattern
+  const phonePattern = /^\+?\d{10,}$/;
+  if (nonEmptyValues.some(v => phonePattern.test(v.replace(/\D/g, '')))) {
+    return 'TEXT';
   }
 
-  // Check if all values are boolean
-  if (nonNullValues.every(v => v.toLowerCase() === 'true' || v.toLowerCase() === 'false')) {
+  // Check if all values are boolean-like
+  if (nonEmptyValues.every(v => ['true', 'false', '0', '1'].includes(v.toLowerCase()))) {
     return 'BOOLEAN';
   }
 
-  // Default to TEXT
+  // Check if all values are valid dates
+  if (nonEmptyValues.every(v => !isNaN(Date.parse(v)))) {
+    return 'TIMESTAMPTZ';
+  }
+
+  // Check if all values are numeric
+  if (nonEmptyValues.every(v => !isNaN(parseFloat(v.replace(/[$,%]/g, ''))))) {
+    const maxValue = Math.max(...nonEmptyValues.map(v => parseFloat(v.replace(/[$,%]/g, ''))));
+    // Use NUMERIC for large numbers or decimals
+    if (maxValue > 2147483647 || nonEmptyValues.some(v => v.includes('.'))) {
+      return 'NUMERIC';
+    }
+    return 'INTEGER';
+  }
+
+  // Default to TEXT for everything else
   return 'TEXT';
 }
 
-// Parses CSV from storage for a given lead_source ID and ingests into a raw table
-export async function ingestLeadSource(sourceId: string) {
-  const admin = createAdminClient();
-  console.log('[LeadIngestion] Starting ingestion for source:', sourceId);
-  
-  // Fetch source info
-  const { data: sourceData, error: srcErr } = await admin
-    .from('lead_sources')
-    .select('name, file_name')
-    .eq('id', sourceId)
-    .single();
+export async function ingestLeadSource(name: string,
+  file_name: string,
+  file_hash: string,
+  column_types: Record<string, string>
+): Promise<any> {
+   try {
+    const admin: any = createAdminClient();
+    const table_name = `lead_source_${uuidv4().replace(/-/g, '_')}`;
     
-  if (srcErr || !sourceData) {
-    console.error('[LeadIngestion] Source fetch error:', srcErr);
-    throw new Error(srcErr?.message || 'Source not found');
+    const insertData = {
+       name,
+       file_name,
+       metadata: {
+         table_name,
+         file_hash,
+         column_types,
+       },
+      last_imported: new Date().toISOString(),
+     };
+
+     const { data, error: insertError } = await admin
+       .from('lead_sources')
+       .insert([insertData])
+       .select()
+       .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    if (!data) {
+      throw new Error('Failed to insert lead source');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error ingesting lead source:', error);
+    throw error;
   }
-  
-  const fileName = sourceData.name;
-  const originalFileName = sourceData.file_name;
-  console.log('[LeadIngestion] Processing file:', fileName);
+}
 
-  // Download CSV from storage
-  const { data: fileBlob, error: blobErr } = await admin.storage
-    .from('lead-imports')
-    .download(fileName);
-    
-  if (blobErr || !fileBlob) {
-    console.error('[LeadIngestion] File download error:', blobErr);
-    throw new Error(blobErr?.message || 'Failed to download file');
-  }
-  
-  const text = await fileBlob.text();
-  console.log('[LeadIngestion] File downloaded, size:', text.length);
-
-  // Parse CSV into JSON rows
-  const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
-  if (parsed.errors.length) {
-    console.error('[LeadIngestion] CSV parse errors:', parsed.errors);
-    throw new Error('Failed to parse CSV');
-  }
-  
-  const rows = parsed.data;
-  console.log('[LeadIngestion] Parsed rows:', rows.length);
-
-  // Get unique table name
-  const rawTable = await getUniqueTableName(admin, originalFileName);
-  console.log('[LeadIngestion] Using table name:', rawTable);
-
+export async function updateLeadSourceRecordCount(
+  leadSourceId: string,
+  recordCount: number
+): Promise<void> {
   try {
-    // Infer column types from the first 100 rows or all rows if less
-    const sampleSize = Math.min(rows.length, 100);
-    const sampleRows = rows.slice(0, sampleSize);
-    const columnTypes = Object.keys(rows[0] || {}).reduce((acc, col) => {
-      const values = sampleRows.map(row => row[col]);
-      acc[col] = inferColumnType(values);
-      return acc;
-    }, {} as Record<string, string>);
+    const admin: any = createAdminClient();
+    
+    const { data: current, error: fetchError } = await admin
+      .from('lead_sources')
+      .select('metadata')
+      .match({ id: leadSourceId })
+      .single();
 
-    // Create table with inferred types
-    const cols = Object.entries(columnTypes)
-      .map(([col, type]) => `"${col}" ${type}`)
-      .join(', ');
-    
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS "${rawTable}" (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        ${cols},
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `;
-    
-    const { error: createError } = await admin.rpc('exec_sql', { query: createTableQuery });
-    if (createError) {
-      console.error('[LeadIngestion] Table creation error:', createError);
-      throw new Error(`Failed to create table: ${createError.message}`);
+    if (fetchError) {
+      throw fetchError;
     }
 
-    // Insert rows in batches with proper type conversion
-    const batchSize = 100;
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
-      const processedBatch = batch.map(row => {
-        const processed: Record<string, any> = {};
-        for (const [key, value] of Object.entries(row)) {
-          if (value == null) {
-            processed[key] = null;
-            continue;
-          }
-          
-          switch (columnTypes[key]) {
-            case 'INTEGER':
-              processed[key] = parseInt(value);
-              break;
-            case 'NUMERIC':
-              processed[key] = parseFloat(value);
-              break;
-            case 'BOOLEAN':
-              processed[key] = value.toLowerCase() === 'true';
-              break;
-            case 'TIMESTAMPTZ':
-              processed[key] = new Date(value).toISOString();
-              break;
-            default:
-              processed[key] = value;
-          }
-        }
-        return processed;
-      });
-
-      const { error: insertError, data } = await admin
-        .from(rawTable)
-        .insert(processedBatch)
-        .select('id');
-
-      if (insertError) {
-        console.error('[LeadIngestion] Batch insert error details:', {
-          error: insertError,
-          batchSize: batch.length,
-          batchIndex: i / batchSize + 1,
-          totalBatches: Math.ceil(rows.length / batchSize),
-          firstRow: batch[0],
-          lastRow: batch[batch.length - 1]
-        });
-        throw new Error(`Failed to insert batch ${i / batchSize + 1}: ${insertError.message || 'Unknown error'}`);
-      }
-
-      if (!data) {
-        console.error('[LeadIngestion] No data returned from insert:', {
-          batchSize: batch.length,
-          batchIndex: i / batchSize + 1,
-          totalBatches: Math.ceil(rows.length / batchSize)
-        });
-      }
-
-      console.log(`[LeadIngestion] Inserted batch ${i / batchSize + 1}/${Math.ceil(rows.length / batchSize)}`);
+    if (!current || !('metadata' in current)) {
+      throw new Error('Lead source not found');
     }
 
-    // Update source record count and metadata
+    const updateData = {
+      metadata: {
+        ...current.metadata,
+        record_count: recordCount
+      }
+    };
+
     const { error: updateError } = await admin
       .from('lead_sources')
-      .update({ 
-        record_count: rows.length,
-        metadata: {
-          table_name: rawTable,
-          file_hash: crypto.createHash('sha256').update(text).digest('hex'),
-          column_types: columnTypes // Store the inferred types for future reference
-        }
-      })
-      .eq('id', sourceId);
-      
-    if (updateError) {
-      console.error('[LeadIngestion] Update record count error:', updateError);
-      throw new Error(`Failed to update record count: ${updateError.message}`);
-    }
+      .update(updateData)
+      .match({ id: leadSourceId });
 
-    console.log('[LeadIngestion] Successfully processed', rows.length, 'rows');
-    return { count: rows.length };
-  } catch (err) {
-    console.error('[LeadIngestion] Unexpected error:', err);
-    throw err;
+    if (updateError) {
+      throw updateError;
+    }
+  } catch (error) {
+    console.error('Error updating lead source record count:', error);
+    throw error;
   }
 }
 
 // Normalizes raw rows: splits multi-contact fields into individual leads in 'leads' table
 export async function normalizeLeadsForSource(sourceId: string) {
-  const admin = createAdminClient();
+  const admin: any = createAdminClient();
   const BATCH_SIZE = 100; // Process 100 leads at a time
   
-  // Get the source info including metadata
   const { data: sourceData, error: srcErr } = await admin
     .from('lead_sources')
     .select('file_name, metadata')
-    .eq('id', sourceId)
+    .match({ id: sourceId })
     .single();
     
   if (srcErr || !sourceData) {
     throw new Error(srcErr?.message || 'Source not found');
   }
 
-  // Get table name from metadata
   const rawTable = sourceData.metadata?.table_name;
   if (!rawTable) {
     throw new Error('No table name found in source metadata');
@@ -286,17 +218,12 @@ export async function normalizeLeadsForSource(sourceId: string) {
   let currentBatch: any[] = [];
   
   try {
-    // Fetch all raw rows using Supabase client
     const { data: rawRows, error: fetchError } = await admin
       .from(rawTable)
       .select('*');
       
-    if (fetchError) {
-      throw new Error(`Failed to fetch raw rows: ${fetchError.message}`);
-    }
-
-    if (!rawRows || rawRows.length === 0) {
-      return { success: true, inserted: 0 };
+    if (fetchError || !rawRows) {
+      throw new Error(fetchError?.message || 'Failed to fetch raw rows');
     }
 
     console.log(`[NormalizeLeads] Processing ${rawRows.length} properties...`);
@@ -424,16 +351,15 @@ export async function normalizeLeadsForSource(sourceId: string) {
 
 // Migration function to update existing tables to new naming convention
 export async function migrateExistingTables() {
-  const admin = createAdminClient();
+  const admin: any = createAdminClient();
   
   // Get all lead sources
-  const { data: sources, error } = await admin
+  const { data: sources, error: fetchError } = await admin
     .from('lead_sources')
     .select('id, name, file_name, metadata');
-    
-  if (error) {
-    console.error('[Migration] Error fetching sources:', error);
-    throw error;
+  if (fetchError || !sources) {
+    console.error('[Migration] Error fetching sources:', fetchError);
+    throw fetchError || new Error('No lead sources found');
   }
 
   for (const source of sources) {
@@ -463,7 +389,7 @@ export async function migrateExistingTables() {
               table_name: newTableName
             }
           })
-          .eq('id', source.id);
+          .match({ id: source.id });
           
         console.log(`Migrated table ${oldTableName} to ${newTableName}`);
       }
@@ -473,3 +399,16 @@ export async function migrateExistingTables() {
     }
   }
 }
+
+type LeadSourceMetadata = {
+  table_name: string;
+  file_hash: string;
+  column_types: Record<string, string>;
+};
+
+type LeadSourceRecord = {
+  id: string;
+  name: string;
+  file_name: string;
+  metadata: LeadSourceMetadata;
+};

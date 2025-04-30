@@ -11,6 +11,8 @@ import ProgressConsole from './ProgressConsole';
 export default function UploadLeadsForm() {
   const { theme } = useTheme();
   const isLeetTheme = theme === 'leet';
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   
   // Track selected file name for display
   const [selectedFileName, setSelectedFileName] = useState<string>('No file chosen');
@@ -205,20 +207,20 @@ export default function UploadLeadsForm() {
   // Determine logs to display: show all on error, last 5 lines on success
   const displayLogs = isError ? logs : logs.slice(-5);
 
-  // Use leet theme classes when the theme is active
-  const leetConsoleClass = isLeetTheme ? 'leet-console' : '';
-  const leetButtonClass = isLeetTheme ? 'leet-btn' : '';
-  const leetLabelClass = isLeetTheme ? 'leet-label' : '';
+  // Compute CSS classes for theme styles after client mount
+  const baseExplorerClass = 'bg-black text-green-400 font-mono p-4 rounded overflow-x-auto whitespace-pre h-[400px] overflow-y-auto';
+  const explorerClass = mounted && isLeetTheme ? `${baseExplorerClass} leet-console border border-green-400` : baseExplorerClass;
+  const labelClass = mounted && isLeetTheme
+    ? 'inline-flex items-center justify-center flex-shrink-0 leet-btn'
+    : 'inline-flex items-center justify-center flex-shrink-0 text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2';
+  const fileNameClass = `flex-1 ${mounted && isLeetTheme ? 'text-green-400 font-mono' : 'text-gray-400 font-mono'} text-lg truncate`;
+  const uploadButtonClass = `w-full ${mounted && isLeetTheme ? 'leet-btn' : ''}`;
 
   return (
     <div className="w-full mx-auto px-4">
       <div className="grid grid-cols-3 gap-4">
         {/* Explorer: hierarchical file/folder tree */}
-        <div className={`
-          bg-black text-green-400 font-mono p-4 rounded 
-          overflow-x-auto whitespace-pre h-[400px] overflow-y-auto
-          ${isLeetTheme ? 'leet-console border border-green-400' : ''}
-        `}>
+        <div className={explorerClass}>
           <div className="font-bold mb-2">lead-imports/</div>
           {loadingFiles ? (
             <div className="italic text-gray-500">Loading...</div>
@@ -233,13 +235,7 @@ export default function UploadLeadsForm() {
         <div className="flex flex-col gap-4">
           <form onSubmit={handleSubmit} encType="multipart/form-data" className="flex flex-col gap-4">
             <div className="flex items-center gap-4 min-w-0 w-full">
-              <label
-                htmlFor="fileInput"
-                className={`inline-flex items-center justify-center flex-shrink-0 ${
-                  isLeetTheme 
-                    ? 'leet-btn' 
-                    : 'text-green-400 font-mono text-lg border border-green-400 rounded-none h-10 px-4 py-2'
-                }`}>
+              <label htmlFor="fileInput" className={labelClass}>
                 [CHOOSE]
               </label>
               <input
@@ -254,16 +250,12 @@ export default function UploadLeadsForm() {
                   setSelectedFileName(file?.name || 'No file chosen');
                 }}
               />
-              <span className={`flex-1 ${isLeetTheme ? 'text-green-400 font-mono' : 'text-gray-400 font-mono'} text-lg truncate`}>
+              <span className={fileNameClass}>
                 {selectedFileName}
               </span>
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className={`w-full ${leetButtonClass}`}
-            >
+            <Button type="submit" disabled={loading} className={uploadButtonClass}>
               {loading ? 'UPLOADING...' : 'UPLOAD'}
             </Button>
           </form>

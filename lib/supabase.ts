@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/helpers/types';
+import type { Database } from '@/types/supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -15,22 +15,6 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    // Custom branding for auth UI
-    ui: {
-      theme: 'dark',
-      attributes: {
-        provider: {
-          google: {
-            background: '#10B981',
-            iconUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dealpig.svg`,
-            buttonText: 'Continue with Google',
-            displayName: 'DealPig',
-            logoUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dealpig.svg`,
-            brandName: 'DealPig'
-          }
-        }
-      }
-    }
   }
 });
 
@@ -55,6 +39,11 @@ export const createAdminClient = () => {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+      },
+      global: {
+        headers: {
+          'x-client-info': 'supabase-js-node/2.49.4'
+        }
       }
     }
   );
