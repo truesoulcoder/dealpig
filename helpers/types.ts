@@ -371,6 +371,39 @@ export interface ResetPasswordFormType {
   confirmPassword: string;
 }
 
+
+// normalized_leads database mapping for supabase table
+export const NormalizedLead = {
+  // Contact Information
+  UUID: 'UUID',                        // primary key UUID
+  CONTACT_NAME: 'contact_name',        // From Contact#Name or MLS_Curr_ListAgentName
+  CONTACT_EMAIL: 'contact_email',      // From Contact#Email_1 or MLS_Curr_ListAgentEmail
+
+  // Property Details
+  PROPERTY_ADDRESS: 'property_address',  // From PropertyAddress
+  PROPERTY_CITY: 'property_city',        // From PropertyCity
+  PROPERTY_STATE: 'property_state',      // From PropertyState
+  PROPERTY_ZIP: 'property_zip',          // From PropertyPostalCode
+  PROPERTY_TYPE: 'property_type',        // From PropertyType
+  
+  // Property Metrics
+  BEDS: 'beds',                    // From Beds
+  BATHS: 'baths',                  // From Baths
+  YEAR_BUILT: 'year_built',        // From YearBuilt
+  SQUARE_FOOTAGE: 'square_footage', // From SquareFootage
+  
+  // Valuation
+  WHOLESALE_VALUE: 'wholesale_value',   // From WholesaleValue
+  ASSESSED_TOTAL: 'assessed_total',     // From AssessedTotal
+  
+  // MLS Information
+  MLS_CURR_STATUS: 'mls_curr_status',            // From MLS_Curr_Status
+  MLS_CURR_DAYS_ON_MARKET: 'mls_curr_days_on_market',    // From MLS_Curr_DaysOnMarket
+
+  // Source ID
+  SOURCE_ID: 'source_id'              // UUID REFERENCE TO 'lead_sources(id)
+} as const;
+
 // Enum for lead statuses
 export enum LeadStatus {
   NEW = "NEW",
@@ -420,12 +453,6 @@ export const LEAD_TEMPLATE_FIELDS = {
   PROPERTY_STATE: 'property_state',      // From PropertyState
   PROPERTY_ZIP: 'property_zip',          // From PropertyPostalCode
   PROPERTY_TYPE: 'property_type',        // From PropertyType
-  
-  // Property Metrics
-  BEDS: 'beds',                    // From Beds
-  BATHS: 'baths',                  // From Baths
-  YEAR_BUILT: 'year_built',        // From YearBuilt
-  SQUARE_FOOTAGE: 'square_footage', // From SquareFootage
   
   // Valuation
   WHOLESALE_VALUE: 'wholesale_value',   // From WholesaleValue

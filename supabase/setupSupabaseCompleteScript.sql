@@ -18,16 +18,6 @@ GRANT SELECT ON auth.users TO service_role;
 
 -- Step 2: Create all application tables
 
--- Profiles table (essential for user management)
-CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
-    full_name TEXT,
-    email TEXT UNIQUE,
-    avatar_url TEXT,
-    updated_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- Lead Sources table (updated to support dynamic tables)
 CREATE TABLE IF NOT EXISTS public.lead_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -40,6 +30,38 @@ CREATE TABLE IF NOT EXISTS public.lead_sources (
     storage_path VARCHAR, -- Path to the original CSV file in storage
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Leads table (The central table where all normalized leads are consolidated is now defined by the TARGET_NORMALIZED_TABLE constant within the normalizeLeadsForSource function, which defaults to 'leads'. This central 'leads' table should exist in your database schema.)
+
+CREATE TABLE leads (
+    uuid UUID PRIMARY KEY,
+    contact_name TEXT,
+    contact_email TEXT,
+    property_address TEXT,
+    property_city TEXT,
+    property_state TEXT,
+    property_zip TEXT NOT NULL,
+    property_type TEXT NOT NULL,
+    baths TEXT,
+    beds TEXT,
+    year_built TEXT,
+    square_footage TEXT,
+    wholesale_value TEXT,
+    assessed_total TEXT,
+    mls_curr_status TEXT,
+    mls_curr_days_on_market TEXT,    
+    source_id UUID REFERENCES public.lead_sources(id) 
+    );
+
+-- Profiles table (essential for user management)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+    full_name TEXT,
+    email TEXT UNIQUE,
+    avatar_url TEXT,
+    updated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Senders table
