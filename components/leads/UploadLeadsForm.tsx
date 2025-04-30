@@ -7,6 +7,7 @@ import { useTheme } from 'next-themes';
 import { createBrowserClient } from '@supabase/ssr';
 import crypto from 'crypto';
 
+
 export default function UploadLeadsForm() {
   const { theme } = useTheme();
   const isLeetTheme = theme === 'leet';
@@ -90,7 +91,32 @@ export default function UploadLeadsForm() {
       // strip UUID prefix (part before first underscore)
       const rawName = node.name.includes('_') ? node.name.substring(node.name.indexOf('_') + 1) : node.name;
       // Rename placeholder file for display
+      // Create state variable to track selected file name using React's useState hook
+      const [selectedFileFromTree, setSelectedFileFromTree] = useState<string | null>(null);
+      // Export selected file state for external components to use
+      useEffect(() => {
+        // Expose the selected file to window for other components to access
+        if (typeof window !== 'undefined') {
+          (window as any).__selectedLeadsFile = selectedFileFromTree;
+        }
+      }, [selectedFileFromTree]);
+      
       const displayName = rawName === '.emptyFolderPlaceholder' ? '.superSecretFolder' : rawName;
+      
+      // Add onClick handler to select this file
+      const isSelectable = !node.children || node.children.length === 0;
+      const handleFileClick = () => {
+        if (isSelectable) {
+          setSelectedFileFromTree(node.name);
+          console.log(`Selected file: ${node.name}`);
+          // Dispatch a custom event to notify other components
+          const event = new CustomEvent('leadsFileSelected', { detail: node.name });
+          document.dispatchEvent(event);
+        }
+      };
+      
+      // Add class to indicate selected state
+      const isSelected = selectedFileFromTree === node.name;
       const line = prefix + branch + displayName + (node.children && node.children.length ? '/' : '');
       return (
         <div key={prefix + node.name}>
