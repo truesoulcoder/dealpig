@@ -1,10 +1,14 @@
-import LeadsSection from '@/components/leads';
+import React from 'react';
+import LeadUploader from '@/components/leads/LeadUploader';
+import { getLeads } from '@/actions/leads.action';
+import LeadsTable from '@/components/leads/LeadsTable';
 
-export default function LeadsPage() {
+export default async function LeadsPage() {
+  const leads = await getLeads();
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Lead Management</h1>
-      <LeadsSection />
+    <div className="space-y-6 p-6">
+      <h1 className="text-2xl font-bold">Leads</h1>
+      <LeadUploader />
+      <LeadsTable leads={leads} />
     </div>
   );
-}

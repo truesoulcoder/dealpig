@@ -1,144 +1,36 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase';
-import { Database, Lead, LeadSource } from '@/helpers/types';
-// Server action to handle leads file upload
-export async function uploadLeads(formData: FormData) {
-  console.log('[uploadLeads] server action called');
-  const file = formData.get('file');
-  console.log('[uploadLeads] formData file entry:', file);
-  if (!(file instanceof File)) {
-    return { success: false, message: 'Invalid file.' };
-  }
-  const fileName = `${crypto.randomUUID()}_${file.name}`;
-  console.log('[uploadLeads] generated fileName:', fileName);
-  // Upload file to Supabase storage bucket 'lead-imports' using admin client
-  const admin = createAdminClient();
-  const { error: storageError } = await admin.storage
-    .from('lead-imports')
-    .upload(fileName, file, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    });
-  console.log('[uploadLeads] upload returned error:', storageError);
-  if (storageError) {
-    return { success: false, message: storageError.message };
-  }
-  console.log('[uploadLeads] storage upload succeeded');
-  // Record the upload in lead_sources table
-  const createdAt = new Date().toISOString();
-  const storagePath = `lead-imports/${fileName}`;
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { Lead } from '@/helpers/types';
 
-  const { error: dbError } = await admin
-    .from('lead_sources')
-    .insert({
-      name: fileName,
-      file_name: file.name,
-      record_count: 0,
-      is_active: true,
-      storage_path: storagePath,
-      last_imported: createdAt,
-      created_at: createdAt,
-      updated_at: createdAt
-    });
-  console.log('[uploadLeads] db insert returned error:', dbError);
-  if (dbError) {
-    return { success: false, message: dbError.message };
-  }
-  console.log('[uploadLeads] lead_sources insert succeeded');
-  return { success: true };
-}
-
-// Fetch all leads or only for a given source
-export async function getLeads(sourceId?: string): Promise<Lead[]> {
-  const admin = createAdminClient();
-  let query = admin
+// Fetch all leads from Supabase
+export async function getLeads(): Promise<Lead[]> {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        async get(name: string) {
+          const all = await cookies();
+          return all.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          // implement cookie set if needed
+        },
+        remove(name: string, options: any) {
+          // implement cookie removal if needed
+        },
+      },
+    }
+  );
+  const { data, error } = await supabase
     .from('leads')
-    .select('*') // Select all columns for now, adjust if needed
-    .order('created_at', { ascending: false });
-
-  if (sourceId) {
-    query = query.eq('source_id', sourceId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('[getLeads] Error fetching leads:', error);
-    throw new Error(`Failed to fetch leads: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-// Update an existing lead by ID
-export async function updateLead(lead: Partial<Database['public']['Tables']['leads']['Row']> & { id: string }): Promise<void> {
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('leads')
-    .update({
-      property_address: lead.property_address,
-      property_city: lead.property_city,
-      property_state: lead.property_state,
-      property_zip: lead.property_zip,
-      owner_name: lead.owner_name,
-      mailing_address: lead.mailing_address,
-      mailing_city: lead.mailing_city,
-      mailing_state: lead.mailing_state,
-      mailing_zip: lead.mailing_zip,
-      wholesale_value: lead.wholesale_value,
-      market_value: lead.market_value,
-      days_on_market: lead.days_on_market,
-      mls_status: lead.mls_status,
-      mls_list_date: lead.mls_list_date,
-      mls_list_price: lead.mls_list_price,
-      status: lead.status,
-      owner_type: lead.owner_type,
-      property_type: lead.property_type,
-      beds: lead.beds,
-      baths: lead.baths,
-      square_footage: lead.square_footage,
-      year_built: lead.year_built,
-      assessed_total: lead.assessed_total,
-      last_contacted_at: lead.last_contacted_at,
-      notes: lead.notes,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', lead.id);
-  if (error) {
-    console.error('Error updating lead:', error);
-    throw error;
-  }
-}
-
-// Delete a lead by ID
-export async function deleteLead(leadId: string): Promise<void> {
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from('leads')
-    .delete()
-    .eq('id', leadId);
-  if (error) {
-    console.error('Error deleting lead:', error);
-    throw error;
-  }
-}
-
-/**
- * Fetches all lead sources from the database.
- * @returns Promise<LeadSource[]>
- */
-export async function getLeadSources(): Promise<LeadSource[]> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('lead_sources')
     .select('*')
     .order('created_at', { ascending: false });
-
   if (error) {
-    console.error('[getLeadSources] Error fetching lead sources:', error);
-    throw new Error(`Failed to fetch lead sources: ${error.message}`);
+    console.error('Error fetching leads:', error);
+    throw error;
   }
-
   return data || [];
 }

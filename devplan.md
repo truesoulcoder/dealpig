@@ -6,7 +6,7 @@ This document outlines the current development status of the DealPig application
 
 ## Overall Status
 
-The core structure of the application using Next.js, Supabase, and HeroUI is established. Authentication and basic user management are functional. Lead import and initial management are partially implemented. Campaign and sender management have been started. Email automation foundations exist, but advanced features like drip campaigns and detailed tracking need work. Document generation is largely pending.
+The core structure of the application using Next.js, Supabase, and HeroUI is established. Authentication and basic user management are functional. Lead import uses an asynchronous server-action-based approach. Campaign and sender management have been started. Email automation foundations exist. Document generation is pending.
 
 ## Completed Features
 
@@ -24,17 +24,21 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Basic Layout (`app/layout.tsx`, `app/(app)/layout.tsx`)
     *   Sidebar Navigation (`components/sidebar`)
     *   Navbar (`components/navbar`)
+*   **Lead Management:**
+    *   CSV import pipeline (`actions/leadUpload.action.ts`) – Uploads CSV to storage, records source, triggers normalization asynchronously – **Implemented**
+    *   Lead normalization (`actions/leadIngestion.action.ts::normalizeLeads`) – Parses each CSV row into multiple lead records (contacts + agent) and bulk inserts into `leads` table – **Implemented**
 
 ## In Progress Features
 
 *   **Lead Management:**
-    *   CSV Upload (`components/leads/UploadLeadsForm.tsx`) - **Refactored to use direct client-side upload to Supabase Storage.**
-    *   Lead Source Registration (`/api/leads/register-source`) - **New endpoint created to register DB record after direct upload.**
-    *   CSV Header Mapping/Configuration (`components/leads/ConfigureSourceModal.tsx`, `/api/leads/headers`) - **Functional**
-    *   Lead Processing (Initial ingestion from configured CSV) (`/api/leads/process`) - **Functional**
-    *   Displaying Lead List (`app/(app)/leads/page.tsx`, `components/leads/index.tsx`, `/api/leads/list`) - **Functional (UI errors fixed)**
-    *   *Needs Work:* Detailed lead view, status updates, lead assignment, advanced filtering/searching.
-    *   *Removed:* `/api/leads` POST handler for direct file upload (replaced by client-side upload + register-source).
+    *   **Asynchronous Import Process (Server Actions):**
+        *   Frontend Uploader (`components/leads/LeadUploader.tsx`) - **Implemented**
+        *   Upload Server Action (`actions/leadUpload.action.ts`) - Uploads to storage, creates `lead_sources` record (status: `UPLOADED`), triggers normalization asynchronously. **Implemented**
+        *   Normalization Server Action (`actions/leadIngestion.action.ts::normalizeLeadsForSource`) - Runs asynchronously. Updates status (`PROCESSING`), downloads CSV, parses headers/rows, calculates hash, normalizes data (creates multiple leads per row), bulk inserts into `leads` table, updates status (`PROCESSED` or `ERROR`) with counts and metadata. **Implemented**
+    *   Displaying Lead List (`app/(app)/leads/page.tsx`, `components/leads/index.tsx`, `components/leads/LeadsTable.tsx`, `actions/leads.action.ts::getLeads`) - **Functional**
+    *   Displaying Lead Sources (Needs implementation, likely fetching from `lead_sources` table to show import status/history).
+    *   *Needs Work:* Detailed lead view, manual status updates, lead assignment, advanced filtering/searching, robust error display/feedback on frontend for background processing status, potentially replacing fire-and-forget with a more robust background job queue.
+    *   *Removed/Replaced:* Previous `pgloader`-based workflow, separate `ingestLeadSource` preparation step.
 *   **Email Automation - Sender Management:**
     *   Adding/Listing Sender Accounts (`app/(app)/accounts/page.tsx`, `components/accounts`, `/api/senders`) - **Partially Implemented**
     *   *Needs Work:* OAuth connection flow for Gmail, validation, error handling, sender limits configuration.
@@ -51,10 +55,13 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 ## Planned / Not Started Features
 
 *   **Lead Management:**
+    *   UI for displaying `lead_sources` table (Import History/Status).
     *   Detailed Lead View Page/Modal
     *   Manual Lead Editing/Updating Status
     *   Lead Assignment to Team Members
     *   Advanced Filtering and Searching
+    *   Real-time feedback/polling for background import status.
+    *   Consider replacing fire-and-forget async call with a proper background job queue (e.g., using Supabase Edge Functions with a queue, or external services like BullMQ/Redis).
 *   **Campaign Management:**
     *   Campaign Performance Analytics (Open/Reply/Conversion Rates)
     *   A/B Testing capabilities
@@ -75,3 +82,6 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Generating detailed API documentation (e.g., using Swagger/OpenAPI).
 *   **Testing:**
     *   Implementing unit, integration, and end-to-end tests.
+*   **Database:**
+    *   Ensure `lead_sources` table schema matches `types/supabase.ts` (including status enum, counts, timestamps, metadata JSON).
+    *   Consider adding indexes to `leads` table (e.g., on `source_id`, `status`, `owner_email`).

@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS public.lead_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR NOT NULL,
     file_name VARCHAR NOT NULL,
-    last_imported TIMESTAMPTZ NOT NULL,
-    record_count INTEGER NOT NULL,
+    last_imported TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    record_count INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     metadata JSONB, -- Stores tableName and columnMap information
     storage_path VARCHAR, -- Path to the original CSV file in storage
@@ -230,12 +230,12 @@ BEGIN
   IF EXISTS (SELECT FROM information_schema.schemata WHERE schema_name = 'storage') THEN
     -- Create lead documents bucket
     SELECT EXISTS (
-      SELECT 1 FROM storage.buckets WHERE name = 'lead-imports'
+      SELECT 1 FROM storage.buckets WHERE name = 'lead-uploads'
     ) INTO bucket_exists;
 
     IF NOT bucket_exists THEN
       INSERT INTO storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types)
-      VALUES ('lead-imports', 'lead-imports', false, false, null, null); -- Adjust limits/types if needed
+      VALUES ('lead-uploads', 'lead-uploads', false, false, null, null); -- Adjust limits/types if needed
     END IF;
 
     -- Create templates bucket
@@ -859,14 +859,14 @@ BEGIN
   -- Check if storage schema exists
   IF EXISTS (SELECT FROM information_schema.schemata WHERE schema_name = 'storage') THEN
     
-    -- Lead-imports bucket policies
-    bucket_name := 'lead-imports';
+    -- Lead-uploads bucket policies
+    bucket_name := 'lead-uploads';
     IF EXISTS (SELECT 1 FROM storage.buckets WHERE name = bucket_name) THEN
       -- Get the bucket ID
       SELECT id INTO bucket_id FROM storage.buckets WHERE name = bucket_name;
       
       -- Read policy
-      policy_name := 'Allow authenticated read on lead imports';
+      policy_name := 'Allow authenticated read on lead uploads';
       SELECT EXISTS (
         SELECT 1 FROM pg_policies 
         WHERE policyname = policy_name 
@@ -884,7 +884,7 @@ BEGIN
       END IF;
       
       -- Insert policy
-      policy_name := 'Allow authenticated insert on lead imports';
+      policy_name := 'Allow authenticated insert on lead uploads';
       SELECT EXISTS (
         SELECT 1 FROM pg_policies 
         WHERE policyname = policy_name 
@@ -902,7 +902,7 @@ BEGIN
       END IF;
       
       -- Update policy
-      policy_name := 'Allow authenticated update on lead imports';
+      policy_name := 'Allow authenticated update on lead uploads';
       SELECT EXISTS (
         SELECT 1 FROM pg_policies 
         WHERE policyname = policy_name 
@@ -920,7 +920,7 @@ BEGIN
       END IF;
       
       -- Delete policy
-      policy_name := 'Allow authenticated delete on lead imports';
+      policy_name := 'Allow authenticated delete on lead uploads';
       SELECT EXISTS (
         SELECT 1 FROM pg_policies 
         WHERE policyname = policy_name 
