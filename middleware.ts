@@ -7,7 +7,7 @@ const publicPaths = [
   '/register',
   '/forgot-password',
   '/reset-password',
-  '/auth/callback', // Supabase auth callback
+  '/api/auth/callback', 
   '/favicon.ico',
   '/dealpig.svg',
   '/logo.png',
