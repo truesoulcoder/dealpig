@@ -171,7 +171,6 @@ export async function loginWithGoogle() {
           scope: 'email profile',
           display: 'popup',
           response_type: 'code',
-          state: 'dealpig'
         },
       },
     });
