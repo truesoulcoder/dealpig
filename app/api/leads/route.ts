@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { createResponse } from '@/lib/api';
-import { ingestLeadSource, normalizeLeadsForSource, isDuplicateFile } from '@/actions/leadIngestion.action';
+// Remove the import for processLeadSourceFile as it's no longer called here
+// import { processLeadSourceFile } from '@/actions/leadIngestion.action';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
@@ -145,28 +146,15 @@ export async function POST(request: NextRequest) {
       }
       console.log('[API /leads] Initial lead source record created successfully:', sourceId);
 
-
-      // Trigger ingestion process using the UUID
-      console.log('[API /leads] Triggering ingestion process for source ID:', sourceId);
-      // Note: ingestLeadSource might need adjustments now to UPDATE instead of INSERT/COUNT initially
-      const ingestionResult = await ingestLeadSource(sourceId); // Pass the UUID
-
-      // Assuming ingestLeadSource now returns the final count after processing
-      // const finalRowCount = ingestionResult.count; // Adjust based on ingestLeadSource return value
-
-      // Normalize leads (this might be part of ingestLeadSource or called after)
-      // console.log('[API /leads] Normalizing leads...');
-      // const { inserted } = await normalizeLeadsForSource(sourceId);
-      // console.log('[API /leads] Lead normalization complete');
-
+      // Return success after upload and initial record creation.
+      // Processing should be triggered elsewhere after metadata is configured.
       return createResponse(
         {
           success: true,
-          // count: inserted, // Adjust based on where normalization happens
-          message: `Successfully started processing file: ${originalFileName}`,
+          message: `Successfully uploaded file: ${originalFileName}. Configure metadata to start processing.`,
           sourceId: sourceId
         },
-        200 // Or 202 Accepted if processing is async
+        200
       );
 
     } catch (error) {
