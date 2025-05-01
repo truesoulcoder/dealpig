@@ -294,6 +294,54 @@ ALTER TABLE public.email_events ENABLE ROW LEVEL SECURITY; -- Added RLS for emai
 
 -- Step 6: Create all necessary functions
 
+-- Function to check if a policy exists and create it if not
+CREATE OR REPLACE FUNCTION public.create_policy_if_not_exists(
+  p_policy_name text,  -- Renamed parameter
+  p_table_name text,   -- Renamed parameter
+  p_operation text,  -- Renamed parameter
+  p_using_expr text, -- Renamed parameter
+  p_with_check_expr text DEFAULT NULL -- Renamed parameter
+) RETURNS void AS $$
+DECLARE
+  policy_exists boolean;
+  qualified_table_name text := 'public.' || p_table_name; -- Use renamed parameter
+BEGIN
+  -- Check if policy exists
+  SELECT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+    AND tablename = p_table_name -- Use renamed parameter
+    AND policyname = p_policy_name -- Use renamed parameter
+  ) INTO policy_exists;
+
+  -- Create policy if it doesn't exist
+  IF NOT policy_exists THEN
+    -- For INSERT policies, only WITH CHECK is allowed (not USING)
+    IF upper(p_operation) = 'INSERT' THEN
+      -- For INSERT, use with_check_expr or fall back to using_expr for the WITH CHECK clause
+      EXECUTE format('CREATE POLICY %I ON %s FOR %s WITH CHECK (%s)',
+                  p_policy_name, qualified_table_name, upper(p_operation), 
+                  COALESCE(p_with_check_expr, p_using_expr));
+    ELSE
+      -- For other operations (SELECT, UPDATE, DELETE, ALL)
+      IF p_with_check_expr IS NULL THEN
+        EXECUTE format('CREATE POLICY %I ON %s FOR %s USING (%s)',
+                    p_policy_name, qualified_table_name, upper(p_operation), p_using_expr);
+      ELSE
+        EXECUTE format('CREATE POLICY %I ON %s FOR %s USING (%s) WITH CHECK (%s)',
+                    p_policy_name, qualified_table_name, upper(p_operation), p_using_expr, p_with_check_expr);
+      END IF;
+    END IF;
+    RAISE NOTICE 'Policy "%" created for table "%".', p_policy_name, p_table_name;
+  ELSE
+    RAISE NOTICE 'Policy "%" already exists for table "%". Skipping.', p_policy_name, p_table_name;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Grant execute on helper function (needed if called by other functions/roles)
+GRANT EXECUTE ON FUNCTION public.create_policy_if_not_exists(text, text, text, text, text) TO service_role;
+
 -- Handle new user function
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -583,9 +631,7 @@ BEGIN
   -- Enable RLS on the new table
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', full_table_name);
 
-  -- Create policies for the new table (using the policy creation function defined later)
-  -- Note: This assumes the policy creation function exists when this function is called.
-  -- Consider creating policies after all functions are defined if issues arise.
+  -- Create policies for the new table (using the policy creation function defined earlier)
   PERFORM public.create_policy_if_not_exists(
     format('Enable read access for authenticated users on %I', full_table_name),
     full_table_name,
@@ -666,57 +712,9 @@ COMMENT ON FUNCTION public.query_dynamic_lead_table IS 'Queries a dynamic lead t
 COMMENT ON FUNCTION public.group_by_status IS 'Calculates the count of emails grouped by status for a specific campaign.';
 COMMENT ON FUNCTION public.get_sender_stats IS 'Calculates email statistics (sent, delivered, bounced) per sender for a specific campaign.';
 COMMENT ON FUNCTION public.get_daily_stats IS 'Calculates daily email statistics (sent, delivered, bounced) for a specific campaign starting from a given date.';
-
+COMMENT ON FUNCTION public.create_policy_if_not_exists IS 'Helper function to create a Row Level Security policy if it does not already exist for a table.';
 
 -- Step 7: Create RLS Policies (conditionally)
-
--- Function to check if a policy exists and create it if not
-CREATE OR REPLACE FUNCTION public.create_policy_if_not_exists(
-  p_policy_name text,  -- Renamed parameter
-  p_table_name text,   -- Renamed parameter
-  p_operation text,  -- Renamed parameter
-  p_using_expr text, -- Renamed parameter
-  p_with_check_expr text DEFAULT NULL -- Renamed parameter
-) RETURNS void AS $$
-DECLARE
-  policy_exists boolean;
-  qualified_table_name text := 'public.' || p_table_name; -- Use renamed parameter
-BEGIN
-  -- Check if policy exists
-  SELECT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public'
-    AND tablename = p_table_name -- Use renamed parameter
-    AND policyname = p_policy_name -- Use renamed parameter
-  ) INTO policy_exists;
-
-  -- Create policy if it doesn't exist
-  IF NOT policy_exists THEN
-    -- For INSERT policies, only WITH CHECK is allowed (not USING)
-    IF upper(p_operation) = 'INSERT' THEN
-      -- For INSERT, use with_check_expr or fall back to using_expr for the WITH CHECK clause
-      EXECUTE format('CREATE POLICY %I ON %s FOR %s WITH CHECK (%s)',
-                  p_policy_name, qualified_table_name, upper(p_operation), 
-                  COALESCE(p_with_check_expr, p_using_expr));
-    ELSE
-      -- For other operations (SELECT, UPDATE, DELETE, ALL)
-      IF p_with_check_expr IS NULL THEN
-        EXECUTE format('CREATE POLICY %I ON %s FOR %s USING (%s)',
-                    p_policy_name, qualified_table_name, upper(p_operation), p_using_expr);
-      ELSE
-        EXECUTE format('CREATE POLICY %I ON %s FOR %s USING (%s) WITH CHECK (%s)',
-                    p_policy_name, qualified_table_name, upper(p_operation), p_using_expr, p_with_check_expr);
-      END IF;
-    END IF;
-    RAISE NOTICE 'Policy "%" created for table "%".', p_policy_name, p_table_name;
-  ELSE
-    RAISE NOTICE 'Policy "%" already exists for table "%". Skipping.', p_policy_name, p_table_name;
-  END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Grant execute on helper function (needed if called by other functions/roles)
-GRANT EXECUTE ON FUNCTION public.create_policy_if_not_exists(text, text, text, text, text) TO service_role;
 
 -- Apply policies using the helper function
 
