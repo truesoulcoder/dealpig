@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { uploadLeads } from '@/actions/leadUpload.action';
 
-export default function LeadUploader() {
+export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -15,6 +15,7 @@ export default function LeadUploader() {
     try {
       const result = await uploadLeads(formData);
       setMessage(`${result.count} leads imported.`);
+      onUpload?.();
     } catch (error) {
       console.error(error);
       setMessage('Upload failed.');
@@ -39,5 +40,5 @@ export default function LeadUploader() {
       </button>
       {message && <p className="mt-2 text-sm text-gray-700">{message}</p>}
     </form>
-    );
-  }
+  );
+}

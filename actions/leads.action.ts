@@ -1,6 +1,7 @@
 'use server';
 
 import { createServerClient } from '@supabase/ssr';
+import { createAdminClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { Lead } from '@/helpers/types';
 
@@ -33,4 +34,16 @@ export async function getLeads(): Promise<Lead[]> {
     throw error;
   }
   return data || [];
+}
+
+// Fetch all normalized tables
+export async function getNormalizedTables(): Promise<string[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('information_schema.tables')
+    .select('table_name')
+    .eq('table_schema', 'public')
+    .like('table_name', 'normalized_%');
+  if (error) throw error;
+  return (data || []).map((row: any) => row.table_name);
 }

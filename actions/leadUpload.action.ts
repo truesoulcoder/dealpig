@@ -1,60 +1,60 @@
 'use server';
 
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { normalizeLeads } from './leadIngestion.action';
+import fs from 'fs';
+import path from 'path';
+import Papa from 'papaparse';
+import { createClient } from '@supabase/supabase-js';
 
 export async function uploadLeads(formData: FormData) {
   const file = formData.get('file') as File;
   if (!file) throw new Error('No file provided');
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async get(name: string) {
-          const all = await cookies();
-          return all.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          // implement cookie set if needed
-        },
-        remove(name: string, options: any) {
-          // implement cookie removal if needed
-        },
-      },
-    }
-  );
+  // Parse CSV
+  const text = await file.text();
+  const { data: rows, errors } = Papa.parse(text, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  if (errors.length) throw new Error(`CSV parse error: ${errors.map(e => e.message).join(', ')}`);
 
-  // Upload CSV to Supabase Storage
-  const bucket = 'lead-uploads';
+  // Derive safe table suffix
+  const base = file.name.replace(/\.[^/.]+$/, '')
+                     .replace(/[^a-zA-Z0-9_]/g, '_')
+                     .toLowerCase();
   const timestamp = Date.now();
-  const storagePath = `${timestamp}_${file.name}`;
-  const { error: uploadError } = await supabase
-    .storage
-    .from(bucket)
-    .upload(storagePath, file);
-  if (uploadError) throw uploadError;
+  const rawTable = 'leads';
+  const normalizedTable = `normalized_${base}_${timestamp}`;
 
-  // Record lead source
-  const { data: source, error: sourceError } = await supabase
-    .from('lead_sources')
-    .insert({ name: file.name, file_name: file.name, storage_path: storagePath })
-    .select('id')
-    .single();
-  if (sourceError) throw sourceError;
+  // Admin client
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const admin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-  // Normalize and insert leads
-  const { count } = await normalizeLeads(formData);
+  // Clear staging table and insert raw rows
+  await admin.from(rawTable).delete();
+  const batchSize = 500;
+  for (let i = 0; i < (rows as any[]).length; i += batchSize) {
+    const batch = (rows as any[]).slice(i, i + batchSize);
+    await admin.from(rawTable).insert(batch);
+  }
 
-  // Update lead source record with import details
-  const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from('lead_sources')
-    .update({ record_count: count, last_imported: now })
-    .eq('id', source.id);
-  if (updateError) throw updateError;
+  // Read and adjust normalize script
+  const sqlPath = path.resolve(process.cwd(), 'supabase', 'normalizeLeadsScript.sql');
+  let sql = fs.readFileSync(sqlPath, 'utf-8');
+  sql = sql.replace(/DROP TABLE IF EXISTS normalized_leads;/,
+                    `DROP TABLE IF EXISTS ${normalizedTable};`);
+  sql = sql.replace(/CREATE TABLE normalized_leads/,
+                    `CREATE TABLE ${normalizedTable}`);
+  sql = sql.replace(/INSERT INTO normalized_leads/,
+                    `INSERT INTO ${normalizedTable}`);
+  sql = sql.replace(/CREATE INDEX IF NOT EXISTS idx_normalized_leads_email/,
+                    `CREATE INDEX IF NOT EXISTS idx_${normalizedTable}_email`);
+  sql = sql.replace(/CREATE INDEX IF NOT EXISTS idx_normalized_leads_property_address/,
+                    `CREATE INDEX IF NOT EXISTS idx_${normalizedTable}_property_address`);
 
-  return { count };
+  // Execute raw SQL via RPC (assumes run_sql function exists)
+  const { data: execResult, error: execError } = await admin.rpc('run_sql', { sql });
+  if (execError) throw execError;
+
+  return { rawTable, normalizedTable, count: (rows as any[]).length };
 }

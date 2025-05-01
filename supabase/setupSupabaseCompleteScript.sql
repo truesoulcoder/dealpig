@@ -691,6 +691,18 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
+-- SQL execution helper: run arbitrary SQL
+CREATE OR REPLACE FUNCTION public.run_sql(sql text)
+  RETURNS void
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE sql;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.run_sql(text) TO service_role;
+
 -- Grant execution permissions on functions
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role; -- Trigger function, usually not called directly
 GRANT EXECUTE ON FUNCTION public.get_table_columns() TO authenticated, service_role;
