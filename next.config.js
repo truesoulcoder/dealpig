@@ -2,6 +2,8 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.analyze === 'true',
 })
 
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -35,6 +37,15 @@ const nextConfig = {
   serverRuntimeConfig: {
     maxBodySize: '50mb',
   },
+};
+
+// Add webpack alias for '@' to resolve to project root
+nextConfig.webpack = (config) => {
+  config.resolve.alias = {
+    ...config.resolve.alias,
+    '@': path.resolve(__dirname),
+  };
+  return config;
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

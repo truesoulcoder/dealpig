@@ -1,7 +1,7 @@
 import React from 'react';
 import LeadUploader from '@/components/leads/LeadUploader';
 import { getLeads } from '@/actions/leads.action';
-import LeadsTable from '@/components/leads/LeadsTable';
+import LeadsTable from '../../../components/leads/LeadsTable';
 
 export default async function LeadsPage() {
   const leads = await getLeads();
@@ -11,4 +11,5 @@ export default async function LeadsPage() {
       <LeadUploader />
       <LeadsTable leads={leads} />
     </div>
-  );
+    );
+  }

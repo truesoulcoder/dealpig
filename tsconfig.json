@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".", // Enable absolute imports based on root
     "target": "es5",
     "lib": [
       "dom",

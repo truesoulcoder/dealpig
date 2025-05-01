@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import uploadLeads from '@/actions/leadUpload.action';
+import { uploadLeads } from '@/actions/leadUpload.action';
 
 export default function LeadUploader() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -39,4 +39,5 @@ export default function LeadUploader() {
       </button>
       {message && <p className="mt-2 text-sm text-gray-700">{message}</p>}
     </form>
-  );
+    );
+  }
