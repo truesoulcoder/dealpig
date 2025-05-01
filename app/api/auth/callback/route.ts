@@ -1,54 +1,66 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies } from 'next/headers'; // Keep for reading initial cookies if needed, but response modification is key
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/'; // Default redirect to '/'
+  const next = searchParams.get('next') ?? '/';
 
   console.log(`[Auth Callback] Received request. Code: ${code ? 'present' : 'missing'}, Origin: ${origin}, Next: ${next}`);
 
   if (code) {
-    const cookieStore = await cookies();
+    // Prepare potential response objects early
+    const redirectUrl = `${origin}${next}`;
+    const errorRedirectUrl = `${origin}/auth/auth-code-error`;
+    let response = NextResponse.redirect(redirectUrl); // Assume success initially
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            // Read from the incoming request cookies
+            return request.cookies.get(name)?.value;
           },
           set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
+            // Set cookies on the outgoing response object
+            response.cookies.set({ name, value, ...options });
           },
           remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: '', ...options });
+            // Set cookies on the outgoing response object
+            response.cookies.set({ name, value: '', ...options });
           },
         },
       }
     );
+
     console.log('[Auth Callback] Exchanging code for session...');
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const redirectUrl = `${origin}${next}`;
       console.log(`[Auth Callback] Code exchange successful. Redirecting to: ${redirectUrl}`);
-      // Redirect to the specified path or default to root
-      return NextResponse.redirect(redirectUrl);
+      // The response object (already set for success redirect) will be returned
     } else {
-      // Log the specific error during code exchange
       console.error('[Auth Callback] Error exchanging code for session:', error.message);
-      // Redirect to error page if code exchange fails
-      return NextResponse.redirect(`${origin}/auth/auth-code-error?error=exchange_failed&error_description=${encodeURIComponent(error.message)}`);
+      // Change the response to redirect to the error page
+      const url = new URL(errorRedirectUrl);
+      url.searchParams.set('error', 'exchange_failed');
+      url.searchParams.set('error_description', error.message);
+      response = NextResponse.redirect(url);
     }
+    // Return the response object, which contains the redirect AND the Set-Cookie headers
+    return response;
+
   } else {
-    // Log if no code is present in the request
+    // Handle case where code is missing
     console.error('[Auth Callback] No code found in request query parameters.');
     const errorParam = searchParams.get('error');
     const errorDescParam = searchParams.get('error_description');
-    // Redirect to error page if code is missing or other OAuth error occurred
-    return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${errorParam || 'missing_code'}&error_description=${encodeURIComponent(errorDescParam || 'Authorization code not found in callback URL.')}`);
+    const url = new URL(`${origin}/auth/auth-code-error`);
+    url.searchParams.set('error', errorParam || 'missing_code');
+    url.searchParams.set('error_description', errorDescParam || 'Authorization code not found in callback URL.');
+    return NextResponse.redirect(url);
   }
 }
