@@ -8,6 +8,9 @@
 -- Start Transaction
 BEGIN;
 
+-- Drop old check_table_exists to avoid ambiguity errors
+DROP FUNCTION IF EXISTS public.check_table_exists(text);
+
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -17,6 +20,16 @@ GRANT USAGE ON SCHEMA auth TO service_role;
 GRANT SELECT ON auth.users TO service_role;
 
 -- Step 2: Create all application tables
+
+-- Profiles table (essential for user management)
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+    full_name TEXT,
+    email TEXT UNIQUE,
+    avatar_url TEXT,
+    updated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Lead Sources table (updated to support dynamic tables)
 CREATE TABLE IF NOT EXISTS public.lead_sources (
@@ -32,36 +45,55 @@ CREATE TABLE IF NOT EXISTS public.lead_sources (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Leads table (The central table where all normalized leads are consolidated is now defined by the TARGET_NORMALIZED_TABLE constant within the normalizeLeadsForSource function, which defaults to 'leads'. This central 'leads' table should exist in your database schema.)
-
-CREATE TABLE leads (
-    uuid UUID PRIMARY KEY,
-    contact_name TEXT,
-    contact_email TEXT,
+-- Leads table (Aligned with Lead interface in types.ts)
+CREATE TABLE IF NOT EXISTS public.leads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), -- Changed from uuid, added default
+    
+    -- Property Information
     property_address TEXT,
     property_city TEXT,
     property_state TEXT,
-    property_zip TEXT NOT NULL,
-    property_type TEXT NOT NULL,
-    baths TEXT,
-    beds TEXT,
-    year_built TEXT,
-    square_footage TEXT,
-    wholesale_value TEXT,
-    assessed_total TEXT,
-    mls_curr_status TEXT,
-    mls_curr_days_on_market TEXT,    
-    source_id UUID REFERENCES public.lead_sources(id) 
-    );
+    property_zip TEXT,
+    property_type TEXT,
+    beds INTEGER, -- Changed from TEXT
+    baths NUMERIC, -- Changed from TEXT, allow decimals
+    square_footage INTEGER, -- Changed from TEXT
+    year_built INTEGER, -- Changed from TEXT
+    
+    -- Valuation
+    wholesale_value NUMERIC, -- Changed from TEXT
+    market_value NUMERIC, -- Added
+    assessed_total NUMERIC, -- Changed from TEXT
+    
+    -- MLS Information
+    days_on_market INTEGER, -- Changed from mls_curr_days_on_market TEXT
+    mls_status TEXT, -- Changed from mls_curr_status
+    mls_list_date TEXT, -- Added (Consider DATE or TIMESTAMPTZ if format is consistent)
+    mls_list_price NUMERIC, -- Added
+    
+    -- Owner Information
+    owner_name TEXT, -- Changed from contact_name
+    owner_email TEXT, -- Changed from contact_email
+    owner_type TEXT, -- Added (e.g., 'OWNER' or 'AGENT')
+    
+    -- Mailing Information
+    mailing_address TEXT, -- Added
+    mailing_city TEXT, -- Added
+    mailing_state TEXT, -- Added
+    mailing_zip TEXT, -- Added
+    
+    -- System Fields
+    status TEXT NOT NULL DEFAULT 'NEW', -- Added, made NOT NULL with default
+    source_id UUID REFERENCES public.lead_sources(id) ON DELETE SET NULL, -- Changed reference constraint
+    assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- Added
+    last_contacted_at TIMESTAMPTZ, -- Added
+    notes TEXT, -- Added
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Added
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Added
 
--- Profiles table (essential for user management)
-CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
-    full_name TEXT,
-    email TEXT UNIQUE,
-    avatar_url TEXT,
-    updated_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    -- Provenance Fields
+    raw_lead_table TEXT, -- Added
+    raw_lead_id TEXT -- Added (Using TEXT to accommodate potential string IDs from raw tables)
 );
 
 -- Senders table
@@ -75,7 +107,7 @@ CREATE TABLE IF NOT EXISTS public.senders (
     last_sent_at TIMESTAMPTZ,
     oauth_token TEXT,
     refresh_token TEXT,
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- Changed reference to profiles
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -250,6 +282,7 @@ $$;
 
 -- Step 5: Enable Row Level Security on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY; -- Added RLS for leads table
 ALTER TABLE public.lead_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.senders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
@@ -639,45 +672,45 @@ COMMENT ON FUNCTION public.get_daily_stats IS 'Calculates daily email statistics
 
 -- Function to check if a policy exists and create it if not
 CREATE OR REPLACE FUNCTION public.create_policy_if_not_exists(
-  policy_name text,
-  table_name text,
-  operation text, -- e.g., 'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'ALL'
-  using_expr text,
-  with_check_expr text DEFAULT NULL
+  p_policy_name text,  -- Renamed parameter
+  p_table_name text,   -- Renamed parameter
+  p_operation text,  -- Renamed parameter
+  p_using_expr text, -- Renamed parameter
+  p_with_check_expr text DEFAULT NULL -- Renamed parameter
 ) RETURNS void AS $$
 DECLARE
   policy_exists boolean;
-  qualified_table_name text := 'public.' || table_name; -- Ensure schema qualification
+  qualified_table_name text := 'public.' || p_table_name; -- Use renamed parameter
 BEGIN
   -- Check if policy exists
   SELECT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
-    AND tablename = table_name
-    AND policyname = policy_name
+    AND tablename = p_table_name -- Use renamed parameter
+    AND policyname = p_policy_name -- Use renamed parameter
   ) INTO policy_exists;
 
   -- Create policy if it doesn't exist
   IF NOT policy_exists THEN
     -- For INSERT policies, only WITH CHECK is allowed (not USING)
-    IF upper(operation) = 'INSERT' THEN
+    IF upper(p_operation) = 'INSERT' THEN
       -- For INSERT, use with_check_expr or fall back to using_expr for the WITH CHECK clause
       EXECUTE format('CREATE POLICY %I ON %s FOR %s WITH CHECK (%s)',
-                  policy_name, qualified_table_name, upper(operation), 
-                  COALESCE(with_check_expr, using_expr));
+                  p_policy_name, qualified_table_name, upper(p_operation), 
+                  COALESCE(p_with_check_expr, p_using_expr));
     ELSE
       -- For other operations (SELECT, UPDATE, DELETE, ALL)
-      IF with_check_expr IS NULL THEN
+      IF p_with_check_expr IS NULL THEN
         EXECUTE format('CREATE POLICY %I ON %s FOR %s USING (%s)',
-                    policy_name, qualified_table_name, upper(operation), using_expr);
+                    p_policy_name, qualified_table_name, upper(p_operation), p_using_expr);
       ELSE
         EXECUTE format('CREATE POLICY %I ON %s FOR %s USING (%s) WITH CHECK (%s)',
-                    policy_name, qualified_table_name, upper(operation), using_expr, with_check_expr);
+                    p_policy_name, qualified_table_name, upper(p_operation), p_using_expr, p_with_check_expr);
       END IF;
     END IF;
-    RAISE NOTICE 'Policy "%" created for table "%".', policy_name, table_name;
+    RAISE NOTICE 'Policy "%" created for table "%".', p_policy_name, p_table_name;
   ELSE
-    RAISE NOTICE 'Policy "%" already exists for table "%". Skipping.', policy_name, table_name;
+    RAISE NOTICE 'Policy "%" already exists for table "%". Skipping.', p_policy_name, p_table_name;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -734,32 +767,71 @@ BEGIN
 END
 $$;
 
+-- Leads table policies (Example: User can manage their assigned leads)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables t WHERE t.table_schema = 'public' AND t.table_name = 'leads') THEN
+    PERFORM public.create_policy_if_not_exists(
+      p_policy_name => 'Allow authenticated users to read all leads',
+      p_table_name => 'leads',
+      p_operation => 'SELECT',
+      p_using_expr => 'auth.role() = ''authenticated'''
+    );
+    PERFORM public.create_policy_if_not_exists(
+      p_policy_name => 'Allow users to insert their own leads',
+      p_table_name => 'leads',
+      p_operation => 'INSERT',
+      p_using_expr => 'auth.uid() = assigned_to', -- using_expr is used as fallback for check if check is null
+      p_with_check_expr => 'auth.uid() = assigned_to'
+    );
+    PERFORM public.create_policy_if_not_exists(
+      p_policy_name => 'Allow users to update their assigned leads',
+      p_table_name => 'leads',
+      p_operation => 'UPDATE',
+      p_using_expr => 'auth.uid() = assigned_to',
+      p_with_check_expr => 'auth.uid() = assigned_to'
+    );
+    PERFORM public.create_policy_if_not_exists(
+      p_policy_name => 'Allow users to delete their assigned leads',
+      p_table_name => 'leads',
+      p_operation => 'DELETE',
+      p_using_expr => 'auth.uid() = assigned_to'
+    );
+    PERFORM public.create_policy_if_not_exists(
+      p_policy_name => 'Allow service_role full access to leads',
+      p_table_name => 'leads',
+      p_operation => 'ALL',
+      p_using_expr => 'auth.role() = ''service_role''',
+      p_with_check_expr => 'auth.role() = ''service_role'''
+    );
+  END IF;
+END
+$$;
+
 -- Generic policies for most tables (Authenticated users can perform CRUD)
 DO $$
 DECLARE
   tbl text;
   auth_expr text := 'auth.role() IN (''authenticated'', ''service_role'')';
 BEGIN
-  -- Updated array to remove 'leads' and 'contacts' tables
   FOREACH tbl IN ARRAY ARRAY['lead_sources', 'senders', 'templates', 'campaigns', 'campaign_senders', 'campaign_leads', 'emails', 'email_events']
   LOOP
-    -- SELECT policy (only needs USING clause)
+    -- SELECT policy
     PERFORM public.create_policy_if_not_exists(
       format('Enable read access for authenticated users on %s', tbl), 
       tbl, 
       'SELECT', 
       auth_expr
     );
-    
-    -- INSERT policy (only needs WITH CHECK clause for INSERT)
+    -- INSERT policy
     PERFORM public.create_policy_if_not_exists(
       format('Enable insert for authenticated users on %s', tbl), 
       tbl, 
       'INSERT', 
-      auth_expr
+      auth_expr, -- using_expr (used as fallback for check)
+      auth_expr  -- with_check_expr
     );
-    
-    -- UPDATE policy (needs both USING and WITH CHECK)
+    -- UPDATE policy
     PERFORM public.create_policy_if_not_exists(
       format('Enable update for authenticated users on %s', tbl), 
       tbl, 
@@ -767,8 +839,7 @@ BEGIN
       auth_expr, 
       auth_expr
     );
-    
-    -- DELETE policy (only needs USING clause)
+    -- DELETE policy
     PERFORM public.create_policy_if_not_exists(
       format('Enable delete for authenticated users on %s', tbl), 
       tbl, 
@@ -1044,26 +1115,6 @@ BEGIN
   END IF;
 END
 $$;
-
--- Add a helper function to check if a table exists
-CREATE OR REPLACE FUNCTION public.check_table_exists(table_name text)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 
-    FROM information_schema.tables 
-    WHERE table_schema = 'public' 
-    AND table_name = $1
-  );
-END;
-$$;
-
--- Grant execute permissions on the function
-GRANT EXECUTE ON FUNCTION public.check_table_exists(text) TO authenticated, service_role;
 
 -- Commit Transaction
 COMMIT;
