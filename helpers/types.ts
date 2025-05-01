@@ -26,10 +26,10 @@ export interface Profile {
 }
 
 // Metadata types for lead sources
+// Updated to store target table and column mapping
 export interface LeadSourceMetadata {
-  table_name: string;
-  file_hash: string;
-  column_types: Record<string, string>;
+  tableName: string; // The target table for normalized leads (e.g., 'leads')
+  columnMap: Record<string, string | null>; // Maps CSV Header -> Lead Table Column (or null if unmapped)
 }
 
 // Lead types
@@ -102,7 +102,7 @@ export interface LeadSource {
   last_imported: Timestamp | null;
   record_count: number | null;
   is_active: boolean;
-  metadata: LeadSourceMetadata | null;
+  metadata: LeadSourceMetadata | null; // Use the updated metadata type
   created_at: Timestamp;
   updated_at: Timestamp;
 }
