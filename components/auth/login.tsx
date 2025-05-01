@@ -1,6 +1,7 @@
 "use client";
 
-import { loginUser, loginWithGoogle } from "@/actions/auth.action";
+import { loginUser } from "@/actions/auth.action";
+import supabase from '@/lib/supabase';
 import { LoginSchema } from "@/helpers/schemas";
 import { LoginFormType } from "@/helpers/types";
 import { Button, Input } from "@heroui/react";
@@ -54,39 +55,22 @@ export const Login = () => {
   );
 
   const handleGoogleLogin = useCallback(async () => {
-    console.log('[handleGoogleLogin] Starting...');
     setIsGoogleLoading(true);
     setAuthError(null);
-    
     try {
-      console.log('[handleGoogleLogin] Calling loginWithGoogle action...');
-      const result = await loginWithGoogle();
-      console.log('[handleGoogleLogin] loginWithGoogle action returned:', result);
-      
-      if (result?.url) {
-        // If the action returns a URL, redirect the user
-        console.log('[handleGoogleLogin] Redirecting to:', result.url);
-        window.location.href = result.url;
-        // No need to set loading to false here as the page will navigate away
-        return; 
-      } else if (result?.error) {
-        // If the action returns an error, display it
-        console.error('[handleGoogleLogin] Error returned from action:', result.error);
-        setAuthError(result.error);
-      } else {
-        // Handle unexpected case where neither URL nor error is returned
-        console.warn('[handleGoogleLogin] Action completed without URL or error.');
-        setAuthError('Unexpected response from authentication service.');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/api/auth/callback` }
+      });
+      if (error) {
+        console.error('OAuth error:', error.message);
+        setAuthError(error.message);
       }
-    } catch (error) {
-      console.error("[handleGoogleLogin] Caught exception:", error);
-      setAuthError("Failed to initiate Google login. Please try again.");
+    } catch (e) {
+      console.error('Unexpected error during Google OAuth:', e);
+      setAuthError('Failed to initiate Google login.');
     } finally {
-      // Only set loading to false if no redirect happened
-      if (!window.location.href.includes('supabase.co')) { // Check if redirect is not already in progress
-         console.log('[handleGoogleLogin] Setting isGoogleLoading to false.');
-         setIsGoogleLoading(false);
-      }
+      setIsGoogleLoading(false);
     }
   }, []);
 
