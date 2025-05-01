@@ -54,33 +54,39 @@ export const Login = () => {
   );
 
   const handleGoogleLogin = useCallback(async () => {
-    console.log('[handleGoogleLogin] Starting...'); // Added log
+    console.log('[handleGoogleLogin] Starting...');
     setIsGoogleLoading(true);
     setAuthError(null);
     
     try {
-      console.log('[handleGoogleLogin] Calling loginWithGoogle action...'); // Added log
+      console.log('[handleGoogleLogin] Calling loginWithGoogle action...');
       const result = await loginWithGoogle();
-      console.log('[handleGoogleLogin] loginWithGoogle action returned:', result); // Added log
+      console.log('[handleGoogleLogin] loginWithGoogle action returned:', result);
       
-      // Server action should redirect on success. If we get here, it means either:
-      // 1. An error occurred and was returned by the action.
-      // 2. The action completed but didn't redirect (which is unexpected on success).
-      if (result?.error) { // Check only for errors, as success means server redirected
-        console.error('[handleGoogleLogin] Error returned from action:', result.error); // Added log
+      if (result?.url) {
+        // If the action returns a URL, redirect the user
+        console.log('[handleGoogleLogin] Redirecting to:', result.url);
+        window.location.href = result.url;
+        // No need to set loading to false here as the page will navigate away
+        return; 
+      } else if (result?.error) {
+        // If the action returns an error, display it
+        console.error('[handleGoogleLogin] Error returned from action:', result.error);
         setAuthError(result.error);
       } else {
-        // If there's no error and no redirect happened server-side (which shouldn't occur on success now),
-        // set a generic error. This case is unlikely if the server action works correctly.
-        console.warn('[handleGoogleLogin] Action completed without error but no redirect occurred.'); // Added log
-        setAuthError('Unexpected response from authentication service. Redirect failed.');
+        // Handle unexpected case where neither URL nor error is returned
+        console.warn('[handleGoogleLogin] Action completed without URL or error.');
+        setAuthError('Unexpected response from authentication service.');
       }
     } catch (error) {
-      console.error("[handleGoogleLogin] Caught exception:", error); // Added log
+      console.error("[handleGoogleLogin] Caught exception:", error);
       setAuthError("Failed to initiate Google login. Please try again.");
     } finally {
-      console.log('[handleGoogleLogin] Setting isGoogleLoading to false.'); // Added log
-      setIsGoogleLoading(false);
+      // Only set loading to false if no redirect happened
+      if (!window.location.href.includes('supabase.co')) { // Check if redirect is not already in progress
+         console.log('[handleGoogleLogin] Setting isGoogleLoading to false.');
+         setIsGoogleLoading(false);
+      }
     }
   }, []);
 

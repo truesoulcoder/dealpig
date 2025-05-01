@@ -4,7 +4,6 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { LoginFormType, RegisterFormType, Profile } from '@/helpers/types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { NextResponse } from 'next/server';
 
 // Helper function to create the Supabase client with cookie handling
 const createSupabaseClient = async () => {
@@ -228,7 +227,7 @@ export async function logoutUser() {
 /**
  * Initiate Google OAuth login
  */
-export async function loginWithGoogle() {
+export async function loginWithGoogle(): Promise<{ url?: string; error?: string }> {
   console.log('[server action] 🔍 Starting loginWithGoogle action...');
   const supabase = await createSupabaseClient();
 
@@ -265,12 +264,14 @@ export async function loginWithGoogle() {
     }
 
     console.log('[server action] ✅ Successfully got redirect URL:', data.url);
-    console.log('[server action] 🚀 Attempting redirect using NextResponse...');
-    return NextResponse.redirect(data.url);
+    // Return the URL in a plain object for the client to handle
+    return { url: data.url };
 
   } catch (error: any) {
     console.error('[server action] ❌ Unexpected error in loginWithGoogle:', error);
-    throw error;
+    return {
+      error: `Server Action Error: ${error.message || 'Failed to initiate Google login'}`,
+    };
   }
 }
 
