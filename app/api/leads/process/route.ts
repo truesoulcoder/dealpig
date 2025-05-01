@@ -68,16 +68,19 @@ export async function POST(request: NextRequest) {
 
     // 3. Call the normalization action (no need to pass storage_path, it fetches it internally)
     console.log(`[API /leads/process] Calling normalizeLeadsForSource for source ${sourceId}...`);
-    const normalizationResult = await normalizeLeadsForSource(sourceId, columnMap);
+    const formData = new FormData();
+    formData.append('sourceId', sourceId);
+    formData.append('columnMap', JSON.stringify(columnMap));
+    const normalizationResult: { count: number; error?: string; message?: string; insertedCount?: number } = await normalizeLeadsForSource(formData);
 
     // 4. Return the result from the action
-    if (!normalizationResult.success) {
+    if (normalizationResult.count === 0) {
       console.error(`[API /leads/process] Normalization failed for source ${sourceId}:`, normalizationResult.message, normalizationResult.error);
       // Use a 500 status for processing failures
       return createResponse(
         { 
           success: false, 
-          message: normalizationResult.message || 'Lead normalization failed.',
+          message: 'Lead normalization failed.',
           error: normalizationResult.error ? JSON.stringify(normalizationResult.error) : undefined
         }, 
         500

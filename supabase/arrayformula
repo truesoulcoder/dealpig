@@ -1,0 +1,35 @@
+=ARRAYFORMULA(
+  QUERY(
+    {
+      FILTER(
+        {
+          'Raw'!U2:U, 'Raw'!Z2:Z,
+          'Raw'!G2:G, 'Raw'!H2:H, 'Raw'!I2:I, 'Raw'!J2:J, 'Raw'!R2:R, 'Raw'!S2:S, 'Raw'!T2:T, 'Raw'!BR2:BR, 'Raw'!P2:P, 'Raw'!CT2:CT, 'Raw'!CV2:CV, 'Raw'!DI2:DI, 'Raw'!DL2:DL
+        },
+        LEN('Raw'!T2:T) > 0
+      );
+      FILTER(
+        {
+          'Raw'!AK2:AK, 'Raw'!AP2:AP,
+          'Raw'!G2:G, 'Raw'!H2:H, 'Raw'!I2:I, 'Raw'!J2:J, 'Raw'!R2:R, 'Raw'!S2:S, 'Raw'!T2:T, 'Raw'!BR2:BR, 'Raw'!P2:P, 'Raw'!CT2:CT, 'Raw'!CV2:CV, 'Raw'!DI2:DI, 'Raw'!DL2:DL
+        },
+        LEN('Raw'!Z2:Z) > 0
+      );
+      FILTER(
+        {
+          'Raw'!BA2:BA, 'Raw'!BF2:BF,
+          'Raw'!G2:G, 'Raw'!H2:H, 'Raw'!I2:I, 'Raw'!J2:J, 'Raw'!R2:R, 'Raw'!S2:S, 'Raw'!T2:T, 'Raw'!BR2:BR, 'Raw'!P2:P, 'Raw'!CT2:CT, 'Raw'!CV2:CV, 'Raw'!DI2:DI, 'Raw'!DL2:DL
+        },
+        LEN('Raw'!AF2:AF) > 0
+      );
+      FILTER(
+        {
+          'Raw'!DQ2:DQ, 'Raw'!DS2:DS,
+          'Raw'!G2:G, 'Raw'!H2:H, 'Raw'!I2:I, 'Raw'!J2:J, 'Raw'!R2:R, 'Raw'!S2:S, 'Raw'!T2:T, 'Raw'!BR2:BR, 'Raw'!P2:P, 'Raw'!CT2:CT, 'Raw'!CV2:CV, 'Raw'!DI2:DI, 'Raw'!DL2:DL
+        },
+        LEN('Raw'!CB2:CB) > 0
+      )
+    },
+    "WHERE Col1 IS NOT NULL OR Col2 IS NOT NULL"
+  )
+)

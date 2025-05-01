@@ -94,3 +94,6 @@ export async function normalizeLeads(formData: FormData) {
 
   return { count: inserts.length };
 }
+
+// Alias normalizeLeads for external process route compatibility
+export { normalizeLeads as normalizeLeadsForSource };
