@@ -1,5 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createAdminClient } from '@/lib/supabase';
 import Papa from 'papaparse';
 
 export async function normalizeLeads(formData: FormData) {
@@ -14,24 +13,8 @@ export async function normalizeLeads(formData: FormData) {
     throw new Error(`CSV parse error: ${errors.map(e => e.message).join(', ')}`);
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async get(name: string) {
-          const allCookies = await cookies();
-          return allCookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: any) {
-          // Implement cookie setting logic if needed
-        },
-        remove(name: string, options: any) {
-          // Implement cookie removal logic if needed
-        },
-      },
-    }
-  );
+  // Use service-role admin client to bypass RLS for bulk inserts
+  const supabase = createAdminClient();
   const inserts: any[] = [];
 
   for (const row of rows as any[]) {

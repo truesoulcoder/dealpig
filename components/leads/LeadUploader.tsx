@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { uploadLeads } from '@/actions/leadUpload.action';
 
 export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -13,12 +12,15 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
     const formData = new FormData();
     formData.append('file', selectedFile);
     try {
-      const result = await uploadLeads(formData);
+      const res = await fetch('/api/leads/upload', { method: 'POST', body: formData });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Upload failed');
       setMessage(`${result.count} leads imported.`);
       onUpload?.();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      setMessage('Upload failed.');
+      const msg = error instanceof Error ? error.message : String(error);
+      setMessage(`Upload failed: ${msg}`);
     }
   }
 

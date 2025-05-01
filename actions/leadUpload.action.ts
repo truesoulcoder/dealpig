@@ -3,7 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import Papa from 'papaparse';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase';
 
 export async function uploadLeads(formData: FormData) {
   const file = formData.get('file') as File;
@@ -25,17 +25,33 @@ export async function uploadLeads(formData: FormData) {
   const rawTable = 'leads';
   const normalizedTable = `normalized_${base}_${timestamp}`;
 
-  // Admin client
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const admin = createClient(supabaseUrl, supabaseServiceRoleKey);
+  // Service-role admin client for all DB operations
+  const supabase = createAdminClient();
+
+  // Upload raw CSV to storage bucket
+  const bucket = 'lead-uploads';
+  const storagePath = `${timestamp}_${file.name}`;
+  const { error: storageError } = await supabase.storage
+    .from(bucket)
+    .upload(storagePath, file);
+  if (storageError) throw storageError;
+
+  // Record source in lead_sources table (optional tracking)
+  await supabase.from('lead_sources').insert({
+    name: file.name,
+    file_name: file.name,
+    storage_path: storagePath,
+    last_imported: new Date().toISOString(),
+    record_count: (rows as any[]).length,
+    is_active: true,
+  });
 
   // Clear staging table and insert raw rows
-  await admin.from(rawTable).delete();
+  await supabase.from(rawTable).delete();
   const batchSize = 500;
   for (let i = 0; i < (rows as any[]).length; i += batchSize) {
     const batch = (rows as any[]).slice(i, i + batchSize);
-    await admin.from(rawTable).insert(batch);
+    await supabase.from(rawTable).insert(batch);
   }
 
   // Read and adjust normalize script
@@ -51,9 +67,11 @@ export async function uploadLeads(formData: FormData) {
                     `CREATE INDEX IF NOT EXISTS idx_${normalizedTable}_email`);
   sql = sql.replace(/CREATE INDEX IF NOT EXISTS idx_normalized_leads_property_address/,
                     `CREATE INDEX IF NOT EXISTS idx_${normalizedTable}_property_address`);
+  // Ensure index ON clauses reference dynamic table
+  sql = sql.replace(/ON normalized_leads/g, `ON ${normalizedTable}`);
 
   // Execute raw SQL via RPC (assumes run_sql function exists)
-  const { data: execResult, error: execError } = await admin.rpc('run_sql', { sql });
+  const { error: execError } = await supabase.rpc('run_sql', { sql });
   if (execError) throw execError;
 
   return { rawTable, normalizedTable, count: (rows as any[]).length };
