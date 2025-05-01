@@ -97,19 +97,36 @@ export async function ingestLeadSource(sourceId: string) {
   const baseTableName = originalFileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
   console.log('[LeadIngestion] Derived base table name:', baseTableName);
 
+  // Prepare column definitions string for the SQL function
+  const headers = Object.keys(rows[0] || {});
+  if (headers.length === 0) {
+    console.error('[LeadIngestion] CSV has no headers or data.');
+    throw new Error('CSV file appears to be empty or headerless.');
+  }
+  // Ensure column names are properly quoted and are TEXT type
+  const columnDefinitions = headers.map(col => `"${col.replace(/"/g, '""')}" TEXT`).join(', '); // Quote column names and define as TEXT
+  console.log('[LeadIngestion] Column definitions:', columnDefinitions);
+
   try {
     // Call the Supabase function to create the table and get its actual name
-    const { data: dynamicTableData, error: createTableError } = await admin.rpc('create_dynamic_lead_table', {
-      p_table_name: baseTableName
+    // Correct parameter names: table_name_param and column_definitions
+    const { data: createTableResult, error: createTableError } = await admin.rpc('create_dynamic_lead_table', {
+      table_name_param: baseTableName,
+      column_definitions: columnDefinitions
     });
 
-    if (createTableError || !dynamicTableData || !dynamicTableData.table_name) {
-      console.error('[LeadIngestion] Error calling create_dynamic_lead_table:', createTableError);
-      throw new Error(`Failed to create or confirm dynamic table: ${createTableError?.message || 'No table name returned'}`);
+    // Check the result from the function, which returns a boolean
+    if (createTableError || createTableResult === false) {
+      console.error('[LeadIngestion] Error calling create_dynamic_lead_table or function returned false:', createTableError);
+      // Attempt to get a more specific table name for error reporting if possible
+      const potentialTableName = baseTableName + '_leads';
+      throw new Error(`Failed to create or confirm dynamic table '${potentialTableName}': ${createTableError?.message || 'Function returned false'}`);
     }
 
-    const actualTableName = dynamicTableData.table_name;
-    console.log('[LeadIngestion] Using actual table name from DB function:', actualTableName);
+    // Since the function doesn't return the name, we construct it based on the logic inside the function
+    // This assumes the function successfully created or confirmed the table named baseTableName + '_leads'
+    const actualTableName = baseTableName + '_leads';
+    console.log('[LeadIngestion] Assumed actual table name after successful function call:', actualTableName);
 
     // Insert rows in batches using the actual table name
     const batchSize = 100;
