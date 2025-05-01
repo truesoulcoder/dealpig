@@ -7,7 +7,8 @@ const publicPaths = [
   '/register',
   '/forgot-password',
   '/reset-password',
-  '/api/auth/callback', 
+  '/api/auth/callback',
+  '/auth/auth-code-error', // Add error page to public paths
   '/favicon.ico',
   '/dealpig.svg',
   '/logo.png',
@@ -16,19 +17,23 @@ const publicPaths = [
 // Check if the path is public, an API route, or a static asset
 function isPublicOrApiOrAsset(path: string) {
   if (publicPaths.includes(path)) return true;
-  if (path.startsWith('/api/')) return true; // API routes handle their own auth or are public
+  // Allow all API routes except the specific auth callback which is handled above
+  if (path.startsWith('/api/') && path !== '/api/auth/callback') return true; 
   if (path.startsWith('/_next/')) return true; // Next.js internals
   if (path.match(/\.(jpg|jpeg|png|gif|svg|ico|css|js)$/i)) return true; // Static assets
   return false;
 }
 
-
 export async function middleware(request: NextRequest) {
+  // Clone the request headers to avoid modifying the original headers object
+  const requestHeaders = new Headers(request.headers);
+  // Create a response object that will be modified and returned
   let response = NextResponse.next({
     request: {
-      headers: request.headers,
+      // Pass the cloned headers to the new request
+      headers: requestHeaders,
     },
-  })
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,52 +41,35 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value
+          // Read cookies from the incoming request
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is set, update the request and response cookies
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          // Set cookies on the outgoing response
+          response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the request and response cookies
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+          // Set cookies on the outgoing response
+          response.cookies.set({ name, value: '', ...options });
         },
       },
     }
-  )
+  );
 
-  // Refresh session if expired - important!
-  const { data: { session } } = await supabase.auth.getSession()
+  // Refresh session if expired - this will also read the session from cookies
+  console.log('[Middleware] Attempting to get session...');
+  const { data: { session }, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error('[Middleware] Error getting session:', error.message);
+    // Allow request to proceed, maybe it's a public page or API route
+    // Or handle specific errors if needed
+  } else {
+    console.log(`[Middleware] Session status: ${session ? 'Exists' : 'None'}`);
+  }
 
   const { pathname } = request.nextUrl;
+  console.log(`[Middleware] Pathname: ${pathname}`);
 
   // If it's not a public/api/asset path and there's no session, redirect to login
   if (!isPublicOrApiOrAsset(pathname) && !session) {
@@ -89,7 +77,7 @@ export async function middleware(request: NextRequest) {
     url.pathname = '/login';
     // Optionally add redirectTo query param if needed
     // url.search = `redirectTo=${encodeURIComponent(pathname)}`;
-    console.log(`[Middleware] No session, redirecting to login from ${pathname}`);
+    console.log(`[Middleware] No session for protected route, redirecting to login from ${pathname}`);
     return NextResponse.redirect(url);
   }
 
@@ -101,10 +89,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If we reach here, the user is either authenticated for a protected route,
-  // or accessing a public/api/asset route. Allow the request and ensure the
-  // session cookie is potentially refreshed in the response.
-  return response
+  // Allow the request to proceed, returning the potentially modified response (with refreshed cookies)
+  console.log(`[Middleware] Allowing request for ${pathname}`);
+  return response;
 }
 
 export const config = {
