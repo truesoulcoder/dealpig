@@ -196,9 +196,7 @@ export async function loginWithGoogle() {
     }
 
     console.log('✅ Successfully got redirect URL:', data.url);
-    return {
-      redirectUrl: data.url,
-    };
+    redirect(data.url); // Perform the redirect server-side
   } catch (error) {
     console.error('❌ Unexpected error in loginWithGoogle:', error);
     return {

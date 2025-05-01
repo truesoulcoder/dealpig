@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    console.log(`[Auth Callback] Code received: ${code}`); // Log the code value
     console.log('[Auth Callback] Exchanging code for session...');
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 

@@ -60,11 +60,11 @@ export const Login = () => {
     try {
       const result = await loginWithGoogle();
       
-      if (result?.redirectUrl) {
-        window.location.href = result.redirectUrl;
-      } else if (result?.error) {
+      if (result?.error) { // Check only for errors, as success means server redirected
         setAuthError(result.error);
       } else {
+        // If there's no error and no redirect happened server-side (which shouldn't occur on success now),
+        // set a generic error. This case is unlikely if the server action works correctly.
         setAuthError('Unexpected response from authentication service');
       }
     } catch (error) {

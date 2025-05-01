@@ -16,6 +16,7 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Password Reset (`/forgot-password`, `/reset-password`)
     *   Auth Callback Handling (`/callback`)
     *   Basic Middleware for route protection
+    *   Google OAuth Login (Server-side redirect fixed for PKCE)
 *   **Basic UI Structure:**
     *   Next.js App Router setup
     *   Tailwind CSS integration
