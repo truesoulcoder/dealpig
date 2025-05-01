@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         storage_path: storagePath,    // Path in storage (e.g., lead-imports/uuid)
         record_count: 0,            // Initial count, will be updated after processing
         is_active: true,
-        last_imported: null,        // Not imported/processed yet
+        last_imported: createdAt,   // Set to createdAt, as it was just uploaded
         created_at: createdAt,
         updated_at: createdAt,
         metadata: null              // No metadata configured yet
