@@ -182,6 +182,8 @@ export default function LeadsSection() {
                         disabled={!source.metadata || processingSourceId === source.id}
                         isLoading={processingSourceId === source.id} // Changed from loading to isLoading
                         onClick={() => handleProcessSource(source.id)}
+                        // Add explicit disabled styling
+                        className="disabled:opacity-50 disabled:cursor-not-allowed" 
                       >
                         Process
                       </Button>
