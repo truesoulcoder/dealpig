@@ -1116,6 +1116,116 @@ BEGIN
 END
 $$;
 
+-- =============================================
+-- ROW LEVEL SECURITY POLICIES
+-- =============================================
+
+-- Enable RLS and define policies for campaign_leads
+ALTER TABLE public.campaign_leads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.campaign_leads;
+CREATE POLICY "Enable read access for authenticated users" ON public.campaign_leads FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.campaign_leads;
+CREATE POLICY "Enable insert for authenticated users" ON public.campaign_leads FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.campaign_leads;
+CREATE POLICY "Enable update for authenticated users" ON public.campaign_leads FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.campaign_leads;
+CREATE POLICY "Enable delete for authenticated users" ON public.campaign_leads FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for campaign_senders
+ALTER TABLE public.campaign_senders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.campaign_senders;
+CREATE POLICY "Enable read access for authenticated users" ON public.campaign_senders FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.campaign_senders;
+CREATE POLICY "Enable insert for authenticated users" ON public.campaign_senders FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.campaign_senders;
+CREATE POLICY "Enable update for authenticated users" ON public.campaign_senders FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.campaign_senders;
+CREATE POLICY "Enable delete for authenticated users" ON public.campaign_senders FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for campaigns
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.campaigns;
+CREATE POLICY "Enable read access for authenticated users" ON public.campaigns FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.campaigns;
+CREATE POLICY "Enable insert for authenticated users" ON public.campaigns FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.campaigns;
+CREATE POLICY "Enable update for authenticated users" ON public.campaigns FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.campaigns;
+CREATE POLICY "Enable delete for authenticated users" ON public.campaigns FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for email_events
+ALTER TABLE public.email_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.email_events;
+CREATE POLICY "Enable read access for authenticated users" ON public.email_events FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.email_events;
+CREATE POLICY "Enable insert for authenticated users" ON public.email_events FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.email_events;
+CREATE POLICY "Enable update for authenticated users" ON public.email_events FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.email_events;
+CREATE POLICY "Enable delete for authenticated users" ON public.email_events FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for emails
+ALTER TABLE public.emails ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.emails;
+CREATE POLICY "Enable read access for authenticated users" ON public.emails FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.emails;
+CREATE POLICY "Enable insert for authenticated users" ON public.emails FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.emails;
+CREATE POLICY "Enable update for authenticated users" ON public.emails FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.emails;
+CREATE POLICY "Enable delete for authenticated users" ON public.emails FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for lead_sources
+ALTER TABLE public.lead_sources ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.lead_sources;
+CREATE POLICY "Enable read access for authenticated users" ON public.lead_sources FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.lead_sources;
+CREATE POLICY "Enable insert for authenticated users" ON public.lead_sources FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.lead_sources;
+CREATE POLICY "Enable update for authenticated users" ON public.lead_sources FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.lead_sources;
+CREATE POLICY "Enable delete for authenticated users" ON public.lead_sources FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for leads
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users to read all leads" ON public.leads;
+CREATE POLICY "Allow authenticated users to read all leads" ON public.leads FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow users to insert their own leads" ON public.leads;
+CREATE POLICY "Allow users to insert their own leads" ON public.leads FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow users to update their assigned leads" ON public.leads;
+CREATE POLICY "Allow users to update their assigned leads" ON public.leads FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Allow users to delete their assigned leads" ON public.leads;
+CREATE POLICY "Allow users to delete their assigned leads" ON public.leads FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for profiles
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
+CREATE POLICY "Users can view their own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+CREATE POLICY "Users can update their own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- Enable RLS and define policies for senders
+ALTER TABLE public.senders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.senders;
+CREATE POLICY "Enable read access for authenticated users" ON public.senders FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.senders;
+CREATE POLICY "Enable insert for authenticated users" ON public.senders FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.senders;
+CREATE POLICY "Enable update for authenticated users" ON public.senders FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.senders;
+CREATE POLICY "Enable delete for authenticated users" ON public.senders FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Enable RLS and define policies for templates
+ALTER TABLE public.templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.templates;
+CREATE POLICY "Enable read access for authenticated users" ON public.templates FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.templates;
+CREATE POLICY "Enable insert for authenticated users" ON public.templates FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.templates;
+CREATE POLICY "Enable update for authenticated users" ON public.templates FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.templates;
+CREATE POLICY "Enable delete for authenticated users" ON public.templates FOR DELETE USING (auth.role() = 'authenticated');
+
 -- Commit Transaction
 COMMIT;
 

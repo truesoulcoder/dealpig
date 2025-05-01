@@ -5,7 +5,12 @@ import { Button } from '@heroui/react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 
-export default function UploadLeadsForm() {
+// Define props interface
+interface UploadLeadsFormProps {
+  onUploadSuccess?: () => void; // Optional callback prop
+}
+
+export default function UploadLeadsForm({ onUploadSuccess }: UploadLeadsFormProps) { // Destructure the prop
   const { theme } = useTheme();
   const isLeetTheme = theme === 'leet';
   const [mounted, setMounted] = useState(false);
@@ -189,7 +194,22 @@ export default function UploadLeadsForm() {
         setProgress(100);
         form.reset();
         setSelectedFileName('No file chosen');
+        
+        console.log('[UploadLeadsForm] Before fetchFiles()');
         fetchFiles();
+        console.log('[UploadLeadsForm] After fetchFiles(), before onUploadSuccess?.()');
+        
+        if (typeof onUploadSuccess === 'function') {
+          console.log('[UploadLeadsForm] onUploadSuccess is a function, attempting call...');
+          try {
+            onUploadSuccess();
+            console.log('[UploadLeadsForm] onUploadSuccess call completed.');
+          } catch (callbackError) {
+            console.error('[UploadLeadsForm] Error calling onUploadSuccess:', callbackError);
+          }
+        } else {
+          console.log('[UploadLeadsForm] onUploadSuccess is not a function or not provided.');
+        }
       }
     } catch (err) {
       console.error('Upload error:', err);

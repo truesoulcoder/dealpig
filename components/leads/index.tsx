@@ -25,10 +25,19 @@ export default function LeadsSection() {
   }, []);
 
   const fetchLeadSources = async () => {
-    console.log('[LeadsSection] Fetching lead sources from Supabase...'); // Added log
+    console.log('[LeadsSection] fetchLeadSources CALLED.'); // Log when function starts
     setIsLoadingSources(true);
     setError(null);
     try {
+      // Check auth status before fetching
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('[LeadsSection] Error getting user:', userError);
+      }
+      console.log('[LeadsSection] Current user:', user); // Log the user object
+      console.log('[LeadsSection] User ID:', user?.id); // Log the user ID
+      console.log('[LeadsSection] User authenticated:', !!user);
+
       const { data, error: fetchError } = await supabase
         .from('lead_sources')
         .select('*')
@@ -36,19 +45,21 @@ export default function LeadsSection() {
 
       if (fetchError) throw fetchError;
 
-      console.log('[LeadsSection] Fetched sources:', data); // Added log
+      console.log('[LeadsSection] Fetched sources DATA:', data); // Log the actual data received
       setLeadSources(data || []);
+      console.log('[LeadsSection] setLeadSources CALLED with data.'); // Log after setting state
     } catch (err: any) {
       console.error('[LeadsSection] Error fetching lead sources:', err);
       setError(err.message || 'Failed to load lead sources.');
       toast.error('Failed to load lead sources.');
     } finally {
       setIsLoadingSources(false);
+      console.log('[LeadsSection] fetchLeadSources FINISHED.'); // Log when function ends
     }
   };
 
   const handleUploadSuccess = () => {
-    console.log(`[LeadsSection] Upload success, refetching sources...`); // Added log
+    console.log(`[LeadsSection] handleUploadSuccess CALLED. Refetching sources...`); // Log when callback is triggered
     fetchLeadSources();
   };
 
@@ -118,8 +129,8 @@ export default function LeadsSection() {
 
   return (
     <div className="space-y-8">
-      {/* Upload Form - Removed onUploadSuccess prop */}
-      <UploadLeadsForm />
+      {/* Upload Form - Pass the handleUploadSuccess callback */}
+      <UploadLeadsForm onUploadSuccess={handleUploadSuccess} />
 
       {/* Lead Sources List */}
       <div className="mt-8">
