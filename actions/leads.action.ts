@@ -39,12 +39,12 @@ export async function getLeads(): Promise<Lead[]> {
 // Fetch all normalized tables
 export async function getNormalizedTables(): Promise<string[]> {
   const admin = createAdminClient();
-  // Fallback: query system catalog for normalized tables
-  const { data, error } = await admin
-    .from('pg_catalog.pg_tables')
-    .select('tablename')
-    .eq('schemaname', 'public')
-    .like('tablename', 'normalized_%');
-  if (error) throw error;
-  return (data || []).map((row: any) => row.tablename);
+  // Use RPC to list dynamic lead tables
+  const { data, error } = await admin.rpc('list_dynamic_lead_tables');
+  if (error) {
+    console.error('RPC list_dynamic_lead_tables failed:', error);
+    return [];
+  }
+  // Rpc returns [{ table_name: string }]
+  return (data || []).map((row: any) => row.table_name);
 }

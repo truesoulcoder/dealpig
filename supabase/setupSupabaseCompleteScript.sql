@@ -703,6 +703,19 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.run_sql(text) TO service_role;
 
+-- RPC to list all dynamic normalized lead tables
+DROP FUNCTION IF EXISTS public.list_dynamic_lead_tables();
+CREATE OR REPLACE FUNCTION public.list_dynamic_lead_tables()
+  RETURNS TABLE(table_name text)
+  LANGUAGE sql
+AS $$
+  SELECT tablename AS table_name
+    FROM pg_catalog.pg_tables
+    WHERE schemaname = 'public'
+      AND tablename LIKE 'normalized_%';
+$$;
+GRANT EXECUTE ON FUNCTION public.list_dynamic_lead_tables() TO service_role;
+
 -- Grant execution permissions on functions
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role; -- Trigger function, usually not called directly
 GRANT EXECUTE ON FUNCTION public.get_table_columns() TO authenticated, service_role;

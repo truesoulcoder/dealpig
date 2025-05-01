@@ -67,12 +67,18 @@ export async function uploadLeads(formData: FormData) {
                     `CREATE INDEX IF NOT EXISTS idx_${normalizedTable}_email`);
   sql = sql.replace(/CREATE INDEX IF NOT EXISTS idx_normalized_leads_property_address/,
                     `CREATE INDEX IF NOT EXISTS idx_${normalizedTable}_property_address`);
-  // Ensure index ON clauses reference dynamic table
+  // Fix index ON clauses to reference the dynamic table name
   sql = sql.replace(/ON normalized_leads/g, `ON ${normalizedTable}`);
 
   // Execute raw SQL via RPC (assumes run_sql function exists)
   const { error: execError } = await supabase.rpc('run_sql', { sql });
-  if (execError) throw execError;
+  if (execError) {
+    console.error('Error executing normalization script:', execError);
+    // Optionally, delete the empty normalized table and the lead_source record
+    // await supabase.rpc('run_sql', { sql: `DROP TABLE IF EXISTS ${normalizedTable};` });
+    // await supabase.from('lead_sources').delete().match({ storage_path: storagePath });
+    throw new Error(`Failed to normalize leads: ${execError.message}`);
+  }
 
   return { rawTable, normalizedTable, count: (rows as any[]).length };
 }
