@@ -4,6 +4,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { LoginFormType, RegisterFormType, Profile } from '@/helpers/types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { NextResponse } from 'next/server';
 
 // Helper function to create the Supabase client with cookie handling
 const createSupabaseClient = async () => {
@@ -240,13 +241,6 @@ export async function loginWithGoogle() {
       provider: 'google',
       options: {
         redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-          include_granted_scopes: 'true',
-          scope: 'email profile',
-          response_type: 'code',
-        },
       },
     });
 
@@ -271,17 +265,12 @@ export async function loginWithGoogle() {
     }
 
     console.log('[server action] ✅ Successfully got redirect URL:', data.url);
-    console.log('[server action] 🚀 Attempting server-side redirect...');
-    redirect(data.url);
+    console.log('[server action] 🚀 Attempting redirect using NextResponse...');
+    return NextResponse.redirect(data.url);
+
   } catch (error: any) {
-    if (error.message !== 'NEXT_REDIRECT') {
-      console.error('[server action] ❌ Unexpected error in loginWithGoogle:', error);
-      return {
-        error: `Server Action Error: ${error.message || 'Failed to initiate Google login'}`,
-      };
-    } else {
-      throw error;
-    }
+    console.error('[server action] ❌ Unexpected error in loginWithGoogle:', error);
+    throw error;
   }
 }
 
