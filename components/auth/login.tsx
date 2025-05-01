@@ -54,23 +54,32 @@ export const Login = () => {
   );
 
   const handleGoogleLogin = useCallback(async () => {
+    console.log('[handleGoogleLogin] Starting...'); // Added log
     setIsGoogleLoading(true);
     setAuthError(null);
     
     try {
+      console.log('[handleGoogleLogin] Calling loginWithGoogle action...'); // Added log
       const result = await loginWithGoogle();
+      console.log('[handleGoogleLogin] loginWithGoogle action returned:', result); // Added log
       
+      // Server action should redirect on success. If we get here, it means either:
+      // 1. An error occurred and was returned by the action.
+      // 2. The action completed but didn't redirect (which is unexpected on success).
       if (result?.error) { // Check only for errors, as success means server redirected
+        console.error('[handleGoogleLogin] Error returned from action:', result.error); // Added log
         setAuthError(result.error);
       } else {
         // If there's no error and no redirect happened server-side (which shouldn't occur on success now),
         // set a generic error. This case is unlikely if the server action works correctly.
-        setAuthError('Unexpected response from authentication service');
+        console.warn('[handleGoogleLogin] Action completed without error but no redirect occurred.'); // Added log
+        setAuthError('Unexpected response from authentication service. Redirect failed.');
       }
     } catch (error) {
-      console.error("Google login error:", error);
+      console.error("[handleGoogleLogin] Caught exception:", error); // Added log
       setAuthError("Failed to initiate Google login. Please try again.");
     } finally {
+      console.log('[handleGoogleLogin] Setting isGoogleLoading to false.'); // Added log
       setIsGoogleLoading(false);
     }
   }, []);
