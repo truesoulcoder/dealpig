@@ -3,29 +3,6 @@
 import { createAdminClient } from '@/lib/supabase';
 import Papa from 'papaparse';
 import crypto from 'crypto';
-import { Client } from 'pg';
-
-// Helper function to get clean table name from file name
-async function getUniqueTableName(admin: any, fileName: string, attempt: number = 0): Promise<string> {
-  // Remove the extension
-  const tableName = fileName.replace(/\.[^/.]+$/, '');
-  
-  try {
-    // Check if table exists
-    const { error } = await admin.rpc('check_table_exists', { table_name: tableName });
-    
-    if (error) {
-      // Table doesn't exist, we can use this name
-      return tableName;
-    }
-    
-    // Table exists, try next number
-    return getUniqueTableName(admin, fileName, attempt + 1);
-  } catch (err) {
-    console.error('[getUniqueTableName] Error checking table:', err);
-    throw err;
-  }
-}
 
 // Helper function to check for duplicate file content
 export async function isDuplicateFile(admin: any, fileBuffer: Buffer, fileName: string): Promise<boolean> {
@@ -72,11 +49,11 @@ export async function isDuplicateFile(admin: any, fileBuffer: Buffer, fileName: 
 export async function ingestLeadSource(sourceId: string) {
   const admin = createAdminClient();
   console.log('[LeadIngestion] Starting ingestion for source:', sourceId);
-  
-  // Fetch source info
+
+  // Fetch source info, including metadata
   const { data: sourceData, error: srcErr } = await admin
     .from('lead_sources')
-    .select('name, file_name')
+    .select('name, file_name, metadata') // Added metadata here
     .eq('id', sourceId)
     .single();
     
@@ -87,7 +64,7 @@ export async function ingestLeadSource(sourceId: string) {
   
   const fileName = sourceData.name;
   const originalFileName = sourceData.file_name;
-  console.log('[LeadIngestion] Processing file:', fileName);
+  console.log('[LeadIngestion] Processing file:', fileName, 'Original:', originalFileName);
 
   // Download CSV from storage
   const { data: fileBlob, error: blobErr } = await admin.storage
@@ -110,64 +87,93 @@ export async function ingestLeadSource(sourceId: string) {
   }
   
   const rows = parsed.data;
+  if (!rows || rows.length === 0) {
+    console.log('[LeadIngestion] No data rows found in CSV.');
+    return { count: 0 };
+  }
   console.log('[LeadIngestion] Parsed rows:', rows.length);
 
-  // Get unique table name
-  const rawTable = await getUniqueTableName(admin, originalFileName);
-  console.log('[LeadIngestion] Using table name:', rawTable);
+  // Derive base table name from the original file name (before UUID prefix)
+  const baseTableName = originalFileName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+  console.log('[LeadIngestion] Derived base table name:', baseTableName);
 
   try {
-    // Create table if not exists with TEXT columns for each header
-    const cols = Object.keys(rows[0] || {}).map((col) => `"${col}" TEXT`).join(', ');
-    const createTableQuery = `CREATE TABLE IF NOT EXISTS "${rawTable}" (${cols});`;
-    
-    const { error: createError } = await admin.rpc('exec_sql', { query: createTableQuery });
-    if (createError) {
-      console.error('[LeadIngestion] Table creation error:', createError);
-      throw new Error(`Failed to create table: ${createError.message}`);
+    // Call the Supabase function to create the table and get its actual name
+    const { data: dynamicTableData, error: createTableError } = await admin.rpc('create_dynamic_lead_table', {
+      p_table_name: baseTableName
+    });
+
+    if (createTableError || !dynamicTableData || !dynamicTableData.table_name) {
+      console.error('[LeadIngestion] Error calling create_dynamic_lead_table:', createTableError);
+      throw new Error(`Failed to create or confirm dynamic table: ${createTableError?.message || 'No table name returned'}`);
     }
 
-    // Insert rows in batches
+    const actualTableName = dynamicTableData.table_name;
+    console.log('[LeadIngestion] Using actual table name from DB function:', actualTableName);
+
+    // Insert rows in batches using the actual table name
     const batchSize = 100;
+    const keys = Object.keys(rows[0]); // Get keys from the first row
+
     for (let i = 0; i < rows.length; i += batchSize) {
       const batch = rows.slice(i, i + batchSize);
-      const keys = Object.keys(rows[0]);
-      const values = batch.map(row => keys.map(k => row[k]));
-      
+      const batchData = batch.map(row => {
+        const record: { [key: string]: any } = {};
+        keys.forEach(key => {
+          record[key] = row[key] !== undefined ? row[key] : null;
+        });
+        return record;
+      });
+
       const { error: insertError } = await admin
-        .from(rawTable)
-        .insert(values.map(vals => Object.fromEntries(keys.map((k, i) => [k, vals[i]]))));
-        
+        .from(actualTableName)
+        .insert(batchData);
+
       if (insertError) {
         console.error('[LeadIngestion] Batch insert error:', insertError);
-        throw new Error(`Failed to insert batch: ${insertError.message}`);
+        console.error('Failed batch details:', { table: actualTableName, batchSize: batchData.length, firstRowKeys: Object.keys(batchData[0] || {}) });
+        throw new Error(`Failed to insert batch into ${actualTableName}: ${insertError.message}`);
       }
-      
-      console.log(`[LeadIngestion] Inserted batch ${i / batchSize + 1}/${Math.ceil(rows.length / batchSize)}`);
+
+      console.log(`[LeadIngestion] Inserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(rows.length / batchSize)} into ${actualTableName}`);
     }
 
-    // Update source record count and metadata
+    // Update source record count and metadata with the actual table name
+    const fileHash = crypto.createHash('sha256').update(text).digest('hex');
     const { error: updateError } = await admin
       .from('lead_sources')
-      .update({ 
+      .update({
         record_count: rows.length,
         metadata: {
-          table_name: rawTable,
-          file_hash: crypto.createHash('sha256').update(text).digest('hex')
+          table_name: actualTableName,
+          file_hash: fileHash
+        },
+        status: 'PROCESSED',
+        last_processed_at: new Date().toISOString()
+      })
+      .eq('id', sourceId);
+
+    if (updateError) {
+      console.error('[LeadIngestion] Update record count/metadata error:', updateError);
+    }
+
+    console.log('[LeadIngestion] Successfully processed', rows.length, 'rows into table', actualTableName);
+    return { count: rows.length, tableName: actualTableName };
+  } catch (err: any) {
+    console.error('[LeadIngestion] Unexpected error during ingestion:', err);
+    // Update source status to 'ERROR'
+    await admin
+      .from('lead_sources')
+      .update({
+        status: 'ERROR',
+        last_processed_at: new Date().toISOString(),
+        metadata: {
+          ...(sourceData.metadata || {}), // Now sourceData.metadata exists
+          error: err.message || 'Unknown ingestion error'
         }
       })
       .eq('id', sourceId);
-      
-    if (updateError) {
-      console.error('[LeadIngestion] Update record count error:', updateError);
-      throw new Error(`Failed to update record count: ${updateError.message}`);
-    }
-
-    console.log('[LeadIngestion] Successfully processed', rows.length, 'rows');
-    return { count: rows.length };
-  } catch (err) {
-    console.error('[LeadIngestion] Unexpected error:', err);
-    throw err;
+    throw err; // Re-throw the error to be caught by the caller
   }
 }
 
@@ -296,57 +302,5 @@ export async function normalizeLeadsForSource(sourceId: string) {
   } catch (err) {
     console.error('[NormalizeLeads] Error:', err);
     throw err;
-  }
-}
-
-// Migration function to update existing tables to new naming convention
-export async function migrateExistingTables() {
-  const admin = createAdminClient();
-  
-  // Get all lead sources
-  const { data: sources, error } = await admin
-    .from('lead_sources')
-    .select('id, name, file_name, metadata');
-    
-  if (error) {
-    console.error('[Migration] Error fetching sources:', error);
-    throw error;
-  }
-
-  for (const source of sources) {
-    try {
-      // Get new table name
-      const newTableName = await getUniqueTableName(admin, source.file_name);
-      
-      // If there's an existing raw table (old naming convention)
-      const oldTableName = `raw_${source.id.replace(/-/g, '_')}`;
-      
-      // Check if old table exists
-      const { error: checkError } = await admin.rpc('check_table_exists', { 
-        table_name: oldTableName 
-      });
-      
-      if (!checkError) {
-        // Old table exists, rename it
-        const renameQuery = `ALTER TABLE IF EXISTS "${oldTableName}" RENAME TO "${newTableName}";`;
-        await admin.rpc('exec_sql', { query: renameQuery });
-        
-        // Update metadata
-        await admin
-          .from('lead_sources')
-          .update({
-            metadata: {
-              ...source.metadata,
-              table_name: newTableName
-            }
-          })
-          .eq('id', source.id);
-          
-        console.log(`Migrated table ${oldTableName} to ${newTableName}`);
-      }
-    } catch (err) {
-      console.error(`[Migration] Error processing source ${source.id}:`, err);
-      // Continue with next source
-    }
   }
 }
