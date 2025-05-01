@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+// Import the singleton instance instead of the factory
+import supabase from '@/lib/supabase/client';
 import { LeadSource, LeadSourceMetadata } from '@/helpers/types';
 import UploadLeadsForm from './UploadLeadsForm';
 import ConfigureSourceModal from './ConfigureSourceModal';
@@ -10,7 +11,6 @@ import { Button, Spinner } from '@heroui/react'; // Assuming Spinner exists
 import toast from 'react-hot-toast';
 
 export default function LeadsSection() {
-  const supabase = createClient();
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [isLoadingSources, setIsLoadingSources] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
