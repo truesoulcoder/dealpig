@@ -1,4 +1,4 @@
-import { createServerRouteHandlerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'; // Import CookieOptions
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
@@ -23,8 +23,34 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     console.log('[Callback Route] Auth code received. Exchanging for session...');
-    const cookieStore = cookies();
-    const supabase = createServerRouteHandlerClient({ cookies: () => cookieStore }); // Use route handler client
+    const cookieStore = await cookies(); // Await the promise here
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: { // Provide the expected cookie methods object
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            try {
+              cookieStore.set({ name, value, ...options });
+            } catch (error) {
+              // Handle potential errors if set is called in read-only context
+              console.warn(`[Callback Route] Failed to set cookie '${name}'`, error);
+            }
+          },
+          remove(name: string, options: CookieOptions) {
+            try {
+              cookieStore.set({ name, value: '', ...options }); // Use set with empty value for removal
+            } catch (error) {
+              // Handle potential errors if remove is called in read-only context
+              console.warn(`[Callback Route] Failed to remove cookie '${name}'`, error);
+            }
+          },
+        },
+      }
+    );
 
     try {
       const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);

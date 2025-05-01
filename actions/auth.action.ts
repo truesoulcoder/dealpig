@@ -1,16 +1,46 @@
 'use server';
 
-import { createServerActionClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { LoginFormType, RegisterFormType, Profile } from '@/helpers/types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+
+// Helper function to create the Supabase client with cookie handling
+const createSupabaseClient = async () => {
+  const cookieStore = await cookies();
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch (error) {
+            // Ignore errors if called from a context where setting cookies is not possible
+          }
+        },
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch (error) {
+            // Ignore errors if called from a context where removing cookies is not possible
+          }
+        },
+      },
+    }
+  );
+};
 
 /**
  * Authenticate a user with email and password
  */
 export async function loginUser(formData: LoginFormType) {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
+  const cookieStore = await cookies();
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: formData.email,
@@ -76,8 +106,8 @@ export async function loginUser(formData: LoginFormType) {
  * Register a new user with email and password
  */
 export async function registerUser(formData: RegisterFormType) {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
+  const cookieStore = await cookies();
   try {
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
@@ -160,8 +190,8 @@ export async function registerUser(formData: RegisterFormType) {
  * Sign out the current user
  */
 export async function logoutUser() {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
+  const cookieStore = await cookies();
   try {
     await supabase.auth.signOut();
 
@@ -199,8 +229,7 @@ export async function logoutUser() {
  */
 export async function loginWithGoogle() {
   console.log('[server action] 🔍 Starting loginWithGoogle action...');
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
 
   try {
     const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`;
@@ -260,8 +289,7 @@ export async function loginWithGoogle() {
  * Get the current authenticated user
  */
 export async function getCurrentUser() {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
   try {
     const { data: { user }, error } = await supabase.auth.getUser();
 
@@ -281,8 +309,7 @@ export async function getCurrentUser() {
  * Request a password reset email
  */
 export async function requestPasswordReset(email: string) {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
   try {
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -311,8 +338,7 @@ export async function requestPasswordReset(email: string) {
  * Update a user's password after they've clicked the reset link in their email
  */
 export async function resetPassword(password: string) {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
   try {
     const { error } = await supabase.auth.updateUser({ password });
 
@@ -340,7 +366,7 @@ export async function resetPassword(password: string) {
  * Delete authentication cookies
  */
 export async function deleteAuthCookie() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   try {
     cookieStore.delete({
       name: 'sb-access-token',
@@ -370,8 +396,7 @@ export async function deleteAuthCookie() {
 
 // Helper function to create a profile in the profiles table
 async function createProfile(userId: string, profileData: { email: string; full_name?: string }) {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
   try {
     const { error } = await supabase
       .from('profiles')
@@ -393,8 +418,7 @@ async function createProfile(userId: string, profileData: { email: string; full_
 
 // Helper function to ensure a profile exists in the profiles table
 async function ensureProfile(userId: string, profileData: { email?: string; full_name?: string }) {
-  const cookieStore = cookies();
-  const supabase = createServerActionClient({ cookies: () => cookieStore });
+  const supabase = await createSupabaseClient();
   try {
     const { data: existingProfile, error: fetchError } = await supabase
       .from('profiles')
