@@ -3,7 +3,6 @@ import React from "react";
 import { Sidebar } from "./sidebar.styles";
 import { HomeIcon } from "../icons/sidebar/home-icon";
 import { AccountsIcon } from "../icons/sidebar/accounts-icon";
-import { CustomersIcon } from "../icons/sidebar/customers-icon";
 import { ProductsIcon } from "../icons/sidebar/products-icon";
 import { DevIcon } from "../icons/sidebar/dev-icon";
 import { SidebarItem } from "./sidebar-item";

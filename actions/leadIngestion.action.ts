@@ -10,54 +10,96 @@ import Papa from 'papaparse';
 const BATCH_SIZE = 500;
 
 /**
- * Normalizes leads from a specific dynamic source table and inserts them into a central target table.
+ * Normalizes leads from a CSV file stored in Supabase Storage and inserts them into the central 'leads' table.
  *
  * @param sourceId The UUID of the lead_sources record.
- * @param dynamicTableName The exact name of the source table containing raw leads (e.g., 'dallas_houses_leads').
- * @param columnMap A mapping from normalized field names to raw field names in the dynamic source table.
+ * @param columnMap A mapping from normalized field names (Lead interface keys) to raw field names in the CSV.
  * @returns Promise resolving to an object indicating success, message, inserted count, and optional error.
  */
 export async function normalizeLeadsForSource(
   sourceId: string,
-  dynamicTableName: string,
   columnMap: Record<string, string>
 ): Promise<{ success: boolean; message: string; insertedCount?: number; error?: any }> {
-  console.log(`[NormalizeLeads] Starting normalization for sourceId: ${sourceId} from dynamic table: ${dynamicTableName}`);
+  console.log(`[NormalizeLeads] Starting normalization for sourceId: ${sourceId}`);
 
   // -------- IMPORTANT: Define your TARGET table for normalized leads here --------
   const TARGET_NORMALIZED_TABLE = 'leads'; // <--- CHANGE THIS if your central table name is different
   // -------------------------------------------------------------------------------
-  // Verify the target table exists (optional but recommended)
-  // You might want a separate check or rely on insert errors if it doesn't exist.
 
   try {
-    // 1. Fetch raw leads from the dynamic source table that haven't been processed yet
-    console.log(`[NormalizeLeads] Fetching unprocessed raw leads from: ${dynamicTableName}`);
-    const { data: rawLeads, error: fetchError } = await admin
-      .from(dynamicTableName)
-      .select('*') // Select all columns for mapping
-      .eq('processed', false); // Filter for unprocessed leads
+    // 1. Fetch Lead Source details (including storage path)
+    console.log(`[NormalizeLeads] Fetching lead source details for ID: ${sourceId}`);
+    const { data: leadSource, error: fetchSourceError } = await admin
+      .from('lead_sources')
+      .select('id, storage_path, name') // Fetch storage_path
+      .eq('id', sourceId)
+      .single();
 
-    if (fetchError) {
-      console.error(`[NormalizeLeads] Error fetching raw leads from ${dynamicTableName}:`, fetchError);
-      return { success: false, message: `Failed to fetch raw leads: ${fetchError.message}`, error: fetchError };
+    if (fetchSourceError) {
+      console.error(`[NormalizeLeads] Error fetching lead source ${sourceId}:`, fetchSourceError);
+      return { success: false, message: `Lead source ${sourceId} not found or error fetching: ${fetchSourceError.message}`, error: fetchSourceError };
+    }
+    if (!leadSource || !leadSource.storage_path) {
+      console.error(`[NormalizeLeads] Lead source ${sourceId} not found or missing storage_path.`);
+      return { success: false, message: `Lead source ${sourceId} not found or missing storage path.` };
     }
 
-    if (!rawLeads || rawLeads.length === 0) {
-      console.log(`[NormalizeLeads] No unprocessed raw leads found in ${dynamicTableName}.`);
-      return { success: true, message: 'No new leads to normalize.', insertedCount: 0 };
+    console.log(`[NormalizeLeads] Found lead source: ${leadSource.name}. Storage path: ${leadSource.storage_path}`);
+
+    // 2. Download the CSV file from storage
+    console.log(`[NormalizeLeads] Downloading CSV from storage: ${leadSource.storage_path}`);
+    const { data: blobData, error: downloadError } = await admin.storage
+      .from('lead-imports')
+      .download(leadSource.storage_path);
+
+    if (downloadError) {
+      console.error(`[NormalizeLeads] Error downloading file from storage (${leadSource.storage_path}):`, downloadError);
+      return { success: false, message: `Failed to download CSV file: ${downloadError.message}`, error: downloadError };
+    }
+    if (!blobData) {
+      console.error(`[NormalizeLeads] No data returned from storage download for ${leadSource.storage_path}`);
+      return { success: false, message: 'Failed to download CSV file: No data returned.' };
     }
 
-    console.log(`[NormalizeLeads] Fetched ${rawLeads.length} raw leads from ${dynamicTableName}. Normalizing...`);
+    console.log(`[NormalizeLeads] CSV file downloaded successfully. Size: ${blobData.size} bytes. Parsing...`);
 
-    // 2. Normalize leads based on columnMap and perform validation/coercion
+    // 3. Parse the CSV data
+    const csvString = await blobData.text();
+    let rawLeads: any[] = [];
+    try {
+      const parseResult = Papa.parse(csvString, {
+        header: true, // Use the first row as headers
+        skipEmptyLines: true,
+        dynamicTyping: false, // Keep all values as strings initially for consistent mapping
+      });
+
+      if (parseResult.errors.length > 0) {
+        console.warn('[NormalizeLeads] PapaParse encountered errors:', parseResult.errors);
+        // Decide if you want to stop or continue despite errors
+        // return { success: false, message: `CSV parsing errors: ${parseResult.errors.map(e => e.message).join(', ')}` };
+      }
+
+      rawLeads = parseResult.data;
+      console.log(`[NormalizeLeads] Parsed ${rawLeads.length} rows from CSV.`);
+
+    } catch (parseError: any) {
+      console.error('[NormalizeLeads] Error parsing CSV data:', parseError);
+      return { success: false, message: `Failed to parse CSV: ${parseError.message}`, error: parseError };
+    }
+
+    if (rawLeads.length === 0) {
+      console.log(`[NormalizeLeads] No data rows found in the CSV file.`);
+      // Update lead_source record count to 0
+      await admin.from('lead_sources').update({ record_count: 0, updated_at: new Date().toISOString() }).eq('id', sourceId);
+      return { success: true, message: 'CSV file was empty or contained only headers.', insertedCount: 0 };
+    }
+
+    // 4. Normalize leads based on columnMap and perform validation/coercion
     // Use the Lead interface, omitting fields generated by DB or not part of normalization input
     const allNormalizedLeads: Omit<Lead, 'id' | 'created_at' | 'updated_at' | 'status'>[] = [];
-    const processedRawLeadIds: (string | number)[] = []; // Match potential raw lead ID types
+    // processedRawLeadIds is no longer needed as we don't update a dynamic table
 
     // Define required fields for a lead to be considered valid for insertion
-    // Adjust this list based on your actual requirements for the TARGET_NORMALIZED_TABLE
-    // Use keys from the Lead interface
     const requiredFields: (keyof Lead)[] = [
         'owner_name', // Assuming contact_name maps to owner_name
         'owner_email', // Assuming contact_email maps to owner_email
@@ -68,13 +110,15 @@ export async function normalizeLeadsForSource(
         // Add any other fields that MUST have a non-empty value in the 'leads' table
     ];
 
+    let rawLeadIndex = -1; // Keep track of original row index for logging
     for (const rawLead of rawLeads) {
+      rawLeadIndex++;
       // Use Partial<Lead> for incremental building
       const normalizedLead: Partial<Lead> = {
-        id: crypto.randomUUID(), // Generate a new UUID for the normalized record (Corrected field name)
+        // id: crypto.randomUUID(), // ID will be generated by the database
         source_id: sourceId,       // Link back to the original lead source
-        raw_lead_table: dynamicTableName, // Store the source table name for provenance
-        raw_lead_id: rawLead.id,         // Store the original raw lead ID for provenance
+        // raw_lead_table: dynamicTableName, // No longer needed
+        // raw_lead_id: rawLead.id, // CSV rows don't have a DB ID
         // Initialize other fields potentially to null or default values if needed
         property_type: null,
         baths: null,
@@ -118,13 +162,14 @@ export async function normalizeLeadsForSource(
             // Use keys from the Lead interface for the switch
             switch (normalizedKey as keyof Lead) {
               case 'beds':
-              case 'baths':
+              // case 'baths': // Baths can be decimal
               case 'square_footage':
               case 'year_built':
               case 'days_on_market': // Changed from mls_curr_days_on_market
                 const intValue = parseInt(String(value).replace(/[^0-9]/g, ''), 10);
                 value = !isNaN(intValue) ? intValue : null;
                 break;
+              case 'baths': // Handle potential decimals
               case 'wholesale_value':
               case 'assessed_total':
               case 'market_value':
@@ -135,7 +180,7 @@ export async function normalizeLeadsForSource(
               case 'owner_email': // Changed from contact_email
                 value = String(value).trim().toLowerCase();
                 if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) { // Slightly improved regex
-                    console.warn(`[NormalizeLeads] Invalid email format "${rawLead[rawKey]}" for field "${normalizedKey}" (Raw ID: ${rawLead.id}). Setting to null.`);
+                    console.warn(`[NormalizeLeads] Invalid email format "${rawLead[rawKey]}" for field "${normalizedKey}" (CSV Row Index: ${rawLeadIndex}). Setting to null.`);
                     value = null;
                 }
                 break;
@@ -149,7 +194,7 @@ export async function normalizeLeadsForSource(
             }
             (normalizedLead as any)[normalizedKey] = value;
           } catch (coercionError: any) {
-              console.error(`[NormalizeLeads] Error during type coercion for field "${normalizedKey}" (Raw ID: ${rawLead.id}), value: "${String(rawLead[rawKey])}". Error: ${coercionError.message}. Setting to null.`);
+              console.error(`[NormalizeLeads] Error during type coercion for field "${normalizedKey}" (CSV Row Index: ${rawLeadIndex}), value: "${String(rawLead[rawKey])}". Error: ${coercionError.message}. Setting to null.`);
               (normalizedLead as any)[normalizedKey] = null;
           }
           // --- End Type Coercion ---
@@ -163,35 +208,38 @@ export async function normalizeLeadsForSource(
       for (const field of requiredFields) {
           // Check if the field exists and is empty/null/undefined
           if (!(field in normalizedLead) || normalizedLead[field] === null || normalizedLead[field] === undefined || String(normalizedLead[field]).trim() === '') {
-              console.warn(`[NormalizeLeads] Missing or empty required field "${String(field)}" after normalization for raw lead ID ${rawLead.id}. Skipping insertion for this lead.`);
+              console.warn(`[NormalizeLeads] Missing or empty required field "${String(field)}" after normalization for CSV row index ${rawLeadIndex}. Skipping insertion for this lead.`);
               skipLead = true;
               break; // Stop checking this lead
           }
       }
 
       if (!skipLead) {
+          // Add the status field before pushing
+          normalizedLead.status = 'NEW';
           // Cast to the Omit<Lead, ...> type only if it passes validation
           allNormalizedLeads.push(normalizedLead as Omit<Lead, 'id' | 'created_at' | 'updated_at' | 'status'>);
-          processedRawLeadIds.push(rawLead.id);
+          // processedRawLeadIds.push(rawLead.id); // No longer needed
       }
       // --- End Final Validation ---
     } // End loop through rawLeads
 
     if (allNormalizedLeads.length === 0) {
         console.log(`[NormalizeLeads] No valid leads to insert after normalization and validation for source ${sourceId}.`);
+        // Update lead_source record count to 0
+        await admin.from('lead_sources').update({ record_count: 0, updated_at: new Date().toISOString() }).eq('id', sourceId);
         return { success: true, message: 'No valid leads to insert after normalization.', insertedCount: 0 };
     }
 
     console.log(`[NormalizeLeads] Normalized ${allNormalizedLeads.length} valid leads. Preparing batch insert into '${TARGET_NORMALIZED_TABLE}'.`);
 
-    // 3. Batch insert validated normalized leads into the target table
+    // 5. Batch insert validated normalized leads into the target table
     let totalInserted = 0;
     let batchInsertError: PostgrestError | null = null; // Track the first error
 
     for (let i = 0; i < allNormalizedLeads.length; i += BATCH_SIZE) {
       const batch = allNormalizedLeads.slice(i, i + BATCH_SIZE);
       console.log(`[NormalizeLeads] Attempting to insert batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(allNormalizedLeads.length / BATCH_SIZE)} (${batch.length} rows) into ${TARGET_NORMALIZED_TABLE}...`);
-
       const { error: currentBatchError, count } = await admin
         .from(TARGET_NORMALIZED_TABLE)
         .insert(batch); // Insert the validated batch
@@ -211,7 +259,8 @@ export async function normalizeLeadsForSource(
         break;
       }
 
-      const insertedInBatch = count ?? batch.length;
+      // Supabase insert doesn't reliably return count on batch inserts, assume batch length if no error
+      const insertedInBatch = batch.length;
       totalInserted += insertedInBatch;
       console.log(`[NormalizeLeads] Successfully inserted batch ${Math.floor(i / BATCH_SIZE) + 1} (${insertedInBatch} rows) into ${TARGET_NORMALIZED_TABLE}. Total inserted: ${totalInserted}`);
     }
@@ -219,6 +268,8 @@ export async function normalizeLeadsForSource(
     if (batchInsertError) {
       const errorMessage = batchInsertError.message || JSON.stringify(batchInsertError);
       console.error(`[NormalizeLeads] Batch insert failed into ${TARGET_NORMALIZED_TABLE}. Error: ${errorMessage}. Total inserted before failure: ${totalInserted}`);
+      // Update lead_source with partial count if needed, or mark as failed?
+      await admin.from('lead_sources').update({ record_count: totalInserted, updated_at: new Date().toISOString() /*, status: 'PARTIAL_FAILURE' */ }).eq('id', sourceId);
       return {
           success: false,
           message: `Failed to insert normalized leads batch into ${TARGET_NORMALIZED_TABLE}: ${errorMessage}`,
@@ -229,24 +280,31 @@ export async function normalizeLeadsForSource(
 
     console.log(`[NormalizeLeads] Successfully inserted all ${totalInserted} normalized leads into ${TARGET_NORMALIZED_TABLE}.`);
 
-    if (totalInserted > 0 && processedRawLeadIds.length > 0) {
-        console.log(`[NormalizeLeads] Marking ${processedRawLeadIds.length} corresponding raw leads as processed=true in ${dynamicTableName}...`);
-        const { error: updateError } = await admin
-          .from(dynamicTableName)
-          .update({ processed: true, updated_at: new Date().toISOString() })
-          .in('id', processedRawLeadIds);
+    // 6. Update the lead_sources table with the final count and timestamp
+    if (totalInserted > 0) {
+        console.log(`[NormalizeLeads] Updating lead_sources record ${sourceId} with final count: ${totalInserted}`);
+        const { error: updateSourceError } = await admin
+          .from('lead_sources')
+          .update({ 
+              record_count: totalInserted, 
+              updated_at: new Date().toISOString(),
+              last_imported: new Date().toISOString() // Update last imported time
+              // status: 'PROCESSED' // Optional: Add a status field
+            })
+          .eq('id', sourceId);
 
-        if (updateError) {
-          console.error(`[NormalizeLeads] Error marking raw leads as processed in ${dynamicTableName} after successful insert:`, updateError);
+        if (updateSourceError) {
+          console.error(`[NormalizeLeads] Error updating lead_sources record ${sourceId} after successful insert:`, updateSourceError);
+          // The leads are inserted, but the source record isn't updated. Log this clearly.
           return {
-              success: true,
-              message: `Successfully inserted ${totalInserted} normalized leads into ${TARGET_NORMALIZED_TABLE}, but failed to mark all corresponding raw leads as processed in ${dynamicTableName}. Error: ${updateError.message}`,
+              success: true, // Technically the leads are in, but the source metadata is stale
+              message: `Successfully inserted ${totalInserted} normalized leads into ${TARGET_NORMALIZED_TABLE}, but failed to update the lead_sources record metadata. Error: ${updateSourceError.message}`,
               insertedCount: totalInserted
           };
         }
-        console.log(`[NormalizeLeads] Successfully marked ${processedRawLeadIds.length} raw leads as processed in ${dynamicTableName}.`);
-    } else if (totalInserted === 0) {
-         console.log(`[NormalizeLeads] No leads were inserted, skipping marking raw leads as processed.`);
+        console.log(`[NormalizeLeads] Successfully updated lead_sources record ${sourceId}.`);
+    } else {
+         console.log(`[NormalizeLeads] No leads were inserted, skipping final update to lead_sources record.`);
     }
 
     return { success: true, message: `Successfully normalized and inserted ${totalInserted} leads into ${TARGET_NORMALIZED_TABLE}.`, insertedCount: totalInserted };
@@ -258,13 +316,15 @@ export async function normalizeLeadsForSource(
   }
 }
 
-async function processLeadSourceFile(sourceId: string /*, other params like userId */) {
+// Remove the old processLeadSourceFile function or comment it out if no longer needed
+/*
+async function processLeadSourceFile(sourceId: string) {
     console.log(`[ProcessLeadSource] Starting processing for sourceId: ${sourceId}`);
     try {
         console.log(`[ProcessLeadSource] Fetching lead source details for ID: ${sourceId}`);
         const { data: leadSource, error: fetchSourceError } = await admin
             .from('lead_sources')
-            .select('id, metadata, name')
+            .select('id, metadata, name') // Keep metadata fetch
             .eq('id', sourceId)
             .single();
 
@@ -279,41 +339,46 @@ async function processLeadSourceFile(sourceId: string /*, other params like user
 
         console.log(`[ProcessLeadSource] Found lead source: ${leadSource.name} (ID: ${sourceId})`);
 
-        const dynamicTableName = leadSource.metadata?.tableName;
+        // const dynamicTableName = leadSource.metadata?.tableName; // No longer needed
         const columnMap = leadSource.metadata?.columnMap;
 
-        if (!dynamicTableName || typeof dynamicTableName !== 'string' || dynamicTableName.trim() === '') {
-            console.error(`[ProcessLeadSource] Missing or invalid tableName in metadata for source ${sourceId}`);
-            throw new Error(`Metadata incomplete (missing tableName) for source ${sourceId}. Cannot normalize.`);
-        }
+        // if (!dynamicTableName || typeof dynamicTableName !== 'string' || dynamicTableName.trim() === '') {
+        //     console.error(`[ProcessLeadSource] Missing or invalid tableName in metadata for source ${sourceId}`);
+        //     throw new Error(`Metadata incomplete (missing tableName) for source ${sourceId}. Cannot normalize.`);
+        // }
          if (!columnMap || typeof columnMap !== 'object' || Object.keys(columnMap).length === 0) {
             console.error(`[ProcessLeadSource] Missing or invalid columnMap in metadata for source ${sourceId}`);
             throw new Error(`Metadata incomplete (missing columnMap) for source ${sourceId}. Cannot normalize.`);
         }
 
-        console.log(`[ProcessLeadSource] Extracted dynamic table name: ${dynamicTableName}`);
+        // console.log(`[ProcessLeadSource] Extracted dynamic table name: ${dynamicTableName}`);
         console.log(`[ProcessLeadSource] Extracted column map:`, columnMap);
 
         console.log(`[ProcessLeadSource] Calling normalizeLeadsForSource for source ${sourceId}...`);
 
+        // Call the updated function, passing only sourceId and columnMap
         const normalizationResult = await normalizeLeadsForSource(
             sourceId,
-            dynamicTableName,
+            // dynamicTableName, // Remove this
             columnMap
         );
 
         if (!normalizationResult.success) {
             console.error(`[ProcessLeadSource] Normalization failed for source ${sourceId}:`, normalizationResult.message, normalizationResult.error);
+            // Consider updating the lead_source status to FAILED here
         } else {
             console.log(`[ProcessLeadSource] Normalization successful for source ${sourceId}: ${normalizationResult.message}`);
+            // Consider updating the lead_source status to PROCESSED here (already done inside normalizeLeadsForSource)
         }
 
         return normalizationResult;
 
     } catch (error: any) {
         console.error(`[ProcessLeadSource] Error processing lead source file for ${sourceId}:`, error);
+        // Consider updating the lead_source status to FAILED here
         return { success: false, message: `Failed to process lead source ${sourceId}: ${error.message}`, error };
     }
 }
 
 export { processLeadSourceFile };
+*/
