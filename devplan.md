@@ -28,11 +28,13 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 ## In Progress Features
 
 *   **Lead Management:**
-    *   CSV Upload (`components/leads/UploadLeadsForm.tsx`, `/api/leads`) - **Functional**
+    *   CSV Upload (`components/leads/UploadLeadsForm.tsx`) - **Refactored to use direct client-side upload to Supabase Storage.**
+    *   Lead Source Registration (`/api/leads/register-source`) - **New endpoint created to register DB record after direct upload.**
     *   CSV Header Mapping/Configuration (`components/leads/ConfigureSourceModal.tsx`, `/api/leads/headers`) - **Functional**
     *   Lead Processing (Initial ingestion from configured CSV) (`/api/leads/process`) - **Functional**
     *   Displaying Lead List (`app/(app)/leads/page.tsx`, `components/leads/index.tsx`, `/api/leads/list`) - **Functional (UI errors fixed)**
     *   *Needs Work:* Detailed lead view, status updates, lead assignment, advanced filtering/searching.
+    *   *Removed:* `/api/leads` POST handler for direct file upload (replaced by client-side upload + register-source).
 *   **Email Automation - Sender Management:**
     *   Adding/Listing Sender Accounts (`app/(app)/accounts/page.tsx`, `components/accounts`, `/api/senders`) - **Partially Implemented**
     *   *Needs Work:* OAuth connection flow for Gmail, validation, error handling, sender limits configuration.
