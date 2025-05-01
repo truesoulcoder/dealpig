@@ -118,13 +118,14 @@ export const ForgotPassword = () => {
               Reset Your Password
             </LetterFx>
           )}
-          {visibleTexts.subtitle && (
-            <LetterFx trigger="instant" speed="fast" className="text-green-400/80 font-mono mt-2">
-              Enter your email to receive a password reset link
+        </div>
+        <div className="mb-8 text-center">
+          {visibleTexts.title && (
+            <LetterFx trigger="instant" speed="fast" className="text-green-400/80 font-mono mb-4">
+              Enter your email to receive a password reset link.
             </LetterFx>
           )}
         </div>
-
         <Formik
           initialValues={initialValues}
           validationSchema={ForgotPasswordSchema}
