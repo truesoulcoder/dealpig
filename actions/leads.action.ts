@@ -50,15 +50,25 @@ export async function uploadLeads(formData: FormData) {
 }
 
 // Fetch all leads or only for a given source
-export async function getLeads(sourceId?: string) {
+export async function getLeads(sourceId?: string): Promise<Lead[]> {
   const admin = createAdminClient();
-  let query = admin.from('leads').select('*');
+  let query = admin
+    .from('leads')
+    .select('*') // Select all columns for now, adjust if needed
+    .order('created_at', { ascending: false });
+
   if (sourceId) {
     query = query.eq('source_id', sourceId);
   }
-  const { data, error } = await query.order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[getLeads] Error fetching leads:', error);
+    throw new Error(`Failed to fetch leads: ${error.message}`);
+  }
+
+  return data || [];
 }
 
 // Update an existing lead by ID
@@ -114,18 +124,21 @@ export async function deleteLead(leadId: string): Promise<void> {
   }
 }
 
+/**
+ * Fetches all lead sources from the database.
+ * @returns Promise<LeadSource[]>
+ */
 export async function getLeadSources(): Promise<LeadSource[]> {
-  const supabase = createAdminClient();
-  
-  const { data, error } = await supabase
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from('lead_sources')
     .select('*')
     .order('created_at', { ascending: false });
-    
+
   if (error) {
-    console.error('Error fetching lead sources:', error);
-    throw error;
+    console.error('[getLeadSources] Error fetching lead sources:', error);
+    throw new Error(`Failed to fetch lead sources: ${error.message}`);
   }
-  
+
   return data || [];
 }
