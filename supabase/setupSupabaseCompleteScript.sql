@@ -45,55 +45,214 @@ CREATE TABLE IF NOT EXISTS public.lead_sources (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Leads table (Aligned with Lead interface in types.ts)
+-- Leads table (Aligned with raw_sample_with_all_possible_headings.csv)
 CREATE TABLE IF NOT EXISTS public.leads (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), -- Changed from uuid, added default
-    
-    -- Property Information
-    property_address TEXT,
-    property_city TEXT,
-    property_state TEXT,
-    property_zip TEXT,
-    property_type TEXT,
-    beds INTEGER, -- Changed from TEXT
-    baths NUMERIC, -- Changed from TEXT, allow decimals
-    square_footage INTEGER, -- Changed from TEXT
-    year_built INTEGER, -- Changed from TEXT
-    
-    -- Valuation
-    wholesale_value NUMERIC, -- Changed from TEXT
-    market_value NUMERIC, -- Added
-    assessed_total NUMERIC, -- Changed from TEXT
-    
-    -- MLS Information
-    days_on_market INTEGER, -- Changed from mls_curr_days_on_market TEXT
-    mls_status TEXT, -- Changed from mls_curr_status
-    mls_list_date TEXT, -- Added (Consider DATE or TIMESTAMPTZ if format is consistent)
-    mls_list_price NUMERIC, -- Added
-    
-    -- Owner Information
-    owner_name TEXT, -- Changed from contact_name
-    owner_email TEXT, -- Changed from contact_email
-    owner_type TEXT, -- Added (e.g., 'OWNER' or 'AGENT')
-    
-    -- Mailing Information
-    mailing_address TEXT, -- Added
-    mailing_city TEXT, -- Added
-    mailing_state TEXT, -- Added
-    mailing_zip TEXT, -- Added
-    
-    -- System Fields
-    status TEXT NOT NULL DEFAULT 'NEW', -- Added, made NOT NULL with default
-    source_id UUID REFERENCES public.lead_sources(id) ON DELETE SET NULL, -- Changed reference constraint
-    assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- Added
-    last_contacted_at TIMESTAMPTZ, -- Added
-    notes TEXT, -- Added
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Added
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- Added
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
-    -- Provenance Fields
-    raw_lead_table TEXT, -- Added
-    raw_lead_id TEXT -- Added (Using TEXT to accommodate potential string IDs from raw tables)
+    -- Contact Info (from CSV)
+    first_name text,
+    last_name text,
+    recipient_address text,
+    recipient_city text,
+    recipient_state text,
+    recipient_postal_code text,
+    contact1_name text,
+    contact1_phone_1 text,
+    contact1_phone_1_type text,
+    contact1_phone_1_dnc boolean,
+    contact1_phone_1_litigator boolean,
+    contact1_email_1 text,
+    contact1_phone_2 text,
+    contact1_phone_2_type text,
+    contact1_phone_2_dnc boolean,
+    contact1_phone_2_litigator boolean,
+    contact1_email_2 text,
+    contact1_phone_3 text,
+    contact1_phone_3_type text,
+    contact1_phone_3_dnc boolean,
+    contact1_phone_3_litigator boolean,
+    contact1_email_3 text,
+    contact2_name text,
+    contact2_phone_1 text,
+    contact2_phone_1_type text,
+    contact2_phone_1_dnc boolean,
+    contact2_phone_1_litigator boolean,
+    contact2_email_1 text,
+    contact2_phone_2 text,
+    contact2_phone_2_type text,
+    contact2_phone_2_dnc boolean,
+    contact2_phone_2_litigator boolean,
+    contact2_email_2 text,
+    contact2_phone_3 text,
+    contact2_phone_3_type text,
+    contact2_phone_3_dnc boolean,
+    contact2_phone_3_litigator boolean,
+    contact2_email_3 text,
+    contact3_name text,
+    contact3_phone_1 text,
+    contact3_phone_1_type text,
+    contact3_phone_1_dnc boolean,
+    contact3_phone_1_litigator boolean,
+    contact3_email_1 text,
+    contact3_phone_2 text,
+    contact3_phone_2_type text,
+    contact3_phone_2_dnc boolean,
+    contact3_phone_2_litigator boolean,
+    contact3_email_2 text,
+    contact3_phone_3 text,
+    contact3_phone_3_type text,
+    contact3_phone_3_dnc boolean,
+    contact3_phone_3_litigator boolean,
+    contact3_email_3 text,
+
+    -- Property Information (from CSV)
+    property_address text,
+    property_city text,
+    property_state text,
+    property_postal_code text, -- Renamed from property_zip
+    county text,
+    owner_type text,
+    last_sales_date date,
+    last_sales_price numeric,
+    price_per_sqft numeric,
+    square_footage integer,
+    lot_size_sqft numeric,
+    property_type text,
+    baths numeric,
+    beds integer,
+    house_style text,
+    year_built integer,
+    assessed_year integer,
+    school_district text,
+    stories numeric,
+    heating_fuel text,
+    subdivision text,
+    zoning text,
+    units integer,
+    condition text,
+    exterior text,
+    interior_walls text,
+    basement text,
+    roof text,
+    roof_shape text,
+    water text,
+    sewer text,
+    location_influence text,
+    heating text,
+    air_conditioning text,
+    fireplace integer,
+    garage text,
+    patio text,
+    pool text,
+    porch text,
+
+    -- Financial & Valuation (from CSV)
+    tax_amount numeric,
+    avm numeric,
+    rental_estimate_low numeric,
+    rental_estimate_high numeric,
+    wholesale_value numeric,
+    market_value numeric,
+    assessed_total numeric,
+    number_of_loans integer,
+    total_loans numeric,
+    ltv numeric,
+    loan_amount numeric,
+    recording_date date,
+    maturity_date date,
+    lender_name text,
+    estimated_mortgage_balance numeric,
+    estimated_mortgage_payment numeric,
+    mortgage_interest_rate numeric,
+    loan_type text,
+
+    -- Event & MLS (from CSV)
+    event text,
+    buyer text,
+    seller text,
+    mls_curr_listing_id text,
+    mls_curr_status text, -- Renamed from mls_status
+    mls_curr_list_date date, -- Renamed from mls_list_date
+    mls_curr_sold_date date,
+    mls_curr_days_on_market integer, -- Renamed from days_on_market
+    mls_curr_list_price numeric, -- Renamed from mls_list_price
+    mls_curr_sale_price numeric,
+    mls_curr_description text,
+    mls_curr_source text,
+    mls_curr_list_agent_name text,
+    mls_curr_list_agent_phone text,
+    mls_curr_list_agent_email text,
+    mls_curr_list_agent_office text,
+    mls_curr_price_per_sqft numeric,
+    mls_curr_sqft integer,
+    mls_curr_basement text,
+    mls_curr_lot numeric,
+    mls_curr_beds integer,
+    mls_curr_baths numeric,
+    mls_curr_garage text,
+    mls_curr_stories numeric,
+    mls_curr_year_built integer,
+    mls_curr_photos text,
+    mls_prev_listing_id text,
+    mls_prev_status text,
+    mls_prev_list_date date,
+    mls_prev_sold_date date,
+    mls_prev_days_on_market integer,
+    mls_prev_list_price numeric,
+    mls_prev_sale_price numeric,
+    mls_prev_description text,
+    mls_prev_source text,
+    mls_prev_list_agent_name text,
+    mls_prev_list_agent_phone text,
+    mls_prev_list_agent_email text,
+    mls_prev_list_agent_office text,
+    mls_prev_price_per_sqft numeric,
+    mls_prev_sqft integer,
+    mls_prev_basement text,
+    mls_prev_lot numeric,
+    mls_prev_beds integer,
+    mls_prev_baths numeric,
+    mls_prev_garage text,
+    mls_prev_stories numeric,
+    mls_prev_year_built integer,
+    mls_prev_photos text,
+
+    -- Flags & Scores (from CSV)
+    absentee_owner boolean,
+    active_investor_owned boolean,
+    active_listing boolean,
+    bored_investor boolean,
+    cash_buyer boolean,
+    delinquent_tax_activity boolean,
+    flipped boolean,
+    foreclosures boolean,
+    free_and_clear boolean,
+    high_equity boolean,
+    long_term_owner boolean,
+    low_equity boolean,
+    potentially_inherited boolean,
+    pre_foreclosure boolean,
+    upside_down boolean,
+    vacancy boolean,
+    zombie_property boolean,
+    retail_score text,
+    rental_score text,
+    wholesale_score text,
+    auction_date date,
+    last_notice_date date,
+    source_id text, -- Renamed from 'Id' in CSV
+    address_hash text,
+
+    -- System & Provenance Fields (Existing + Additions)
+    status TEXT NOT NULL DEFAULT 'NEW',
+    lead_source_id UUID REFERENCES public.lead_sources(id) ON DELETE SET NULL, -- Changed from source_id
+    assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    last_contacted_at TIMESTAMPTZ,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    raw_lead_table TEXT,
+    raw_lead_id TEXT
 );
 
 -- Senders table
@@ -1248,6 +1407,91 @@ DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.template
 CREATE POLICY "Enable update for authenticated users" ON public.templates FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.templates;
 CREATE POLICY "Enable delete for authenticated users" ON public.templates FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Create the normalized_leads table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.normalized_leads (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    original_lead_id BIGINT, -- Optional: Link back to the source row ID in 'leads' staging table
+    contact_name TEXT,
+    contact_email TEXT,
+    property_address TEXT,
+    property_city TEXT,
+    property_state TEXT,
+    property_postal_code TEXT,
+    property_type TEXT,
+    baths TEXT, -- Using TEXT as source might have values like '2.5'
+    beds INTEGER,
+    year_built INTEGER,
+    square_footage INTEGER,
+    wholesale_value NUMERIC,
+    assessed_total NUMERIC,
+    mls_curr_status TEXT,
+    mls_curr_days_on_market INTEGER
+);
+
+-- Add indexes for faster lookups
+CREATE INDEX IF NOT EXISTS idx_normalized_leads_email ON public.normalized_leads(contact_email);
+CREATE INDEX IF NOT EXISTS idx_normalized_leads_property_address ON public.normalized_leads(property_address);
+
+-- Create or replace the function to normalize data from 'leads' staging table
+CREATE OR REPLACE FUNCTION public.normalize_staged_leads()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER -- Important: Allows the function to run with elevated privileges if needed (e.g., bypassing RLS on source table)
+AS $$
+BEGIN
+    -- Clear the target table before inserting new normalized data
+    TRUNCATE TABLE public.normalized_leads;
+
+    -- Insert normalized data from the 'leads' staging table
+    INSERT INTO public.normalized_leads (
+        original_lead_id,
+        contact_name, contact_email,
+        property_address, property_city, property_state, property_postal_code,
+        property_type, baths, beds, year_built, square_footage,
+        wholesale_value, assessed_total, mls_curr_status, mls_curr_days_on_market
+    )
+    -- Block 1: Contact 1
+    SELECT
+        leads.id, leads.contact1name, leads.contact1email_1,
+        leads.propertyaddress, leads.propertycity, leads.propertystate, leads.propertypostalcode,
+        leads.propertytype, leads.baths::TEXT, leads.beds, leads.yearbuilt, leads.squarefootage,
+        leads.wholesalevalue, leads.assessedtotal, leads.mls_curr_status, leads.mls_curr_daysonmarket
+    FROM public.leads
+    WHERE leads.contact1name IS NOT NULL AND trim(leads.contact1name) <> '' AND leads.contact1email_1 IS NOT NULL AND trim(leads.contact1email_1) <> ''
+    UNION ALL
+    -- Block 2: Contact 2
+    SELECT
+        leads.id, leads.contact2name, leads.contact2email_1,
+        leads.propertyaddress, leads.propertycity, leads.propertystate, leads.propertypostalcode,
+        leads.propertytype, leads.baths::TEXT, leads.beds, leads.yearbuilt, leads.squarefootage,
+        leads.wholesalevalue, leads.assessedtotal, leads.mls_curr_status, leads.mls_curr_daysonmarket
+    FROM public.leads
+    WHERE leads.contact2name IS NOT NULL AND trim(leads.contact2name) <> '' AND leads.contact2email_1 IS NOT NULL AND trim(leads.contact2email_1) <> ''
+    UNION ALL
+    -- Block 3: Contact 3
+    SELECT
+        leads.id, leads.contact3name, leads.contact3email_1,
+        leads.propertyaddress, leads.propertycity, leads.propertystate, leads.propertypostalcode,
+        leads.propertytype, leads.baths::TEXT, leads.beds, leads.yearbuilt, leads.squarefootage,
+        leads.wholesalevalue, leads.assessedtotal, leads.mls_curr_status, leads.mls_curr_daysonmarket
+    FROM public.leads
+    WHERE leads.contact3name IS NOT NULL AND trim(leads.contact3name) <> '' AND leads.contact3email_1 IS NOT NULL AND trim(leads.contact3email_1) <> ''
+    UNION ALL
+    -- Block 4: MLS Current Agent
+    SELECT
+        leads.id, leads.mls_curr_listagentname, leads.mls_curr_listagentemail,
+        leads.propertyaddress, leads.propertycity, leads.propertystate, leads.propertypostalcode,
+        leads.propertytype, leads.baths::TEXT, leads.beds, leads.yearbuilt, leads.squarefootage,
+        leads.wholesalevalue, leads.assessedtotal, leads.mls_curr_status, leads.mls_curr_daysonmarket
+    FROM public.leads
+    WHERE leads.mls_curr_listagentname IS NOT NULL AND trim(leads.mls_curr_listagentname) <> '' AND leads.mls_curr_listagentemail IS NOT NULL AND trim(leads.mls_curr_listagentemail) <> '';
+
+    -- Optional: Clear the staging table after successful normalization
+    -- TRUNCATE TABLE public.leads;
+END;
+$$;
 
 -- Commit Transaction
 COMMIT;

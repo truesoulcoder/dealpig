@@ -44,6 +44,12 @@ export async function uploadLeads(formData: FormData) {
     last_imported: new Date().toISOString(),
     record_count: rawRows.length,
     is_active: true, // Or manage status explicitly
+    metadata: {
+      size: file.size,
+      type: file.type,
+      originalName: file.name,
+      uploadTimestamp: timestamp // Use the timestamp defined earlier
+    }
   });
   if (sourceError) {
     console.error('Lead source insert error:', sourceError);

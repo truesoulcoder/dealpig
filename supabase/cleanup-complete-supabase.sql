@@ -3,6 +3,7 @@
 -- This script will remove ALL tables, functions, policies,
 -- triggers, storage buckets, and other database objects
 -- created by the setupSupabaseCompleteScript.sql.
+-- Date: 2025-05-01
 -- =========================================================
 
 -- Start Transaction
@@ -23,8 +24,13 @@ BEGIN
         FROM pg_policies
         WHERE schemaname = 'public'
     LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', policy_rec.policyname, policy_rec.tablename);
-        RAISE NOTICE 'Dropped policy % on table %', policy_rec.policyname, policy_rec.tablename;
+        -- Check if the table still exists before trying to drop the policy
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = policy_rec.tablename) THEN
+            EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', policy_rec.policyname, policy_rec.tablename);
+            RAISE NOTICE 'Dropped policy % on table %', policy_rec.policyname, policy_rec.tablename;
+        ELSE
+             RAISE NOTICE 'Table % not found, skipping policy drop for %', policy_rec.tablename, policy_rec.policyname;
+        END IF;
     END LOOP;
     RAISE NOTICE 'Finished dropping policies in public schema.';
 END
@@ -38,7 +44,7 @@ DECLARE
 BEGIN
   IF EXISTS (SELECT FROM information_schema.schemata WHERE schema_name = 'storage') THEN
     RAISE NOTICE 'Cleaning up storage...';
-    -- Drop policies on storage.objects
+    -- Drop policies on storage.objects first
     RAISE NOTICE 'Dropping storage policies...';
     FOR policy_rec IN
         SELECT policyname, tablename
@@ -49,17 +55,17 @@ BEGIN
         RAISE NOTICE 'Dropped storage policy %', policy_rec.policyname;
     END LOOP;
 
-    -- Delete all objects from relevant buckets
+    -- Delete all objects from relevant buckets created by setup script
     RAISE NOTICE 'Deleting objects from storage buckets...';
-    FOR bucket_rec IN SELECT id, name FROM storage.buckets WHERE name IN ('lead-imports', 'templates', 'generated-documents') LOOP
+    FOR bucket_rec IN SELECT id, name FROM storage.buckets WHERE name IN ('lead-uploads', 'templates', 'generated-documents') LOOP
         DELETE FROM storage.objects WHERE bucket_id = bucket_rec.id;
         RAISE NOTICE 'Deleted objects from bucket %', bucket_rec.name;
     END LOOP;
 
     -- Delete the buckets themselves
     RAISE NOTICE 'Deleting storage buckets...';
-    DELETE FROM storage.buckets WHERE name IN ('lead-imports', 'templates', 'generated-documents');
-    RAISE NOTICE 'Deleted buckets: lead-imports, templates, generated-documents.';
+    DELETE FROM storage.buckets WHERE name IN ('lead-uploads', 'templates', 'generated-documents');
+    RAISE NOTICE 'Deleted buckets: lead-uploads, templates, generated-documents.';
 
     RAISE NOTICE 'Finished cleaning up storage.';
   ELSE
@@ -88,7 +94,7 @@ BEGIN
       RAISE NOTICE 'Dropped trigger on_auth_user_created on auth.users.';
   END IF;
 
-  -- Drop any other triggers in public schema (though setup script doesn't create others)
+  -- Drop any other triggers in public schema (if any were added manually)
   FOR table_rec IN
     SELECT tablename
     FROM pg_tables
@@ -111,7 +117,7 @@ $$;
 -- Step 4: Drop all custom functions created by the setup script
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 DROP FUNCTION IF EXISTS public.get_table_columns() CASCADE;
-DROP FUNCTION IF EXISTS public.list_dynamic_lead_tables() CASCADE;
+DROP FUNCTION IF EXISTS public.list_dynamic_lead_tables() CASCADE; -- Drops both versions if they exist
 DROP FUNCTION IF EXISTS public.query_dynamic_lead_table(text, text, integer, integer, text, text) CASCADE;
 DROP FUNCTION IF EXISTS public.group_by_status(UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.get_sender_stats(UUID) CASCADE;
@@ -119,6 +125,7 @@ DROP FUNCTION IF EXISTS public.get_daily_stats(UUID, timestamptz) CASCADE;
 DROP FUNCTION IF EXISTS public.create_dynamic_lead_table(text, text) CASCADE;
 DROP FUNCTION IF EXISTS public.execute_sql(text) CASCADE;
 DROP FUNCTION IF EXISTS public.create_policy_if_not_exists(text, text, text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.run_sql(text) CASCADE; -- Added missing function
 
 -- Step 5: Drop all dynamic lead tables (ending in _leads, excluding 'leads' and 'campaign_leads')
 DO $$
@@ -140,32 +147,24 @@ BEGIN
 END
 $$;
 
--- Step 6: Drop all standard tables in correct order (respecting foreign keys)
+-- Step 6: Drop all standard tables in correct dependency order
 -- Drop junction/child tables first
 DROP TABLE IF EXISTS public.email_events CASCADE;
+DROP TABLE IF EXISTS public.emails CASCADE;
 DROP TABLE IF EXISTS public.campaign_leads CASCADE;
 DROP TABLE IF EXISTS public.campaign_senders CASCADE;
-DROP TABLE IF EXISTS public.emails CASCADE;
--- DROP TABLE IF EXISTS public.contacts CASCADE; -- This table is not created by the setup script
 
--- Drop main tables
+-- Drop main tables (reverse order of setup where dependencies allow)
+DROP TABLE IF EXISTS public.campaigns CASCADE;
+DROP TABLE IF EXISTS public.templates CASCADE;
+DROP TABLE IF EXISTS public.senders CASCADE;
 DROP TABLE IF EXISTS public.leads CASCADE;
 DROP TABLE IF EXISTS public.lead_sources CASCADE;
-DROP TABLE IF EXISTS public.campaigns CASCADE;
-DROP TABLE IF EXISTS public.senders CASCADE;
-DROP TABLE IF EXISTS public.templates CASCADE;
-DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE; -- Depends on auth.users, drop last among these
 
 -- Step 7: Revoke permissions (Optional but good practice)
--- Note: Dropping objects usually removes associated grants, but explicit revoke can be added if needed.
--- REVOKE ALL PRIVILEGES ON SCHEMA public FROM service_role;
--- DO $$
--- BEGIN
---   IF EXISTS (SELECT FROM information_schema.schemata WHERE schema_name = 'storage') THEN
---     REVOKE ALL PRIVILEGES ON SCHEMA storage FROM service_role;
---   END IF;
--- END
--- $$;
+-- Note: Dropping objects usually removes associated grants. Explicit revoke is generally not needed here.
+-- Example: REVOKE ALL PRIVILEGES ON SCHEMA public FROM service_role;
 
 -- Re-enable triggers
 SET session_replication_role = 'origin';
@@ -177,6 +176,8 @@ DECLARE
     function_count integer;
     policy_count integer;
     dynamic_table_count integer;
+    trigger_exists boolean;
+    bucket_count integer;
 BEGIN
     RAISE NOTICE 'Starting verification...';
     -- Check for remaining standard tables created by setup
@@ -203,7 +204,8 @@ BEGIN
     WHERE n.nspname = 'public'
     AND p.proname IN ('handle_new_user', 'get_table_columns', 'list_dynamic_lead_tables',
                      'query_dynamic_lead_table', 'group_by_status', 'get_sender_stats',
-                     'get_daily_stats', 'create_dynamic_lead_table', 'execute_sql', 'create_policy_if_not_exists');
+                     'get_daily_stats', 'create_dynamic_lead_table', 'execute_sql',
+                     'create_policy_if_not_exists', 'run_sql');
 
     -- Check for remaining policies in public schema
     SELECT COUNT(*)
@@ -211,17 +213,42 @@ BEGIN
     FROM pg_policies
     WHERE schemaname = 'public';
 
+    -- Check if auth trigger exists
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.triggers
+      WHERE trigger_name = 'on_auth_user_created'
+      AND event_object_schema = 'auth'
+      AND event_object_table = 'users'
+    ) INTO trigger_exists;
+
+    -- Check for remaining storage buckets
+    IF EXISTS (SELECT FROM information_schema.schemata WHERE schema_name = 'storage') THEN
+        SELECT COUNT(*)
+        INTO bucket_count
+        FROM storage.buckets
+        WHERE name IN ('lead-uploads', 'templates', 'generated-documents');
+    ELSE
+        bucket_count := 0; -- Storage schema doesn't exist
+    END IF;
+
+
     -- Report status
-    IF table_count = 0 AND dynamic_table_count = 0 AND function_count = 0 AND policy_count = 0 THEN
+    IF table_count = 0 AND dynamic_table_count = 0 AND function_count = 0 AND policy_count = 0 AND NOT trigger_exists AND bucket_count = 0 THEN
         RAISE NOTICE 'Verification successful! All DealPig application objects appear to have been removed.';
     ELSE
-        RAISE WARNING 'Verification finished but some objects may remain. Standard Tables: %, Dynamic Tables: %, Functions: %, Policies: %', table_count, dynamic_table_count, function_count, policy_count;
+        RAISE WARNING 'Verification finished but some objects may remain.';
+        IF table_count > 0 THEN RAISE WARNING '- Standard Tables remaining: %', table_count; END IF;
+        IF dynamic_table_count > 0 THEN RAISE WARNING '- Dynamic Tables remaining: %', dynamic_table_count; END IF;
+        IF function_count > 0 THEN RAISE WARNING '- Functions remaining: %', function_count; END IF;
+        IF policy_count > 0 THEN RAISE WARNING '- Public Policies remaining: %', policy_count; END IF;
+        IF trigger_exists THEN RAISE WARNING '- Auth trigger remaining.'; END IF;
+        IF bucket_count > 0 THEN RAISE WARNING '- Storage Buckets remaining: %', bucket_count; END IF;
     END IF;
 END
 $$;
 
--- DON'T drop extensions as they might be used by other apps
--- Uncomment if you specifically want to remove these extensions
+-- DON'T drop extensions as they might be used by other apps or Supabase itself.
+-- Uncomment if you are absolutely sure you want to remove these extensions.
 -- DROP EXTENSION IF EXISTS "uuid-ossp";
 -- DROP EXTENSION IF EXISTS "pgcrypto";
 
