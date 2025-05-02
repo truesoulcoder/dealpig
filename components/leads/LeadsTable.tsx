@@ -17,6 +17,7 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
       <table className="min-w-full table-auto border-collapse border">
         <thead>
           <tr className="bg-gray-100">
+            {/* Reverted to more user-friendly headers */}
             <th className="px-4 py-2 border">Contact Name</th>
             <th className="px-4 py-2 border">Contact Email</th>
             <th className="px-4 py-2 border">Property Address</th>
@@ -32,6 +33,7 @@ export default function LeadsTable({ leads }: LeadsTableProps) {
         <tbody>
           {leads.map((lead) => (
             <tr key={lead.original_lead_id || lead.contact_email}>
+              {/* Data bindings remain correct for NormalizedLead */}
               <td className="px-4 py-2 border">{lead.contact_name}</td>
               <td className="px-4 py-2 border">{lead.contact_email}</td>
               <td className="px-4 py-2 border">{lead.property_address}</td>
