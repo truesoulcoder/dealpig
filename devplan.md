@@ -101,11 +101,14 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 -   [x] Create migration for `normalized_leads` table (Implicitly created by `normalize_staged_leads` function, but good to track)
 -   [x] Apply migrations to remote database (`supabase db push --include-all`)
 -   [x] Pull schema changes and generate initial types (`supabase db pull`)
--   [ ] Develop CSV upload action (`leadUpload.action.ts`)
-    -   [ ] Parse CSV data
-    -   [ ] Transform headers to snake_case
-    -   [ ] Insert data into `leads` staging table
-    -   [ ] Trigger `normalize_staged_leads` function
+-   [x] Generate TypeScript types (`supabase gen types typescript > types/supabase.ts`)
+-   [x] Develop CSV upload action (`leadUpload.action.ts`)
+    -   [x] Parse CSV data (`papaparse`)
+    -   [x] Transform headers to snake_case
+    -   [x] Insert data into `leads` staging table
+    -   [x] Upload raw file to Storage bucket
+    -   [x] Trigger `normalize_staged_leads` function
+    -   [ ] Verify rows appear in `normalized_leads`
 -   [ ] Create UI component for CSV upload
 -   [ ] Test CSV upload and normalization process
 
@@ -130,16 +133,3 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 -   [ ] Optimize database queries and functions
 -   [ ] Set up production environment on Supabase
 -   [ ] Deploy application
-
-
-
-// ...existing code...
--   [x] Generate TypeScript types (`supabase gen types typescript > types/supabase.ts`)
--   [ ] Develop CSV upload action (`leadUpload.action.ts`)
-    -   [x] Parse CSV data (`papaparse`)
-    -   [x] Transform headers to snake_case
-    -   [x] Insert data into `leads` staging table
-    -   [ ] Trigger `normalize_staged_leads` function
--   [ ] Create UI component for CSV upload
--   [ ] Test CSV upload and normalization process
-// ...existing code...
