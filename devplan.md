@@ -133,3 +133,13 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 
 
 
+// ...existing code...
+-   [x] Generate TypeScript types (`supabase gen types typescript > types/supabase.ts`)
+-   [ ] Develop CSV upload action (`leadUpload.action.ts`)
+    -   [x] Parse CSV data (`papaparse`)
+    -   [x] Transform headers to snake_case
+    -   [x] Insert data into `leads` staging table
+    -   [ ] Trigger `normalize_staged_leads` function
+-   [ ] Create UI component for CSV upload
+-   [ ] Test CSV upload and normalization process
+// ...existing code...

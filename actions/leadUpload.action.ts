@@ -1,100 +1,84 @@
 'use server';
 
+import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import Papa from 'papaparse';
-import { createAdminClient } from '@/lib/supabase';
+import { Database } from '@/types/supabase'; // Import generated types
+
+// Helper function to convert header keys to snake_case
+const toSnakeCase = (str: string): string => {
+  return str
+    .replace(/[\s-]+/g, '_') // Replace spaces and hyphens with underscores
+    .replace(/([A-Z])/g, (match) => `_${match.toLowerCase()}`) // Convert camelCase to snake_case
+    .replace(/^_/, '') // Remove leading underscore if any
+    .toLowerCase(); // Ensure everything is lowercase
+};
+
+// Define the expected shape of a row after header transformation
+// This should align with the columns added in the migration
+// 20250502023012_add_all_csv_columns_to_leads.sql
+type LeadStagingRow = Database['public']['Tables']['leads']['Insert'];
 
 export async function uploadLeads(formData: FormData) {
-  const file = formData.get('file') as File;
-  if (!file) throw new Error('No file provided');
+  const file = formData.get('leadCsv') as File;
 
-  // Parse CSV
-  const text = await file.text();
-  const { data: rows, errors } = Papa.parse(text, {
-    header: true,
-    skipEmptyLines: true,
-    // Transform headers to snake_case lowercase to match DB columns
-    transformHeader: header => header
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_]/g, '')
-      .toLowerCase(),
-  });
-  if (errors.length) throw new Error(`CSV parse error: ${errors.map(e => e.message).join(', ')}`);
-
-  const rawRows = rows as any[];
-  if (rawRows.length === 0) {
-    return { message: 'CSV file is empty or contains no data.', count: 0 };
+  if (!file) {
+    return { success: false, error: 'No file provided.' };
   }
 
-  // Use service-role admin client for all DB operations
-  const supabase = createAdminClient();
-  const timestamp = Date.now();
+  const supabase = createServerActionClient<Database>({ cookies });
 
-  // 1. Upload raw CSV to storage bucket
-  const bucket = 'lead-uploads';
-  const storagePath = `${timestamp}_${file.name}`;
-  const { error: storageError } = await supabase.storage
-    .from(bucket)
-    .upload(storagePath, file);
-  if (storageError) {
-    console.error('Storage upload error:', storageError);
-    throw new Error(`Failed to upload file to storage: ${storageError.message}`);
-  }
+  try {
+    const fileContent = await file.text();
 
-  // 2. Record source in lead_sources table (optional tracking)
-  // Consider adding status field here (e.g., 'UPLOADED')
-  const { error: sourceError } = await supabase.from('lead_sources').insert({
-    name: file.name,
-    file_name: file.name,
-    storage_path: storagePath,
-    last_imported: new Date().toISOString(),
-    record_count: rawRows.length,
-    is_active: true, // Or manage status explicitly
-    metadata: {
-      size: file.size,
-      type: file.type,
-      originalName: file.name,
-      uploadTimestamp: timestamp // Use the timestamp defined earlier
+    // Parse CSV using papaparse
+    const parseResult = Papa.parse<Record<string, any>>(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header) => toSnakeCase(header.trim()), // Transform headers to snake_case
+    });
+
+    if (parseResult.errors.length > 0) {
+      console.error('CSV Parsing Errors:', parseResult.errors);
+      return { success: false, error: 'Failed to parse CSV file.', details: parseResult.errors };
     }
-  });
-  if (sourceError) {
-    console.error('Lead source insert error:', sourceError);
-    // Optionally attempt to delete the uploaded file if source record fails
-    // await supabase.storage.from(bucket).remove([storagePath]);
-    throw new Error(`Failed to record lead source: ${sourceError.message}`);
-  }
 
-  // 3. Clear staging table and insert raw rows
-  // IMPORTANT: 'leads' table acts as a staging area per upload.
-  // Ensure its schema matches the expected raw CSV headers from PapaParse.
-  const stagingTable = 'leads';
-  // Corrected delete condition for UUID column
-  const { error: deleteError } = await supabase.from(stagingTable).delete().not('id', 'is', null); 
-  if (deleteError) {
-    console.error('Staging table clear error:', deleteError);
-    throw new Error(`Failed to clear staging table: ${deleteError.message}`);
-  }
+    const leadsData = parseResult.data as LeadStagingRow[];
 
-  const batchSize = 500;
-  for (let i = 0; i < rawRows.length; i += batchSize) {
-    const batch = rawRows.slice(i, i + batchSize);
-    const { error: insertError } = await supabase.from(stagingTable).insert(batch);
-    if (insertError) {
-      console.error(`Batch insert error (rows ${i} to ${i + batchSize}):`, insertError);
-      // Consider rollback or cleanup strategy here
-      throw new Error(`Failed to insert batch into staging table: ${insertError.message}`);
+    if (leadsData.length === 0) {
+      return { success: false, error: 'CSV file is empty or contains no valid data.' };
     }
-  }
 
-  // 4. Call the normalization function via RPC
-  const { error: rpcError } = await supabase.rpc('normalize_staged_leads');
-  if (rpcError) {
-    console.error('Error calling normalize_staged_leads RPC:', rpcError);
-    // Consider what state to leave the system in - raw data is staged, but normalization failed.
-    // Maybe update lead_sources status to 'STAGING_FAILED' or 'NORMALIZATION_FAILED'.
-    throw new Error(`Failed to trigger lead normalization: ${rpcError.message}`);
-  }
+    console.log(`Parsed ${leadsData.length} rows from CSV.`);
+    // console.log('Sample transformed row:', leadsData[0]); // Optional: Log first row for verification
 
-  // 5. Return success (count refers to raw rows staged)
-  return { message: `Successfully staged ${rawRows.length} rows. Normalization triggered.`, count: rawRows.length };
+    // Insert data into the 'leads' staging table
+    const { data, error } = await supabase
+      .from('leads')
+      .insert(leadsData)
+      .select(); // Select to get the inserted data back if needed
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      return { success: false, error: 'Failed to insert leads into database.', details: error.message };
+    }
+
+    console.log(`Successfully inserted ${data?.length ?? 0} leads.`);
+
+    // TODO: Trigger the normalization function after successful insert
+    // const { error: rpcError } = await supabase.rpc('normalize_staged_leads');
+    // if (rpcError) {
+    //   console.error('Error calling normalize_staged_leads:', rpcError);
+    //   // Decide how to handle this - maybe return success but with a warning?
+    //   return { success: true, warning: 'Leads inserted, but normalization failed.', details: rpcError.message };
+    // }
+    // console.log('Normalization function triggered successfully.');
+
+    return { success: true, count: data?.length ?? 0 };
+
+  } catch (err) {
+    console.error('Error processing file upload:', err);
+    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+    return { success: false, error: 'Failed to process file upload.', details: errorMessage };
+  }
 }
