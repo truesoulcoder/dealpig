@@ -1,27 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 
 export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [isPending, start] = useTransition();
 
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!selectedFile) return;
+
     const formData = new FormData();
     formData.append('file', selectedFile);
-    try {
-      const res = await fetch('/api/leads/upload', { method: 'POST', body: formData });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Upload failed');
-      setMessage(`${result.count} leads imported.`);
-      onUpload?.();
-    } catch (error: unknown) {
-      console.error(error);
-      const msg = error instanceof Error ? error.message : String(error);
-      setMessage(`Upload failed: ${msg}`);
-    }
+
+    start(async () => {
+      try {
+        const res = await fetch('/api/leads/upload', { method: 'POST', body: formData });
+        const result = await res.json();
+
+        if (!res.ok) throw new Error(result.error || 'Upload failed');
+        setMessage(`${result.rows ?? result.count} leads imported.`);
+        setSelectedFile(null);
+        onUpload?.();
+      } catch (err) {
+        console.error(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        setMessage(`Upload failed: ${msg}`);
+      }
+    });
   }
 
   return (
@@ -35,7 +42,7 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
       />
       <button
         type="submit"
-        disabled={!selectedFile}
+        disabled={!selectedFile || isPending}
         className="px-4 py-2 bg-blue-600 text-white disabled:opacity-50"
       >
         Upload CSV
