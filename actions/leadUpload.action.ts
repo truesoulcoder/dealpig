@@ -12,6 +12,12 @@ export async function uploadLeads(formData: FormData) {
   const { data: rows, errors } = Papa.parse(text, {
     header: true,
     skipEmptyLines: true,
+    // Transform headers to snake_case lowercase to match DB columns
+    transformHeader: header => header
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .toLowerCase(),
   });
   if (errors.length) throw new Error(`CSV parse error: ${errors.map(e => e.message).join(', ')}`);
 

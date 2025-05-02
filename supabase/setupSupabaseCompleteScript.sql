@@ -477,9 +477,8 @@ BEGIN
   IF NOT policy_exists THEN
     -- For INSERT policies, only WITH CHECK is allowed (not USING)
     IF upper(p_operation) = 'INSERT' THEN
-      -- For INSERT, use with_check_expr or fall back to using_expr for the WITH CHECK clause
       EXECUTE format('CREATE POLICY %I ON %s FOR %s WITH CHECK (%s)',
-                  p_policy_name, qualified_table_name, upper(p_operation), 
+                  p_policy_name, qualified_table_name, upper(p_operation),
                   COALESCE(p_with_check_expr, p_using_expr));
     ELSE
       -- For other operations (SELECT, UPDATE, DELETE, ALL)
@@ -863,8 +862,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.run_sql(text) TO service_role;
 
 -- RPC to list all dynamic normalized lead tables
-DROP FUNCTION IF EXISTS public.list_dynamic_lead_tables();
-CREATE OR REPLACE FUNCTION public.list_dynamic_lead_tables()
+DROP FUNCTION IF EXISTS public.list_normalized_lead_tables();
+CREATE OR REPLACE FUNCTION public.list_normalized_lead_tables()
   RETURNS TABLE(table_name text)
   LANGUAGE sql
 AS $$
@@ -873,7 +872,7 @@ AS $$
     WHERE schemaname = 'public'
       AND tablename LIKE 'normalized_%';
 $$;
-GRANT EXECUTE ON FUNCTION public.list_dynamic_lead_tables() TO service_role;
+GRANT EXECUTE ON FUNCTION public.list_normalized_lead_tables() TO service_role;
 
 -- Grant execution permissions on functions
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role; -- Trigger function, usually not called directly
@@ -1491,6 +1490,42 @@ BEGIN
     -- Optional: Clear the staging table after successful normalization
     -- TRUNCATE TABLE public.leads;
 END;
+$$;
+
+-- Enable RLS and define policies for normalized_leads
+DO $$
+BEGIN
+  -- Ensure RLS is enabled first
+  ALTER TABLE public.normalized_leads ENABLE ROW LEVEL SECURITY;
+
+  -- Now create the policies using PERFORM inside the DO block
+  PERFORM public.create_policy_if_not_exists(
+    'Enable read access for authenticated users on normalized_leads',
+    'normalized_leads',
+    'SELECT',
+    'auth.role() IN (''authenticated'', ''service_role'')'
+  );
+  PERFORM public.create_policy_if_not_exists(
+    'Enable insert for authenticated users on normalized_leads',
+    'normalized_leads',
+    'INSERT',
+    'auth.role() IN (''authenticated'', ''service_role'')',
+    'auth.role() IN (''authenticated'', ''service_role'')'
+  );
+  PERFORM public.create_policy_if_not_exists(
+    'Enable update for authenticated users on normalized_leads',
+    'normalized_leads',
+    'UPDATE',
+    'auth.role() IN (''authenticated'', ''service_role'')',
+    'auth.role() IN (''authenticated'', ''service_role'')'
+  );
+  PERFORM public.create_policy_if_not_exists(
+    'Enable delete for authenticated users on normalized_leads',
+    'normalized_leads',
+    'DELETE',
+    'auth.role() IN (''authenticated'', ''service_role'')'
+  );
+END
 $$;
 
 -- Commit Transaction

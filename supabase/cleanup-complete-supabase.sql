@@ -125,7 +125,8 @@ DROP FUNCTION IF EXISTS public.get_daily_stats(UUID, timestamptz) CASCADE;
 DROP FUNCTION IF EXISTS public.create_dynamic_lead_table(text, text) CASCADE;
 DROP FUNCTION IF EXISTS public.execute_sql(text) CASCADE;
 DROP FUNCTION IF EXISTS public.create_policy_if_not_exists(text, text, text, text, text) CASCADE;
-DROP FUNCTION IF EXISTS public.run_sql(text) CASCADE; -- Added missing function
+DROP FUNCTION IF EXISTS public.run_sql(text) CASCADE;
+DROP FUNCTION IF EXISTS public.normalize_staged_leads() CASCADE; -- Added this line
 
 -- Step 5: Drop all dynamic lead tables (ending in _leads, excluding 'leads' and 'campaign_leads')
 DO $$
@@ -158,6 +159,7 @@ DROP TABLE IF EXISTS public.campaign_senders CASCADE;
 DROP TABLE IF EXISTS public.campaigns CASCADE;
 DROP TABLE IF EXISTS public.templates CASCADE;
 DROP TABLE IF EXISTS public.senders CASCADE;
+DROP TABLE IF EXISTS public.normalized_leads CASCADE; -- Added this line
 DROP TABLE IF EXISTS public.leads CASCADE;
 DROP TABLE IF EXISTS public.lead_sources CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE; -- Depends on auth.users, drop last among these
@@ -186,7 +188,8 @@ BEGIN
     FROM information_schema.tables
     WHERE table_schema = 'public'
     AND table_name IN ('profiles', 'leads', 'lead_sources', 'senders',
-                      'templates', 'campaigns', 'campaign_senders', 'campaign_leads', 'emails', 'email_events');
+                      'templates', 'campaigns', 'campaign_senders', 'campaign_leads', 'emails', 'email_events',
+                      'normalized_leads'); -- Added normalized_leads
 
     -- Check for remaining dynamic tables created by setup
     SELECT COUNT(*)
@@ -205,7 +208,8 @@ BEGIN
     AND p.proname IN ('handle_new_user', 'get_table_columns', 'list_dynamic_lead_tables',
                      'query_dynamic_lead_table', 'group_by_status', 'get_sender_stats',
                      'get_daily_stats', 'create_dynamic_lead_table', 'execute_sql',
-                     'create_policy_if_not_exists', 'run_sql');
+                     'create_policy_if_not_exists', 'run_sql',
+                     'normalize_staged_leads'); -- Added normalize_staged_leads
 
     -- Check for remaining policies in public schema
     SELECT COUNT(*)

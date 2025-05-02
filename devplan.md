@@ -85,3 +85,51 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 *   **Database:**
     *   Ensure `lead_sources` table schema matches `types/supabase.ts` (including status enum, counts, timestamps, metadata JSON).
     *   Consider adding indexes to `leads` table (e.g., on `source_id`, `status`, `owner_email`).
+
+# Development Plan
+
+## Phase 1: Setup and Initial Data Ingestion
+
+-   [x] Initialize Supabase project (`supabase init`)
+-   [x] Link Supabase project (`supabase link --project-ref <your-project-ref>`)
+-   [x] Create initial migration for `exec_sql` function (`supabase migration new add_exec_sql_function`) - `20240429_add_exec_sql_function.sql`
+-   [x] Create migration for `lead_sources` table (`supabase migration new create_lead_sources_table`) - `20250502000000_create_lead_sources_table.sql`
+-   [x] Create migration for `profiles` table (`supabase migration new create_profiles_table`) - `20250502000001_create_profiles_table.sql`
+-   [x] Create migration for `leads` table (`supabase migration new create_leads_table`) - `20250502010000_create_leads_table.sql` (Renamed from `20250502045125`)
+-   [x] Create migration to add all CSV columns to `leads` table (`supabase migration new add_all_csv_columns_to_leads`) - `20250502023012_add_all_csv_columns_to_leads.sql` (Corrected content)
+-   [x] Create migration for `normalize_staged_leads` function (`supabase migration new create_normalize_staged_leads_function`) - `20250502014512_create_normalize_staged_leads_function.sql` (Corrected content)
+-   [x] Create migration for `normalized_leads` table (Implicitly created by `normalize_staged_leads` function, but good to track)
+-   [x] Apply migrations to remote database (`supabase db push --include-all`)
+-   [x] Pull schema changes and generate initial types (`supabase db pull`)
+-   [ ] Develop CSV upload action (`leadUpload.action.ts`)
+    -   [ ] Parse CSV data
+    -   [ ] Transform headers to snake_case
+    -   [ ] Insert data into `leads` staging table
+    -   [ ] Trigger `normalize_staged_leads` function
+-   [ ] Create UI component for CSV upload
+-   [ ] Test CSV upload and normalization process
+
+## Phase 2: Lead Management UI
+
+-   [ ] Display normalized leads in a table
+-   [ ] Implement filtering and sorting for leads
+-   [ ] Develop lead detail view
+-   [ ] Add functionality to assign leads to users
+-   [ ] Implement status updates for leads
+
+## Phase 3: Communication Features
+
+-   [ ] Integrate email sending service
+-   [ ] Create action/component to send emails to leads
+-   [ ] Log communication history
+
+## Phase 4: Refinement and Deployment
+
+-   [ ] Add comprehensive unit and integration tests
+-   [ ] Implement user roles and permissions
+-   [ ] Optimize database queries and functions
+-   [ ] Set up production environment on Supabase
+-   [ ] Deploy application
+
+
+
