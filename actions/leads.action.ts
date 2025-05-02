@@ -3,34 +3,40 @@
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
-import { Lead } from '@/helpers/types';
+import { NormalizedLead } from '@/helpers/types'; // Use the new type
 
-// Fetch all leads from Supabase
-export async function getLeads(): Promise<Lead[]> {
+// Fetch all leads from the normalized_leads table
+export async function getNormalizedLeads(): Promise<NormalizedLead[]> {
+  const cookieStore = await cookies(); // Capture cookies outside the async get function
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        async get(name: string) {
-          const all = await cookies();
-          return all.get(name)?.value;
+        get(name: string) {
+          return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
-          // implement cookie set if needed
-        },
-        remove(name: string, options: any) {
-          // implement cookie removal if needed
-        },
+        // set/remove are not strictly needed for read-only operations here
+        // set(name: string, value: string, options: any) {
+        //   cookieStore.set(name, value, options);
+        // },
+        // remove(name: string, options: any) {
+        //   cookieStore.delete(name, options);
+        // },
       },
     }
   );
+
+  // Fetch from 'normalized_leads' table
   const { data, error } = await supabase
-    .from('leads')
+    .from('normalized_leads') // Changed from 'leads'
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }); // Assuming created_at exists
+
   if (error) {
-    console.error('Error fetching leads:', error);
+    console.error('Error fetching normalized leads:', error);
+    // Consider how to handle errors - throw, return empty, etc.
+    // Check RLS policies if data is unexpectedly empty
     throw error;
   }
   return data || [];

@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS public.exec_sql(text);
+
 -- Create a function to safely execute SQL
 CREATE OR REPLACE FUNCTION public.exec_sql(query text)
 RETURNS void
@@ -13,4 +15,4 @@ $$;
 GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;
 
 -- Add a comment explaining the function
-COMMENT ON FUNCTION public.exec_sql IS 'Safely executes SQL queries. Only available to authenticated users.'; 
+COMMENT ON FUNCTION public.exec_sql IS 'Safely executes SQL queries. Only available to authenticated users.';

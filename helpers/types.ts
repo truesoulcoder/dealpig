@@ -82,6 +82,30 @@ export interface Lead {
   raw_lead_id: string | number | null; // ID from the original dynamic table (adjust type if needed)
 }
 
+// Type definition based on the normalized_leads table schema
+export interface NormalizedLead {
+  id: number; // SERIAL PRIMARY KEY
+  original_lead_id?: number | null; // BIGINT, optional link to source leads.id
+  contact_name: string | null;
+  contact_email: string | null;
+  property_address: string | null;
+  property_city: string | null;
+  property_state: string | null;
+  property_postal_code: string | null;
+  property_type: string | null;
+  baths: string | null; // TEXT
+  beds: number | null; // INTEGER
+  year_built: number | null; // INTEGER
+  square_footage: number | null; // INTEGER
+  wholesale_value: number | null; // NUMERIC
+  assessed_total: number | null; // NUMERIC
+  mls_curr_status: string | null;
+  mls_curr_days_on_market: number | null; // INTEGER
+  // Add created_at/updated_at if your table has them
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Contact types
 export interface Contact {
   id: UUID;
