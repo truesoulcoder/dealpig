@@ -56,7 +56,8 @@ export async function uploadLeads(formData: FormData) {
   // IMPORTANT: 'leads' table acts as a staging area per upload.
   // Ensure its schema matches the expected raw CSV headers from PapaParse.
   const stagingTable = 'leads';
-  const { error: deleteError } = await supabase.from(stagingTable).delete().neq('id', -1); // Delete all rows
+  // Corrected delete condition for UUID column
+  const { error: deleteError } = await supabase.from(stagingTable).delete().not('id', 'is', null); 
   if (deleteError) {
     console.error('Staging table clear error:', deleteError);
     throw new Error(`Failed to clear staging table: ${deleteError.message}`);
