@@ -1,0 +1,40 @@
+:root {
+  --matrix-glass-opacity: 0.1;
+}
+
+/* Apply to forms, textareas, inputs, tables, and glass containers */
+.matrix-glass,
+.matrix-glass-content,
+.matrix-glass-header,
+input,
+textarea,
+select,
+.table,
+table,
+th,
+td,
+form,
+.heroui-table,
+.heroui-input,
+.heroui-textarea {
+  background-color: #181f1c !important; /* solid dark for clarity */
+  /* fallback for non-glass elements */
+}
+
+input,
+textarea,
+select,
+form {
+  /* Removed blur for clarity */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none; 
+}
+
+/* For leet theme, make sure foreground is visible */
+[data-theme='leet'] input,
+[data-theme='leet'] textarea,
+[data-theme='leet'] select,
+[data-theme='leet'] form {
+  color: #00ff00 !important;
+  border-color: #00ff00 !important;
+}

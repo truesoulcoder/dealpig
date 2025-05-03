@@ -1,0 +1,42 @@
+/**
+ * App-wide theme overrides for instant theme switching
+ *
+ * .leet: Leet theme (matrix glass, neon, leet button)
+ * .heroui: HeroUI theme (HeroUI colors, buttons, cards)
+ */
+
+.leet {
+  --bg-main: #0d1517;
+  --text-main: #d1fae5;
+  --accent: #10b981;
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+.leet .card, .leet .matrix-glass {
+  background: rgba(16, 24, 16, 0.8) !important;
+  box-shadow: 0 4px 32px 0 #10b98133;
+  border: 1.5px solid #10b98144;
+}
+
+.leet .leet-button {
+  /* Leet button already styled, just reinforce */
+  background: linear-gradient(90deg, #0f2027 0%, #2c5364 100%) !important;
+  border: 2px solid #10b981 !important;
+  color: #d1fae5 !important;
+}
+
+.heroui {
+  --bg-main: #fff;
+  --text-main: #1f2937;
+  --accent: #6366f1;
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+.heroui .heroui-btn, .heroui .heroui-card {
+  background: #fff !important;
+  color: #1f2937 !important;
+  border: 1.5px solid #6366f1 !important;
+  box-shadow: 0 2px 12px 0 #6366f144;
+}

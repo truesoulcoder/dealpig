@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TypeScript type definitions for dealpig application
  * Generated from Supabase database schema
  */
@@ -34,76 +34,79 @@ export interface LeadSourceMetadata {
 
 // Lead types
 export interface Lead {
-  id: UUID;
+  Id: UUID;
   // Property Information
-  property_address: string | null;
-  property_city: string | null;
-  property_state: string | null;
-  property_zip: string | null;
-  property_type: string | null;
-  beds: number | null;
-  baths: number | null;
-  square_footage: number | null;
-  year_built: number | null;
+  PropertyAddress: string | null;
+  PropertyCity: string | null;
+  PropertyState: string | null;
+  PropertyZip: string | null;
+  PropertyType: string | null;
+  Beds: number | null;
+  Baths: number | null;
+  SquareFootage: number | null;
+  YearBuilt: number | null;
   
   // Valuation
-  wholesale_value: number | null;
-  market_value: number | null;
-  assessed_total: number | null;
+  WholesaleValue: number | null;
+  MarketValue: number | null;
+  AssessedTotal: number | null;
   
   // MLS Information
-  days_on_market: number | null;
-  mls_status: string | null;
-  mls_list_date: string | null;
-  mls_list_price: number | null;
+  DaysOnMarket: number | null;
+  MLSStatus: string | null;
+  MLSListDate: string | null;
+  MLSListPrice: number | null;
   
   // Owner Information
-  owner_name: string | null;
-  owner_email: string | null;
-  owner_type: string | null;  // 'OWNER' or 'AGENT'
+  /**
+   * Normalized owner name field. Raw source: 'Contact#Name' from uploaded data.
+   */
+  OwnerName: string | null;
+  OwnerEmail: string | null;
+  OwnerType: string | null;  // 'OWNER' or 'AGENT'
   
   // Mailing Information
-  mailing_address: string | null;
-  mailing_city: string | null;
-  mailing_state: string | null;
-  mailing_zip: string | null;
+  MailingAddress: string | null;
+  MailingCity: string | null;
+  MailingState: string | null;
+  MailingZip: string | null;
   
   // System Fields
-  status: string;
-  source_id: UUID | null;
-  assigned_to: UUID | null;
-  last_contacted_at: Timestamp | null;
-  notes: string | null;
-  created_at: Timestamp;
-  updated_at: Timestamp;
+  Status: string;
+  SourceId: UUID | null;
+  AssignedTo: UUID | null;
+  LastContactedAt: Timestamp | null;
+  Notes: string | null;
+  CreatedAt: Timestamp;
+  UpdatedAt: Timestamp;
 
   // Provenance fields added for normalization
-  raw_lead_table: string | null; // Name of the original dynamic table
-  raw_lead_id: string | number | null; // ID from the original dynamic table (adjust type if needed)
+  RawLeadTable: string | null; // Name of the original dynamic table
+  RawLeadId: string | number | null; // ID from the original dynamic table (adjust type if needed)
 }
 
 // Type definition based on the normalized_leads table schema
 export interface NormalizedLead {
-  id: number; // SERIAL PRIMARY KEY
-  original_lead_id?: number | null; // BIGINT, optional link to source leads.id
-  contact_name: string | null;
-  contact_email: string | null;
-  property_address: string | null;
-  property_city: string | null;
-  property_state: string | null;
-  property_postal_code: string | null;
-  property_type: string | null;
-  baths: string | null; // TEXT
-  beds: number | null; // INTEGER
-  year_built: number | null; // INTEGER
-  square_footage: number | null; // INTEGER
-  wholesale_value: number | null; // NUMERIC
-  assessed_total: number | null; // NUMERIC
-  mls_curr_status: string | null;
-  mls_curr_days_on_market: number | null; // INTEGER
-  // Add created_at/updated_at if your table has them
-  created_at?: string;
-  updated_at?: string;
+  Id: number; // SERIAL PRIMARY KEY
+  OriginalLeadId?: number | null; // BIGINT, optional link to source leads.id
+  ContactName: string | null;
+  ContactEmail: string | null;
+  PropertyAddress: string | null;
+  PropertyCity: string | null;
+  PropertyState: string | null;
+  PropertyPostalCode: string | null;
+  PropertyType: string | null;
+  Baths: string | null; // TEXT
+  Beds: number | null; // INTEGER
+  YearBuilt: number | null; // INTEGER
+  SquareFootage: number | null; // INTEGER
+  WholesaleValue: number | null; // NUMERIC
+  AssessedTotal: number | null; // NUMERIC
+  MLSCurrStatus: string | null;
+  MLSCurrDaysOnMarket: number | null; // INTEGER
+  // Add CreatedAt/UpdatedAt if your table has them
+  CreatedAt?: string;
+  UpdatedAt?: string;
 }
 
 // Contact types
@@ -438,24 +441,24 @@ export enum CampaignLeadStatus {
 // Lead field mappings for templates and email personalization
 export const LEAD_TEMPLATE_FIELDS = {
   // Contact Information
-  OWNER_NAME: 'owner_name',        // From Contact#Name or MLS_Curr_ListAgentName
-  OWNER_EMAIL: 'owner_email',      // From Contact#Email_1 or MLS_Curr_ListAgentEmail
-  CONTACT_TYPE: 'contact_type',    // 'OWNER' or 'AGENT'
+  OwnerName: 'OwnerName',        // From Contact#Name or MLSCurrListAgentName
+  OwnerEmail: 'OwnerEmail',      // From Contact#Email_1 or MLSCurrListAgentEmail
+  ContactType: 'ContactType',    // 'OWNER' or 'AGENT'
 
   // Property Details
-  PROPERTY_ADDRESS: 'property_address',  // From PropertyAddress
-  PROPERTY_CITY: 'property_city',        // From PropertyCity
-  PROPERTY_STATE: 'property_state',      // From PropertyState
-  PROPERTY_ZIP: 'property_zip',          // From PropertyPostalCode
-  PROPERTY_TYPE: 'property_type',        // From PropertyType
+  PropertyAddress: 'PropertyAddress',  // From PropertyAddress
+  PropertyCity: 'PropertyCity',        // From PropertyCity
+  PropertyState: 'PropertyState',      // From PropertyState
+  PropertyZip: 'PropertyZip',          // From PropertyPostalCode
+  PropertyType: 'PropertyType',        // From PropertyType
   
   // Valuation
-  WHOLESALE_VALUE: 'wholesale_value',   // From WholesaleValue
-  ASSESSED_TOTAL: 'assessed_total',     // From AssessedTotal
+  WholesaleValue: 'WholesaleValue',   // From WholesaleValue
+  AssessedTotal: 'AssessedTotal',     // From AssessedTotal
   
   // MLS Information
-  MLS_STATUS: 'mls_status',            // From MLS_Curr_Status
-  DAYS_ON_MARKET: 'days_on_market',    // From MLS_Curr_DaysOnMarket
+  MLSStatus: 'MLSStatus',            // From MLSCurrStatus
+  DaysOnMarket: 'DaysOnMarket',    // From MLSCurrDaysOnMarket
 } as const;
 
 // Type for template variables
@@ -468,20 +471,20 @@ export type LeadTemplateField = keyof typeof LEAD_TEMPLATE_FIELDS;
 
 // Documentation for template creators
 export const TEMPLATE_FIELD_DESCRIPTIONS = {
-  OWNER_NAME: 'The name of the property owner or listing agent',
-  OWNER_EMAIL: 'The email address of the property owner or listing agent',
-  CONTACT_TYPE: 'Whether this contact is an owner or agent',
-  PROPERTY_ADDRESS: 'The street address of the property',
-  PROPERTY_CITY: 'The city where the property is located',
-  PROPERTY_STATE: 'The state where the property is located',
-  PROPERTY_ZIP: 'The postal code of the property',
-  PROPERTY_TYPE: 'The type of property (e.g., Single Family, Multi-Family)',
-  BEDS: 'Number of bedrooms',
-  BATHS: 'Number of bathrooms',
-  YEAR_BUILT: 'Year the property was built',
-  SQUARE_FOOTAGE: 'Total square footage of the property',
-  WHOLESALE_VALUE: 'Estimated wholesale value of the property',
-  ASSESSED_TOTAL: 'Total assessed value of the property',
-  MLS_STATUS: 'Current MLS listing status',
-  DAYS_ON_MARKET: 'Number of days the property has been on the market'
+  OwnerName: 'The name of the property owner or listing agent',
+  OwnerEmail: 'The email address of the property owner or listing agent',
+  ContactType: 'Whether this contact is an owner or agent',
+  PropertyAddress: 'The street address of the property',
+  PropertyCity: 'The city where the property is located',
+  PropertyState: 'The state where the property is located',
+  PropertyZip: 'The postal code of the property',
+  PropertyType: 'The type of property (e.g., Single Family, Multi-Family)',
+  Beds: 'Number of bedrooms',
+  Baths: 'Number of bathrooms',
+  YearBuilt: 'Year the property was built',
+  SquareFootage: 'Total square footage of the property',
+  WholesaleValue: 'Estimated wholesale value of the property',
+  AssessedTotal: 'Total assessed value of the property',
+  MLSStatus: 'Current MLS listing status',
+  DaysOnMarket: 'Number of days the property has been on the market'
 } as const;

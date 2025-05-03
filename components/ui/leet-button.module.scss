@@ -1,0 +1,51 @@
+.leet-button {
+  position: relative;
+  display: inline-block;
+  font-family: 'Share Tech Mono', 'Fira Mono', 'Courier New', monospace;
+  background: linear-gradient(90deg, #0f2027 0%, #2c5364 100%);
+  color: #d1fae5;
+  border: 2px solid #10b981;
+  border-radius: 10px;
+  padding: 0.7em 2.2em;
+  font-size: 1.13rem;
+  letter-spacing: 0.08em;
+  box-shadow: 0 4px 32px 0 rgba(16, 185, 129, 0.18);
+  transition: 
+    background 0.25s cubic-bezier(0.4,0,0.2,1),
+    color 0.15s,
+    box-shadow 0.18s,
+    transform 0.18s;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.leet-button:hover, .leet-button:focus {
+  background: linear-gradient(90deg, #10b981 0%, #134e3a 100%);
+  color: #fff;
+  box-shadow: 0 8px 32px 0 #10b98199, 0 1.5px 1.5px 0 #10b98133;
+  border-color: #22d3ee;
+  transform: translateY(-2px) scale(1.045) rotate(-0.5deg);
+}
+
+.leet-button:active {
+  background: linear-gradient(90deg, #134e3a 0%, #10b981 100%);
+  color: #a7f3d0;
+  box-shadow: 0 2px 8px 0 #10b98144;
+  transform: scale(0.97);
+}
+
+.leet-button .letterfx {
+  display: inline-block;
+  transition: transform 0.18s cubic-bezier(0.4,0,0.2,1), color 0.15s;
+}
+
+.leet-button:hover .letterfx, .leet-button:focus .letterfx {
+  color: #22d3ee;
+  transform: translateY(-2px) scale(1.18) rotate(-2deg) skewX(4deg);
+  text-shadow: 0 0 8px #22d3ee88, 0 0 2px #10b981cc;
+}
+
+.leet-button:active .letterfx {
+  color: #10b981;
+  transform: scale(0.93) skewY(-2deg);
+}

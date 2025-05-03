@@ -1,0 +1,58 @@
+.matrix-glass {
+  background: #181f1c; /* fully solid for clarity */
+  box-shadow: 0 4px 32px 0 rgba(16, 185, 129, 0.12), 0 1.5px 1.5px 0 rgba(16, 185, 129, 0.12);
+  border: 1.5px solid rgba(16, 185, 129, 0.22);
+  border-radius: 16px;
+  /* Removed glass blur for clarity */
+  backdrop-filter: none;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.matrix-glass:hover {
+  box-shadow: 0 8px 48px 0 rgba(16, 185, 129, 0.25), 0 3px 3px 0 rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+}
+
+.matrix-glass-header {
+  background: linear-gradient(90deg, rgba(16,185,129,0.18) 0%, rgba(0,0,0,0.08) 100%);
+  border-bottom: 1px solid rgba(16,185,129,0.18);
+  padding: 0.75rem 1.25rem;
+  font-family: 'Share Tech Mono', 'Fira Mono', 'Courier New', monospace;
+  color: #10b981;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 6px #10b98166;
+}
+
+.matrix-glass-content {
+  padding: 1.5rem 1.5rem 1.25rem 1.5rem;
+  color: #fff; /* max contrast */
+  font-family: 'Share Tech Mono', 'Fira Mono', 'Courier New', monospace;
+  font-size: 1.08rem;
+}
+
+.matrix-bg-effect {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0.04; /* subtle, not foggy */
+}
+
+.leet .matrix-bg-effect {
+  animation: matrixRain 2.5s linear infinite;
+  background: repeating-linear-gradient(
+    to top,
+    #10b98144 0 2px,
+    transparent 2px 20px
+  );
+}
+
+@keyframes matrixRain {
+  0% { background-position-y: 0; }
+  100% { background-position-y: 40px; }
+}
+
+

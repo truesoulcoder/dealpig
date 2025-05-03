@@ -1,54 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import {
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
+  Pagination,
+  Spinner,
+  getKeyValue,
+} from '@heroui/react';
+import LeadModal from './LeadModal';
 
 interface DynamicLeadsTableProps {
   table: string;
+  leads: any[];
+  onEdit: (lead: any) => void;
+  onRefresh: () => void;
+  onSave: () => void;
 }
 
-export default function DynamicLeadsTable({ table }: DynamicLeadsTableProps) {
-  const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const PAGE_SIZE = 25;
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetch(`/api/leads/data?table=${encodeURIComponent(table)}`)
-      .then(async res => {
-        if (!res.ok) throw new Error((await res.json()).error || 'Failed to load');
-        return res.json();
-      })
-      .then(data => setRows(data))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [table]);
+export default function DynamicLeadsTable({ table, leads, onEdit, onRefresh, onSave }: DynamicLeadsTableProps) {
+  const [page, setPage] = useState(1);
+  const [selectedKey, setSelectedKey] = useState<string | number | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editedLeads, setEditedLeads] = useState<any[]>([]);
 
-  if (loading) return <p>Loading {table} …</p>;
-  if (error) return <p className="text-red-600">Error: {error}</p>;
-  if (rows.length === 0) return <p>No leads in {table}.</p>;
+  const hasLeads = leads && leads.length > 0;
+  let columns: string[] = [];
+  if (hasLeads) {
+    columns = Object.keys(leads[0]);
+  } else {
+    columns = ['id', 'first_name', 'last_name', 'email', 'phone'];
+  }
 
-  // derive columns from first row
-  const columns = Object.keys(rows[0]);
+  // Always show 25 rows
+  const displayRows = hasLeads ? leads.slice(0, 25) : Array(25).fill(null);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full table-auto border-collapse border">
+    <div style={{ border: '2px solid #0f0', borderRadius: 8, padding: 0, background: 'rgba(0,0,0,0.7)' }}>
+      <table className="min-w-full table-auto border-collapse border bg-black text-green-400">
         <thead>
-          <tr className="bg-gray-100">
-            {columns.map(col => (
-              <th key={col} className="px-2 py-1 border text-left">
-                {col.replace(/_/g, ' ')}
-              </th>
+          <tr className="bg-green-900">
+            {columns.map((col) => (
+              <th key={col} className="px-4 py-2 border border-green-700 text-green-300 font-bold uppercase text-xs">{col.replace(/_/g, ' ')}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, idx) => (
-            <tr key={idx} className="odd:bg-white even:bg-gray-50">
-              {columns.map(col => (
-                <td key={col} className="px-2 py-1 border">
-                  {row[col] as string}
+          {displayRows.map((row, idx) => (
+            <tr key={idx} className={row ? "hover:bg-green-950" : "bg-black/60"}>
+              {columns.map((col, cidx) => (
+                <td key={cidx} className="px-4 py-2 border border-green-800 text-green-200">
+                  {row ? (row[col] ?? '—') : <span style={{ opacity: 0.4 }}>—</span>}
                 </td>
               ))}
             </tr>
