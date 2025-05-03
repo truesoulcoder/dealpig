@@ -6,7 +6,7 @@ CREATE TABLE normalized_leads AS
 SELECT
   id AS original_lead_id,
   owner_name AS contact_name,
-  owner_email AS contact_email,
+  LOWER(owner_email) AS contact_email,
   property_address,
   property_city,
   property_state,
@@ -18,6 +18,7 @@ SELECT
   square_footage,
   wholesale_value,
   assessed_total,
+  COALESCE(CAST(avm AS numeric), 0) AS avm_value,
   mls_status AS mls_curr_status,
   days_on_market AS mls_curr_days_on_market
 FROM leads;
@@ -25,3 +26,4 @@ FROM leads;
 -- Add indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_normalized_leads_email ON normalized_leads(contact_email);
 CREATE INDEX IF NOT EXISTS idx_normalized_leads_property_address ON normalized_leads(property_address);
+CREATE INDEX IF NOT EXISTS idx_normalized_leads_avm ON normalized_leads(avm_value);
