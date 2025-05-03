@@ -13,7 +13,7 @@ export const metadata = {
   description: 'A blind pig might find a nut but DealPig shakes the tree',
 }
 
-import NavbarWithAvatar from '../components/navbar-with-avatar';
+import NavbarWithAvatar from '../components/navbar/navbar-with-avatar';
 
 export default function RootLayout({
   children,
