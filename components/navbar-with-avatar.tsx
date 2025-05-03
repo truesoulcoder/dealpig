@@ -11,20 +11,67 @@ import {
   Avatar,
 } from "@heroui/react";
 
-export const AcmeLogo = () => {
-  return (
-    <svg fill="none" height="36" viewBox="0 0 32 32" width="36">
-      <path
-        clipRule="evenodd"
-        d="M17.6482 10.1305L15.8785 7.02583L7.02979 22.5499H10.5278L17.6482 10.1305ZM19.8798 14.0457L18.11 17.1983L19.394 19.4511H16.8453L15.1056 22.5499H24.7272L19.8798 14.0457Z"
-        fill="currentColor"
-        fillRule="evenodd"
-      />
-    </svg>
-  );
-};
+import { useTheme } from "./ui/theme-context";
+import User from "./User";
+import { Icon } from "@iconify/react";
+import { useState } from "react";
 
-export default function App() {
+export default function NavbarWithAvatar() {
+  const { theme, toggleTheme } = useTheme();
+  const [burgerOpen, setBurgerOpen] = useState(false);
+
+  // User component fetches user info from Supabase/Google
+  return (
+    <Navbar>
+      {/* Left: Burger Menu */}
+      <NavbarBrand>
+        <button
+          aria-label="Open menu"
+          className="mr-2 p-2 rounded hover:bg-default-100 focus:outline-none"
+          onClick={() => setBurgerOpen((b) => !b)}
+        >
+          <Icon icon="mdi:menu" width={28} height={28} />
+        </button>
+      </NavbarBrand>
+
+      {/* Center: Theme Switcher */}
+      <NavbarContent className="flex gap-4" justify="center">
+        <NavbarItem>
+          <button
+            className={`px-4 py-1 rounded ${theme === 'heroui' ? 'bg-primary-600 text-white' : 'bg-default-100'}`}
+            onClick={() => theme !== 'heroui' && toggleTheme()}
+            aria-pressed={theme === 'heroui'}
+          >
+            Dark Theme
+          </button>
+        </NavbarItem>
+        <NavbarItem>
+          <button
+            className={`px-4 py-1 rounded ${theme === 'leet' ? 'bg-green-500 text-black' : 'bg-default-100'}`}
+            onClick={() => theme !== 'leet' && toggleTheme()}
+            aria-pressed={theme === 'leet'}
+          >
+            L33T Theme
+          </button>
+        </NavbarItem>
+      </NavbarContent>
+
+      {/* Right: Profile Avatar & Dropdown */}
+      <NavbarContent as="div" justify="end">
+        <Dropdown placement="bottom-end">
+          <DropdownTrigger>
+            {/* User component fetches and shows avatar, name, email */}
+            <User showAvatar size="sm" />
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Profile Actions" variant="flat">
+            <DropdownItem key="settings">Settings</DropdownItem>
+            <DropdownItem key="logout" color="danger">Log Out</DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      </NavbarContent>
+    </Navbar>
+  );
+}
   return (
     <Navbar>
       <NavbarBrand>
