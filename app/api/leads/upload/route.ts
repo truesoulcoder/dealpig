@@ -5,19 +5,26 @@ import { randomUUID } from 'crypto';
 
 // Helper to post log events directly to Supabase for realtime UI Console Log
 import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 async function postLogEvent(type: 'info' | 'error' | 'success', message: string) {
   try {
     const sb = createAdminClient();
-    // Try to get user_id from cookie/session (if available)
     let user_id = null;
     try {
+      // Use Supabase SSR client to get the actual session and user_id
       const cookieStore = await cookies();
-      const session = cookieStore.get('sb:token') || cookieStore.get('sb-access-token');
-      if (session) {
-        // If you store user_id elsewhere, update this logic
-        user_id = session.value;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const serverClient = createServerClient(supabaseUrl, supabaseAnonKey, { cookies: { get: (name: string) => cookieStore.get(name)?.value } });
+      const { data: { user }, error } = await serverClient.auth.getUser();
+      if (error) {
+        console.error('[postLogEvent] getUser error:', error);
       }
-    } catch {}
+      user_id = user?.id || null;
+      console.log('[postLogEvent] (auth.getUser) Using user_id:', user_id);
+    } catch (err) {
+      console.error('[postLogEvent] Failed to get user_id from session:', err);
+    }
     await sb.from('console_log_events').insert({
       type,
       message,

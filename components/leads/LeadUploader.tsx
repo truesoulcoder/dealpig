@@ -94,43 +94,45 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
 
     start(async () => {
       try {
-        addProgress('Uploading to server...');
         const res = await fetch('/api/leads/upload', { method: 'POST', body: formData });
-        addProgress('Waiting for server response...');
         const result = await res.json();
 
-        if (!res.ok) {
-          addProgress(`❌ Error: ${result.error || 'Upload failed'}`);
-          throw new Error(result.error || 'Upload failed');
-        }
-        // If backend sends step details, show them
-        if (result.steps && Array.isArray(result.steps)) {
-          result.steps.forEach((step: string) => addProgress(step));
-        }
-        addProgress(`✅ Success: ${result.rows ?? result.count} leads imported.`);
-        setMessage(`${result.rows ?? result.count} leads imported.`);
-        setSelectedFile(null);
-        stopConsoleLogPolling(); // Stop polling after upload
-        if (addMessage) addMessage('success', `✅ Success: ${result.rows ?? result.count} leads imported.`);
-        onUpload?.(); // One-time UI refresh
-        // Play success sound, then poll API for UI refresh
-        if (successAudioRef.current) {
-          try {
-            await successAudioRef.current.play();
-          } catch (err) {
-            console.warn('Success audio error:', err);
+        if (result.ok) {
+          setMessage('Upload successful!');
+          stopConsoleLogPolling(); // Stop polling after upload
+          if (addMessage) addMessage('success', 'Upload successful!');
+          if (onUpload) onUpload(); // Always trigger parent refresh
+          // Play success sound
+          if (successAudioRef.current) {
+            try {
+              await successAudioRef.current.play();
+            } catch (err) {
+              console.warn('Success audio error:', err);
+            }
+          }
+        } else {
+          const msg = result.error || 'Unknown error';
+          setMessage(`Upload failed: ${msg}`);
+          stopConsoleLogPolling(); // Stop polling after upload
+          if (addMessage) addMessage('error', `❌ Upload failed: ${msg}`);
+          if (onUpload) onUpload(); // Always trigger parent refresh
+          // Play failure sound
+          if (failureAudioRef.current) {
+            try {
+              await failureAudioRef.current.play();
+            } catch (err) {
+              console.warn('Failure audio error:', err);
+            }
           }
         }
-        // Poll API after audio finishes
-        await pollAndRefresh();
       } catch (err) {
         console.error(err);
         const msg = err instanceof Error ? err.message : String(err);
         setMessage(`Upload failed: ${msg}`);
-        addProgress(`❌ Upload failed: ${msg}`);
         stopConsoleLogPolling(); // Stop polling after upload
         if (addMessage) addMessage('error', `❌ Upload failed: ${msg}`);
-        // Play failure sound, then poll API for UI refresh
+        if (onUpload) onUpload(); // Always trigger parent refresh
+        // Play failure sound
         if (failureAudioRef.current) {
           try {
             await failureAudioRef.current.play();
@@ -138,8 +140,6 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
             console.warn('Failure audio error:', err);
           }
         }
-        // Poll API after audio finishes
-        await pollAndRefresh();
       }
     });
   }

@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase';
 
 export async function GET(req: NextRequest) {
   const table = req.nextUrl.searchParams.get('table');
+  const limit = parseInt(req.nextUrl.searchParams.get('limit') || '25', 10);
+  const offset = parseInt(req.nextUrl.searchParams.get('offset') || '0', 10);
   if (!table) {
     return NextResponse.json({ error: 'Missing table param' }, { status: 400 });
   }
@@ -11,9 +13,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });
   }
   const admin = createAdminClient();
-  const { data, error } = await admin.from(table).select('*');
+  // Fetch paginated data
+  const { data, error, count } = await admin
+    .from(table)
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json(data || []);
+  return NextResponse.json({ data: data || [], total: count ?? 0 });
 }
