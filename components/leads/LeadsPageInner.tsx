@@ -19,9 +19,28 @@ export default function LeadsPageInner() {
     timestamp?: number;
   }[]>([]);
 
-  // Only fetch logs at specific events (not real-time or polling)
-  // On page load
-  useEffect(() => { fetchConsoleLogEvents().then(setMessages); }, []);
+  // Poll for console log events every 2 seconds while processing is ongoing
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    let stopped = false;
+
+    async function pollLogs() {
+      const events = await fetchConsoleLogEvents();
+      setMessages(events);
+      // Stop polling if the latest event is a success or error
+      if (events.length > 0 && (events[0].type === 'success' || events[0].type === 'error')) {
+        if (interval) clearInterval(interval);
+        stopped = true;
+      }
+    }
+
+    pollLogs(); // Initial fetch
+    interval = setInterval(() => {
+      if (!stopped) pollLogs();
+    }, 2000);
+
+    return () => { if (interval) clearInterval(interval); };
+  }, []);
 
   function addMessage(type: 'info' | 'error' | 'success', message: string) {
     setMessages(msgs => [...msgs, { type, message, timestamp: Date.now() }]);

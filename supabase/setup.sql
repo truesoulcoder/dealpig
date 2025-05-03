@@ -542,7 +542,7 @@ AS $$
   SELECT CAST(table_name AS text)
   FROM information_schema.tables
   WHERE table_schema = 'public'
-  AND table_name LIKE 'leads_%'
+  AND table_name LIKE 'normal\_%'
   ORDER BY table_name;
 $$;
 

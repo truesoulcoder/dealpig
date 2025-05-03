@@ -57,6 +57,7 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
         3. Call `SELECT public.archive_normalized_leads('filename.csv');` to archive normalized leads after processing.
     - This separation of concerns ensures safe, predictable, and robust ingestion and archiving.
 - Console log and processing status updates are streamed to the UI for user feedback.
+- The main Leads page now uses a polling mechanism to fetch and update console log events every 2 seconds during lead processing. Polling automatically stops when a 'success' or 'error' event is detected, ensuring real-time progress feedback for users.
 - Ensures proper mapping of CSV headers to database fields during the upload process.
 - **The upload script now only inserts columns from the CSV that exist in the `leads` table.**
     - The script does NOT require every possible column to be present in the CSV.
