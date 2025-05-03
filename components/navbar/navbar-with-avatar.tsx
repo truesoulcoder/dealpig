@@ -5,14 +5,11 @@ import {
   NavbarBrand,
   NavbarContent,
   NavbarItem,
-  Link,
   DropdownItem,
   DropdownTrigger,
   Dropdown,
   DropdownMenu,
-  Avatar,
 } from "@heroui/react";
-
 import { useTheme } from "../ui/theme-context";
 import User from "../User";
 import { Icon } from "@iconify/react";
@@ -122,4 +119,5 @@ export default function NavbarWithAvatar() {
   );
 }
 
-export default NavbarWithAvatar;
+export { NavbarWithAvatar };
+
