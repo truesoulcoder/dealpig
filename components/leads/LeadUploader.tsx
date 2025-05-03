@@ -29,6 +29,29 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
     setProgressMessages(prev => [...prev, msg]);
   }
 
+  // Poll API for UI refresh after audio
+  async function pollAndRefresh() {
+    const pollInterval = 1000; // ms
+    const maxAttempts = 10;
+    let attempts = 0;
+    let refreshed = false;
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        // Optionally, you could fetch a specific endpoint or just call onUpload
+        await new Promise(res => setTimeout(res, pollInterval));
+        if (onUpload) {
+          onUpload(); // This will refresh tables and logs in LeadsPage
+          refreshed = true;
+        }
+        // Optionally, add a check here to break early if data is ready
+      } catch (err) {
+        // Ignore polling errors
+      }
+    }
+    if (!refreshed && onUpload) onUpload();
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedFile) return;
@@ -58,31 +81,31 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
         setMessage(`${result.rows ?? result.count} leads imported.`);
         setSelectedFile(null);
         onUpload?.();
-        // Play success sound with better error handling
+        // Play success sound, then poll API for UI refresh
         if (successAudioRef.current) {
           try {
-            successAudioRef.current.play().catch(err => {
-              console.warn('Success audio playback error:', err);
-            });
+            await successAudioRef.current.play();
           } catch (err) {
             console.warn('Success audio error:', err);
           }
         }
+        // Poll API after audio finishes
+        await pollAndRefresh();
       } catch (err) {
         console.error(err);
         const msg = err instanceof Error ? err.message : String(err);
         setMessage(`Upload failed: ${msg}`);
         addProgress(`❌ Upload failed: ${msg}`);
-        // Play failure sound with better error handling
+        // Play failure sound, then poll API for UI refresh
         if (failureAudioRef.current) {
           try {
-            failureAudioRef.current.play().catch(err => {
-              console.warn('Failure audio playback error:', err);
-            });
+            await failureAudioRef.current.play();
           } catch (err) {
             console.warn('Failure audio error:', err);
           }
         }
+        // Poll API after audio finishes
+        await pollAndRefresh();
       }
     });
   }

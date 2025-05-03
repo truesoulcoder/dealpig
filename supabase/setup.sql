@@ -383,8 +383,8 @@ BEGIN
         beds TEXT,
         year_built TEXT,
         square_footage TEXT,
-        wholesale_value NUMERIC,
-        assessed_total NUMERIC,
+        wholesale_value TEXT,
+        assessed_total TEXT,
         mls_curr_status TEXT,
         mls_curr_days_on_market TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
@@ -460,27 +460,7 @@ AS $$
   SELECT file_name FROM public.lead_sources WHERE created_at = (SELECT MAX(created_at) FROM public.lead_sources) LIMIT 1;
 $$;
 
--- Trigger function to archive normalized leads after insert
-CREATE OR REPLACE FUNCTION fn_trigger_archive_normalized_leads()
-RETURNS TRIGGER AS $$
-DECLARE
-  latest_filename TEXT;
-BEGIN
-  SELECT public.get_latest_lead_filename() INTO latest_filename;
-  IF latest_filename IS NOT NULL THEN
-    PERFORM public.archive_normalized_leads(latest_filename);
-  END IF;
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Drop the trigger if it exists to ensure idempotency
-DROP TRIGGER IF EXISTS trigger_archive_on_normalized_leads_insert ON public.normalized_leads;
-CREATE TRIGGER trigger_archive_on_normalized_leads_insert
-AFTER INSERT ON public.normalized_leads
-FOR EACH STATEMENT
-EXECUTE FUNCTION fn_trigger_archive_normalized_leads();
-COMMENT ON TRIGGER trigger_archive_on_normalized_leads_insert ON public.normalized_leads IS 'Automatically archives and truncates normalized_leads after insert, using the latest filename.';
 
 -- List dynamic lead tables function
 DROP FUNCTION IF EXISTS public.list_dynamic_lead_tables();
