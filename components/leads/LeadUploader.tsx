@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 
 export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [progressMessages, setProgressMessages] = useState<string[]>([]);
   const [isPending, start] = useTransition();
+  const successAudioRef = useRef<HTMLAudioElement | null>(null);
+  const failureAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio elements on client only
+  useEffect(() => {
+    successAudioRef.current = new Audio('/success.mp3');
+    failureAudioRef.current = new Audio('/failed.mp3');
+  }, []);
 
   // Helper to add a progress message
   function addProgress(msg: string) {
@@ -42,11 +50,13 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
         setMessage(`${result.rows ?? result.count} leads imported.`);
         setSelectedFile(null);
         onUpload?.();
+        successAudioRef.current?.play().catch(err => console.error('Audio playback error', err));
       } catch (err) {
         console.error(err);
         const msg = err instanceof Error ? err.message : String(err);
         setMessage(`Upload failed: ${msg}`);
         addProgress(`❌ Upload failed: ${msg}`);
+        failureAudioRef.current?.play().catch(err => console.error('Audio playback error', err));
       }
     });
   }
