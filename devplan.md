@@ -42,8 +42,16 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Displaying Lead List (`app/(app)/leads/page.tsx`, `components/leads/index.tsx`, `components/leads/LeadsTable.tsx`, `actions/leads.action.ts::getLeads`) - **Functional**
     *   Displaying Lead Sources (Needs implementation, likely fetching from `lead_sources` table to show import status/history).
 *   Database setup is now fully automated via `supabase/setup.sql`, which creates all necessary tables, policies, RLS, roles, functions, triggers, and indexes for the lead management workflow.
-*   The ingestion pipeline is now **100% automated**: after leads are normalized, a new database trigger on `normalized_leads` automatically archives the normalized data and truncates both `normalized_leads` and `leads` tables, using the latest uploaded filename. No backend or manual intervention is required after upload.
-
+*  ## Lead Ingestion Pipeline
+- Automates uploading, processing, normalization, and archiving of lead data using Supabase storage and policies.
+- Maps CSV headers to database fields for normalization.
+- Handles errors related to fetching lead table columns.
+- Ensures proper mapping of CSV headers to database fields during the upload process.
+- **The upload script now only inserts columns from the CSV that exist in the `leads` table.**
+    - The script does NOT require every possible column to be present in the CSV.
+    - If a CSV column does not map to a DB column, it is skipped.
+    - If a DB column is not present in the CSV, it is left unset (the DB will use NULL/default).
+    - No errors are thrown for missing columns. This makes the ingestion pipeline robust to varying CSV structures.
     *   *Needs Work:* Detailed lead view, manual status updates, lead assignment, advanced filtering/searching, robust error display/feedback on frontend for background processing status, potentially replacing fire-and-forget with a more robust background job queue.
     *   *Removed/Replaced:* Previous `pgloader`-based workflow, separate `ingestLeadSource` preparation step.
 *   **Email Automation - Sender Management:**

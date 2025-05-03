@@ -31,6 +31,7 @@ async function postLogEvent(type: 'info' | 'error' | 'success', message: string)
 
 export async function POST(req: Request) {
   const steps: string[] = [];
+  
   try {
     /* ───── 0. grab the file ───── */
     const form = await req.formData();
@@ -227,7 +228,7 @@ export async function POST(req: Request) {
             'sewer': 'sewer',
             'locationinfluence': 'location_influence',
             'heating': 'heating',
-            'airconditioning': 'air_conditioning',
+            'airconditioning': 'airconditioning',
             'fireplace': 'fireplace',
             'garage': 'garage',
             'patio': 'patio',
@@ -236,12 +237,12 @@ export async function POST(req: Request) {
             
             // Financial info
             'taxamount': 'tax_amount',
-            'avm': 'AVM',
+            'avm': 'avm',
             'rentalestimatehigh': 'rental_estimate_high',
             'rentalestimatelow': 'rental_estimate_low',
             'wholesalevalue': 'wholesale_value',
             'marketvalue': 'market_value',
-            'assessedtotal': 'ASSESSED_TOTAL',
+            'assessedtotal': 'assessed_total',
             'numberofloans': 'number_of_loans',
             'totalloans': 'total_loans',
             'ltv': 'ltv',
@@ -390,55 +391,54 @@ export async function POST(req: Request) {
         
         // Process each field in the CSV row
         Object.keys(row).forEach(csvHeader => {
-          const lowerCsvHeader = csvHeader.toLowerCase();
-          if (lowerCsvHeader === 'id') return; // Skip CSV 'Id', let DB generate UUID
-          
-          // Look up the database column name for this CSV header
-          const dbColumnName = csvHeaderToDbColumnMap.get(lowerCsvHeader);
-          
-          if (dbColumnName) { // Only include if the CSV header maps to a DB column
-            let value = row[csvHeader];
-            
-            // Skip empty values
-            if (value === undefined || value === null || value === '') {
-              dbRow[dbColumnName] = null;
-              return;
-            }
-            
-            // Clean numeric fields
-            const numericFieldNames = ['square_footage', 'lot_size_sqft', 'price_per_sqft', 'tax_amount', 'avm', 
-                'wholesale_value', 'market_value', 'assessed_total', 'mls_curr_list_price',
-                'mls_curr_sale_price', 'mls_prev_list_price', 'mls_prev_sale_price', 'rental_estimate_high',
-                'rental_estimate_low', 'tax_assessment_land', 'tax_assessment_improvements', 'tax_assessment_total'];
-                
-            if (numericColumns.has(lowerCsvHeader) || numericFieldNames.includes(dbColumnName.toLowerCase())) {
-              if (typeof value === 'string') {
-                // Remove currency symbols, commas, etc.
-                const cleanedValue = value.replace(/[$,% ]/g, '');
-                if (cleanedValue && !isNaN(Number(cleanedValue))) {
-                  value = Number(cleanedValue);
-                }
-              }
-            }
-            
-            // Handle date fields
-            if (dbColumnName.toLowerCase().includes('date') && value) {
-              try {
-                // Try to parse the date and format it as ISO string
-                const date = new Date(value);
-                if (!isNaN(date.getTime())) {
-                  value = date.toISOString();
-                }
-              } catch (e) {
-                // If date parsing fails, keep the original value
-                console.log(`[upload] Failed to parse date: ${value}`);
-              }
-            }
-            
-            // Assign the value to the database row
-            dbRow[dbColumnName] = value;
-          }
-        });
+  const lowerCsvHeader = csvHeader.toLowerCase();
+  if (lowerCsvHeader === 'id') return; // Skip CSV 'Id', let DB generate UUID
+
+  // Only map columns that exist in the DB
+  const dbColumnName = csvHeaderToDbColumnMap.get(lowerCsvHeader);
+  if (!dbColumnName) return; // Skip any CSV column that doesn't map to a DB column
+
+  let value = row[csvHeader];
+
+  // Skip empty values
+  if (value === undefined || value === null || value === '') {
+    // Don't set a value for this column; DB will use NULL/default
+    return;
+  }
+
+  // Clean numeric fields
+  const numericFieldNames = ['square_footage', 'lot_size_sqft', 'price_per_sqft', 'tax_amount', 'avm',
+    'wholesale_value', 'market_value', 'assessed_total', 'mls_curr_list_price',
+    'mls_curr_sale_price', 'mls_prev_list_price', 'mls_prev_sale_price', 'rental_estimate_high',
+    'rental_estimate_low', 'tax_assessment_land', 'tax_assessment_improvements', 'tax_assessment_total'];
+
+  if (numericColumns.has(lowerCsvHeader) || numericFieldNames.includes(dbColumnName.toLowerCase())) {
+    if (typeof value === 'string') {
+      // Remove currency symbols, commas, etc.
+      const cleanedValue = value.replace(/[$,% ]/g, '');
+      if (cleanedValue && !isNaN(Number(cleanedValue))) {
+        value = Number(cleanedValue);
+      }
+    }
+  }
+
+  // Handle date fields
+  if (dbColumnName.toLowerCase().includes('date') && value) {
+    try {
+      // Try to parse the date and format it as ISO string
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        value = date.toISOString();
+      }
+    } catch (e) {
+      // If date parsing fails, keep the original value
+      console.log(`[upload] Failed to parse date: ${value}`);
+    }
+  }
+
+  // Assign the value to the database row
+  dbRow[dbColumnName] = value;
+});
         
         // Handle special mappings for address fields that might be in different formats
         if (!dbRow.property_address && row.address) {
@@ -487,45 +487,14 @@ export async function POST(req: Request) {
 
       let insertErr, count;
       try {
-        // Get the user_id from the cookie/session
-        let user_id = null;
-        try {
-          // Get user ID from the auth API directly instead of cookies
-          const { data: { session } } = await sb.auth.getSession();
-          if (session?.user) {
-            user_id = session.user.id;
-          }
-        } catch (e: any) {
-          console.error('Error getting user_id from session:', e);
-          await postLogEvent('error', `Error getting user_id from session: ${e.message}`);
-        }
-        
-        // Add user_id to each row for RLS
-        if (user_id) {
-          cleanedRows.forEach(row => {
-            row.user_id = user_id;
-          });
-          await postLogEvent('info', `Adding user_id ${user_id} to all rows`);
-        } else {
-          await postLogEvent('info', 'No user_id found in session, proceeding without user_id');
-        }
-        
-        // Insert the data with user_id
-        const insertResult = await sb
-          .from('leads')
-          .insert(cleanedRows as any[], { count: 'exact' });
-        insertErr = insertResult.error;
-        count = insertResult.count;
-        
-        // Create a processing status entry
-        if (!insertErr && user_id) {
-          await sb.from('processing_status').insert({
-            user_id,
-            file: file.name,
-            status: 'completed',
-            completed_at: new Date()
-          });
-        }
+        // Insert the data without user_id (single-user/no-user-ownership mode)
+const insertResult = await sb
+  .from('leads')
+  .insert(cleanedRows as any[], { count: 'exact' });
+insertErr = insertResult.error;
+count = insertResult.count;
+// Skipping processing_status entry, as user_id is not tracked
+
       } catch (e: any) {
         await postLogEvent('error', `Bulk insert threw: ${e.message}`);
         await postLogEvent('error', `First row: ${JSON.stringify(cleanedRows[0])}`);
@@ -557,15 +526,14 @@ export async function POST(req: Request) {
       await postLogEvent('info', 'Starting lead normalization process...');
       
       try {
-        // Call the normalization API endpoint
-        const normResponse = await fetch(new URL('/api/leads/normalize', req.url).toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sourceFilename: file?.name || 'unknown-file',
-            userId: userId
-          })
-        });
+        // Call the normalization API endpoint (single-user mode, no userId needed)
+const normResponse = await fetch(new URL('/api/leads/normalize', req.url).toString(), {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    sourceFilename: file?.name || 'unknown-file'
+  })
+});
         
         if (!normResponse.ok) {
           const normError = await normResponse.json();

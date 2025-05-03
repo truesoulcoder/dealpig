@@ -20,6 +20,67 @@ SET check_function_bodies = false;
 
 -- ===================== TABLES ============================
 
+-- ===================== STORAGE BUCKET: lead-uploads ============================
+-- Create the storage bucket if it doesn't exist
+insert into storage.buckets (id, name, public)
+select 'lead-uploads', 'lead-uploads', false
+where not exists (select 1 from storage.buckets where id = 'lead-uploads');
+
+-- Enable RLS on storage.objects
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Allow authenticated users to upload files to lead-uploads
+DROP POLICY IF EXISTS "Authenticated users can upload to lead-uploads" ON storage.objects;
+CREATE POLICY "Authenticated users can upload to lead-uploads"
+  ON storage.objects
+  FOR INSERT
+  WITH CHECK (
+    bucket_id = 'lead-uploads' AND
+    auth.role() = 'authenticated' AND
+    owner = auth.uid()
+  );
+
+-- Policy: Allow authenticated users to view their own files in lead-uploads
+DROP POLICY IF EXISTS "Authenticated users can view their own uploads in lead-uploads" ON storage.objects;
+CREATE POLICY "Authenticated users can view their own uploads in lead-uploads"
+  ON storage.objects
+  FOR SELECT
+  USING (
+    bucket_id = 'lead-uploads' AND
+    auth.uid() = owner
+  );
+
+-- Policy: Allow authenticated users to update their own files in lead-uploads
+DROP POLICY IF EXISTS "Authenticated users can update their own uploads in lead-uploads" ON storage.objects;
+CREATE POLICY "Authenticated users can update their own uploads in lead-uploads"
+  ON storage.objects
+  FOR UPDATE
+  USING (
+    bucket_id = 'lead-uploads' AND
+    auth.uid() = owner
+  );
+
+-- Policy: Allow authenticated users to delete their own files in lead-uploads
+DROP POLICY IF EXISTS "Authenticated users can delete their own uploads in lead-uploads" ON storage.objects;
+CREATE POLICY "Authenticated users can delete their own uploads in lead-uploads"
+  ON storage.objects
+  FOR DELETE
+  USING (
+    bucket_id = 'lead-uploads' AND
+    auth.uid() = owner
+  );
+
+-- Policy: Allow service_role full access to lead-uploads
+DROP POLICY IF EXISTS "Service role full access to lead-uploads" ON storage.objects;
+CREATE POLICY "Service role full access to lead-uploads"
+  ON storage.objects
+  FOR ALL
+  USING (
+    bucket_id = 'lead-uploads' AND
+    auth.role() = 'service_role'
+  );
+
+
 -- Lead Sources Table
 CREATE TABLE IF NOT EXISTS public.lead_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -303,6 +364,20 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION public.exec_sql(text) TO authenticated;
 COMMENT ON FUNCTION public.exec_sql IS 'Safely executes SQL queries. Only available to authenticated users.';
+
+-- Wrapper for running arbitrary SQL (for compatibility)
+DROP FUNCTION IF EXISTS public.run_sql(text);
+CREATE OR REPLACE FUNCTION public.run_sql(sql text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE sql;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.run_sql(text) TO authenticated, service_role;
+COMMENT ON FUNCTION public.run_sql(text) IS 'Executes arbitrary SQL for compatibility with legacy API. Use with caution.';
 
 -- Function to handle new user profile creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
