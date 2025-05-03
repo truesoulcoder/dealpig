@@ -1,6 +1,6 @@
 # DealPig Development Plan
 
-**Last Updated:** May 1, 2025
+**Last Updated:** May 3, 2025
 
 This document outlines the current development status of the DealPig application based on the features described in the README.
 
@@ -102,7 +102,15 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 -   [x] Apply migrations to remote database (`supabase db push --include-all`)
 -   [x] Pull schema changes and generate initial types (`supabase db pull`)
 -   [x] Generate TypeScript types (`supabase gen types typescript > types/supabase.ts`)
--   [x] Develop CSV upload action (`leadUpload.action.ts`)
+-   [x] Correct lead upload/normalization logic (`/api/leads/upload/route.ts`):
+    -   [x] Fetch actual column names from `leads` table.
+    -   [x] Map CSV headers (case-insensitive) to correct database column names (including snake_case and quoted identifiers like "AVM").
+    -   [x] Use correct column names for insertion into `leads`.
+    -   [x] Update normalization SQL to use correct column names from `leads`.
+-   [x] Create migration to change `normalized_leads` columns to `TEXT` to simplify ingestion and avoid casting errors (`supabase migration new change_normalized_leads_types_to_text`) - `20250503080800_change_normalized_leads_types_to_text.sql`
+-   [x] Apply migrations (`supabase db push`)
+-   [x] Update `/api/leads/upload/route.ts` to remove type casting in normalization SQL, reflecting the `TEXT` schema change.
+-   [ ] Develop CSV upload action (`leadUpload.action.ts`) -- *Note: This might need renaming/revising as current implementation uses `/api/leads/upload/route.ts`*
     -   [x] Parse CSV data (`papaparse`)
     -   [x] Transform headers to snake_case
     -   [x] Insert data into `leads` staging table

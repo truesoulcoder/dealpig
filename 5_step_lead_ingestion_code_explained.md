@@ -8,7 +8,7 @@ This document explains, in plain English, each of the 5 steps of your lead inges
 
 **What happens?**
 - The user uploads a CSV file of raw leads through the UI (Leads page).
-- The file is stored in the `lead-imports` storage bucket with a unique filename (e.g., `filename_uniquehash.csv`).
+- The file is stored in the `lead-uploads` storage bucket with a unique filename (e.g., `filename_uniquehash.csv`).
 
 **Where is this handled in code?**
 - **Frontend:** `LeadUploader.tsx` (handles file selection and upload)
@@ -16,7 +16,7 @@ This document explains, in plain English, each of the 5 steps of your lead inges
   - Handles the HTTP POST request from the UI.
   - Validates the CSV file.
   - Uses PapaParse to parse the CSV in-memory.
-  - Uploads the file to Supabase Storage (`lead-imports` bucket).
+  - Uploads the file to Supabase Storage (`lead-uploads` bucket).
   - **Logging:** On success/failure, logs the result to the UI ConsoleLog and to the backend events table.
 - **Metadata Registration:** `app/api/leads/register-source/route.ts`
   - After upload, this route records metadata about the file in the `lead_sources` table (including filename, upload time, user, etc.).
@@ -28,15 +28,18 @@ This document explains, in plain English, each of the 5 steps of your lead inges
 
 **What happens?**
 - The system prepares the `leads` table for new data by truncating (clearing) it.
-- The uploaded CSV is imported directly into the `leads` table, mapping columns 1:1.
+- The uploaded CSV is imported directly into the `leads` table with data from the uploaded csv filling appropriate columns where values exist. If a value doesnt exist for a column, it is left empty.  
+*note: not every csv file will have data for every column, so some columns will be left empty.*
 
-**Where is this handled in code?**
+**Where is this handled in code?  It's not working currently**
+**So the error must be coming from logic in this section**
+**Review the codebase for any errors in the raw lead processing logic and edit this section reflecting the fixes you applied**
 - **SQL Script:** `data/RAW_LEAD_PROCESSING.sql`
   ```sql
   -- STEP 2: Raw Lead Processing
   INSERT INTO events (type, message, timestamp) VALUES ('info', 'Raw lead processing started', NOW());
   TRUNCATE TABLE leads;
-  -- Import CSV into leads (1:1 mapping with headers)
+  -- Import CSV into leads
   -- Example (PostgreSQL):
   -- \\copy leads FROM '/path/to/lead-imports/filename_uniquehash.csv' WITH (FORMAT csv, HEADER true)
   INSERT INTO events (type, message, timestamp) VALUES ('info', 'Raw lead processing completed successfully', NOW());

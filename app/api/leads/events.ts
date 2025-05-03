@@ -25,6 +25,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     logEvent(type, message);
     res.status(201).json({ ok: true });
   } else {
+    res.setHeader('Allow', ['GET', 'POST']);
     res.status(405).end();
   }
 }
