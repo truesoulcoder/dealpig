@@ -12,6 +12,11 @@ interface LeadsWorkspaceProps {
   onLeadEdit: (lead: any) => void;
   onRefresh: () => void;
   onSave: () => void;
+  messages: Array<{
+    type: 'info' | 'error' | 'success';
+    message: string;
+    timestamp?: number;
+  }>;
 }
 
 export default function LeadsWorkspace({

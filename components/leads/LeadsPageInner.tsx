@@ -77,6 +77,7 @@ export default function LeadsPageInner() {
         onSave={() => {
           // TODO: Implement save all changes logic (batch update to backend)
         }}
+        messages={messages}
       />
     </div>
   );

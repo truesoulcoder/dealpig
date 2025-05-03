@@ -151,20 +151,31 @@ END
 $$;
 
 -- Step 6: Drop all standard tables in correct dependency order
+-- Drop indexes explicitly (in case some remain after CASCADE)
+DROP INDEX IF EXISTS idx_normalized_leads_contact_email;
+DROP INDEX IF EXISTS idx_normalized_leads_property_address;
+DROP INDEX IF EXISTS idx_console_log_events_user_id;
+DROP INDEX IF EXISTS idx_console_log_events_type;
+DROP INDEX IF EXISTS idx_campaigns_user_id;
+DROP INDEX IF EXISTS idx_campaign_leads_campaign_id;
+DROP INDEX IF EXISTS idx_campaign_leads_lead_id;
+DROP INDEX IF EXISTS idx_campaign_senders_campaign_id;
+DROP INDEX IF EXISTS idx_campaign_senders_sender_id;
+
 -- Drop junction/child tables first
-DROP TABLE IF EXISTS public.email_events CASCADE;
-DROP TABLE IF EXISTS public.emails CASCADE;
 DROP TABLE IF EXISTS public.campaign_leads CASCADE;
 DROP TABLE IF EXISTS public.campaign_senders CASCADE;
 
--- Drop main tables (reverse order of setup where dependencies allow)
+-- Drop main tables
+DROP TABLE IF EXISTS public.document_templates CASCADE;
+DROP TABLE IF EXISTS public.email_templates CASCADE;
+DROP TABLE IF EXISTS public.console_log_events CASCADE;
 DROP TABLE IF EXISTS public.campaigns CASCADE;
-DROP TABLE IF EXISTS public.templates CASCADE;
-DROP TABLE IF EXISTS public.senders CASCADE;
-DROP TABLE IF EXISTS public.normalized_leads CASCADE; -- Added this line
+DROP TABLE IF EXISTS public.normalized_leads CASCADE;
 DROP TABLE IF EXISTS public.leads CASCADE;
 DROP TABLE IF EXISTS public.lead_sources CASCADE;
-DROP TABLE IF EXISTS public.profiles CASCADE; -- Depends on auth.users, drop last among these
+DROP TABLE IF EXISTS public.profiles CASCADE;
+-- Add any other tables created by setup_tables.sql here
 
 -- Step 7: Revoke permissions (Optional but good practice)
 -- Note: Dropping objects usually removes associated grants. Explicit revoke is generally not needed here.
