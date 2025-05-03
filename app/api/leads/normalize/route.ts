@@ -88,9 +88,6 @@ export async function POST(req: Request) {
       message: `Successfully normalized and archived ${normalizedCount} leads from ${sourceFilename}`,
       count: normalizedCount
     });
-    
-    });
-    
   } catch (error: any) {
     console.error('Unexpected error during normalization:', error);
     await postLogEvent('error', `Unexpected error: ${error.message || 'Unknown error'}`);
