@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
-import { Database } from '@/types/supabase';
 
 interface UserProps {
   userId?: string;

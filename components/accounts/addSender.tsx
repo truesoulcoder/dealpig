@@ -3,12 +3,6 @@ import {
   Button,
   Input,
   Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  useDisclosure,
-} from "@heroui/react";
 import React, { useState, useEffect } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useSearchParams } from "next/navigation";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, ChangeEvent, FC } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table,
   TableHeader,
