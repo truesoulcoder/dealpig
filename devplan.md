@@ -42,10 +42,13 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Displaying Lead List (`app/(app)/leads/page.tsx`, `components/leads/index.tsx`, `components/leads/LeadsTable.tsx`, `actions/leads.action.ts::getLeads`) - **Functional**
     *   Displaying Lead Sources (Needs implementation, likely fetching from `lead_sources` table to show import status/history).
 *   Database setup is now fully automated via `supabase/setup.sql`, which creates all necessary tables, policies, RLS, roles, functions, triggers, and indexes for the lead management workflow.
-*  ## Lead Ingestion Pipeline
-- Automates uploading, processing, normalization, and archiving of lead data using Supabase storage and policies.
-- Maps CSV headers to database fields for normalization.
-- Handles errors related to fetching lead table columns.
+*  ### Leads Ingestion Pipeline
+
+- CSV upload endpoint parses and inserts data into the `leads` table.
+- Normalization API (`/api/leads/normalize`) processes data from `leads` to `normalized_leads`.
+- Archive function saves normalized data to a dynamically named table for historical record-keeping.
+- **After normalization and archiving, the API now truncates (clears) both `normalized_leads` and `leads` tables to ensure a fresh state for every upload.** This prevents stale data and ensures the pipeline is always ready for the next file.
+- Console log and processing status updates are streamed to the UI for user feedback.
 - Ensures proper mapping of CSV headers to database fields during the upload process.
 - **The upload script now only inserts columns from the CSV that exist in the `leads` table.**
     - The script does NOT require every possible column to be present in the CSV.

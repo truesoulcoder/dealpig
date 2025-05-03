@@ -18,6 +18,15 @@ async function postLogEvent(type: 'info' | 'error' | 'success', message: string,
 
 export async function POST(req: Request) {
   try {
+    // Always clear normalized_leads and leads BEFORE processing new data
+    const sb = createAdminClient();
+    await postLogEvent('info', 'Clearing normalized_leads and leads tables BEFORE normalization...');
+    const { error: truncNormError } = await sb.rpc('run_sql', { sql: 'TRUNCATE TABLE public.normalized_leads, public.leads;' });
+    if (truncNormError) {
+      await postLogEvent('error', `Error truncating tables before normalization: ${truncNormError.message}`);
+      // Not fatal, continue
+    }
+
     const { sourceFilename, userId } = await req.json();
     
     if (!sourceFilename) {
@@ -29,8 +38,6 @@ export async function POST(req: Request) {
 
     // Log the start of the normalization process
     await postLogEvent('info', `Starting lead normalization for ${sourceFilename}`, userId);
-    
-    const sb = createAdminClient();
     
     // Step 1: Run the normalization function
     await postLogEvent('info', 'Running normalization function...', userId);
@@ -80,6 +87,8 @@ export async function POST(req: Request) {
       success: true, 
       message: `Successfully normalized and archived ${normalizedCount} leads from ${sourceFilename}`,
       count: normalizedCount
+    });
+    
     });
     
   } catch (error: any) {

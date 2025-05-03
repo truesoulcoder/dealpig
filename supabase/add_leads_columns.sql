@@ -1,3 +1,6 @@
+-- Fix lot_size_sqft column naming to match schema
+ALTER TABLE public.leads RENAME COLUMN lot_size_sqft TO lot_size_sq_ft;
+
 -- Migration: Add all missing columns from the CSV to the leads table, using snake_case
 ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS last_name TEXT;

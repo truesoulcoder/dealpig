@@ -361,8 +361,8 @@ export async function POST(req: Request) {
       steps.push('Cleaning and preparing data for insertion...');
       await postLogEvent('info', 'Cleaning and preparing data for insertion...');
 
-      // Identify numeric columns from the actual DB schema for cleaning
-      const numericColumns = new Set([
+      // Identify TEXT columns from the actual DB schema for cleaning
+      const TEXTColumns = new Set([
         'avm', 'assessed_total', 'assessed_year', 'baths', 'beds',
         'mls_curr_days_on_market', 'square_footage', 'lot_size_sqft',
         'year_built', 'stories', 'units', 'fireplace',
@@ -379,7 +379,7 @@ export async function POST(req: Request) {
         'mls_prev_sqft', 'mls_prev_lot', 'mls_prev_beds',
         'mls_prev_baths', 'mls_prev_stories', 'mls_prev_year_built',
         'retail_score', 'rental_score', 'wholesale_score'
-        // Add any other numeric columns from your schema here
+        // Add any other TEXT columns from your schema here
       ]);
 
       // Debug: Log first row of CSV data
@@ -406,21 +406,7 @@ export async function POST(req: Request) {
     return;
   }
 
-  // Clean numeric fields
-  const numericFieldNames = ['square_footage', 'lot_size_sqft', 'price_per_sqft', 'tax_amount', 'avm',
-    'wholesale_value', 'market_value', 'assessed_total', 'mls_curr_list_price',
-    'mls_curr_sale_price', 'mls_prev_list_price', 'mls_prev_sale_price', 'rental_estimate_high',
-    'rental_estimate_low', 'tax_assessment_land', 'tax_assessment_improvements', 'tax_assessment_total'];
-
-  if (numericColumns.has(lowerCsvHeader) || numericFieldNames.includes(dbColumnName.toLowerCase())) {
-    if (typeof value === 'string') {
-      // Remove currency symbols, commas, etc.
-      const cleanedValue = value.replace(/[$,% ]/g, '');
-      if (cleanedValue && !isNaN(Number(cleanedValue))) {
-        value = Number(cleanedValue);
-      }
-    }
-  }
+  
 
   // Handle date fields
   if (dbColumnName.toLowerCase().includes('date') && value) {
@@ -571,12 +557,12 @@ const normResponse = await fetch(new URL('/api/leads/normalize', req.url).toStri
           property_state TEXT,
           property_postal_code TEXT,
           property_type TEXT,
-          baths NUMERIC,
-          beds NUMERIC,
+          baths TEXT,
+          beds TEXT,
           year_built INTEGER,
-          square_footage NUMERIC,
-          wholesale_value NUMERIC,
-          assessed_total NUMERIC,
+          square_footage TEXT,
+          wholesale_value TEXT,
+          assessed_total TEXT,
           mls_curr_status TEXT,
           mls_curr_days_on_market INTEGER,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
