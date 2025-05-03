@@ -25,7 +25,7 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Sidebar Navigation (`components/sidebar`)
     *   Navbar (`components/navbar`)
 *   **Lead Management:**
-    *   CSV import pipeline (`actions/leadUpload.action.ts`) – Uploads CSV to storage, records source, triggers normalization asynchronously – **Implemented**
+    *   CSV import pipeline (`actions/leadUpload.action.ts`) – Uploads CSV to storage, **registers every uploaded file in `lead_sources` by calling `/api/leads/register-source` after upload**, triggers normalization asynchronously – **Implemented**
     *   Lead normalization (`actions/leadIngestion.action.ts::normalizeLeads`) – Parses each CSV row into multiple lead records (contacts + agent) and bulk inserts into `leads` table – **Implemented**
     *   Lead upload via API (`app/api/leads/upload/route.ts`) - Fixed to properly map CSV columns to database fields and handle errors gracefully - **Verified Working**
     *   CSV header parsing (`app/api/leads/headers/route.ts`) - Improved to handle different file formats and provide better error handling - **Verified Working**
@@ -48,7 +48,14 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 - Normalization API (`/api/leads/normalize`) processes data from `leads` to `normalized_leads`.
 - Archive function saves normalized data to a dynamically named table for historical record-keeping. **Archiving is now performed exclusively via explicit backend RPC calls after normalization, not via database triggers. This ensures archiving always happens reliably and transparently.**
 - **The `normalized_leads` table is now defined with `wholesale_value` and `assessed_total` as `TEXT` throughout the normalization pipeline, ensuring data type consistency and resolving archiving issues.**
-- **After normalization and archiving, the API now truncates (clears) both `normalized_leads` and `leads` tables to ensure a fresh state for every upload.** This prevents stale data and ensures the pipeline is always ready for the next file.
+- **Clearing of both `normalized_leads` and `leads` tables is now handled by a dedicated function, `clear_lead_tables()`, which must be called at the very start of the ingestion pipeline (before any upload or normalization).**
+    - This prevents accidental data loss and ensures the pipeline always starts with a fresh state.
+    - The `archive_normalized_leads()` function now only archives data and does not clear any tables.
+    - **Operational Sequence:**
+        1. Call `SELECT public.clear_lead_tables();` before uploading or processing new leads.
+        2. Upload/process leads as usual.
+        3. Call `SELECT public.archive_normalized_leads('filename.csv');` to archive normalized leads after processing.
+    - This separation of concerns ensures safe, predictable, and robust ingestion and archiving.
 - Console log and processing status updates are streamed to the UI for user feedback.
 - Ensures proper mapping of CSV headers to database fields during the upload process.
 - **The upload script now only inserts columns from the CSV that exist in the `leads` table.**

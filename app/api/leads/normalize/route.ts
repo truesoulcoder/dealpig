@@ -21,9 +21,10 @@ export async function POST(req: Request) {
     // Always clear normalized_leads and leads BEFORE processing new data
     const sb = createAdminClient();
     await postLogEvent('info', 'Clearing normalized_leads and leads tables BEFORE normalization...');
-    const { error: truncNormError } = await sb.rpc('run_sql', { sql: 'TRUNCATE TABLE public.normalized_leads, public.leads;' });
-    if (truncNormError) {
-      await postLogEvent('error', `Error truncating tables before normalization: ${truncNormError.message}`);
+    // Clear tables before normalization (use DELETE FROM to respect foreign keys)
+    const { error: clearNormError } = await sb.rpc('run_sql', { sql: 'DELETE FROM public.normalized_leads; DELETE FROM public.leads;' });
+    if (clearNormError) {
+      await postLogEvent('error', `Error clearing tables before normalization: ${clearNormError.message}`);
       // Not fatal, continue
     }
 

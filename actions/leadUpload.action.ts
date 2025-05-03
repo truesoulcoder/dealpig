@@ -45,7 +45,27 @@ export async function uploadLeads(formData: FormData) {
       return { success: false, error: 'Storage upload failed', details: uploadErr.message };
     }
 
-    /* ---------- 2.  PARSE + BULK INSERT INTO leads ---------- */
+    /* ---------- 2.  REGISTER LEAD SOURCE ---------- */
+    // Register the uploaded file as a new lead source in the database
+    try {
+      const registerRes = await fetch('/api/leads/register-source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storagePath: objectPath,
+          originalFileName: file.name,
+          // You can add user_id here if available from session/cookies
+        }),
+      });
+      if (!registerRes.ok) {
+        const regErr = await registerRes.json();
+        console.warn('Lead source registration failed:', regErr);
+      }
+    } catch (regError) {
+      console.warn('Lead source registration exception:', regError);
+    }
+
+    /* ---------- 3.  PARSE + BULK INSERT INTO leads ---------- */
     const csvText = new TextDecoder().decode(fileBytes);
     const parsed = Papa.parse<Record<string, any>>(csvText, {
       header: true,

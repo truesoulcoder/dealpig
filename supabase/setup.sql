@@ -7,6 +7,17 @@
 -- Start Transaction
 BEGIN;
 
+-- ===================== CLEAR TABLES FOR FRESH SETUP ============================
+-- Delete from child tables first to avoid FK constraint violations
+DELETE FROM public.console_log_events;
+DELETE FROM public.normalized_leads;
+DELETE FROM public.leads;
+DELETE FROM public.lead_sources;
+DELETE FROM public.profiles;
+-- Add additional DELETE FROM statements for any other tables that require clearing
+-- ===============================================================================
+
+
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -389,7 +400,7 @@ BEGIN
         mls_curr_days_on_market TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
     );
-    TRUNCATE TABLE public.normalized_leads;
+    DELETE FROM public.normalized_leads WHERE TRUE;
     INSERT INTO public.normalized_leads (
         original_lead_id,
         contact_name, contact_email,
@@ -443,12 +454,32 @@ BEGIN
     EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_contact_email ON public.%I (contact_email)', archive_table_name, archive_table_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_property_address ON public.%I (property_address)', archive_table_name, archive_table_name);
     EXECUTE format('COMMENT ON TABLE public.%I IS %L', archive_table_name, 'Archived normalized leads from ' || source_filename || ' created on ' || now()::text);
-    TRUNCATE TABLE public.normalized_leads;
-    TRUNCATE TABLE public.leads;
-    RAISE NOTICE 'Normalized leads archived to table: %', archive_table_name;
+
+    -- Enable RLS and add default service_role policy
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', archive_table_name);
+    EXECUTE format('DROP POLICY IF EXISTS "Service role full access to %I" ON public.%I', archive_table_name, archive_table_name);
+    EXECUTE format('CREATE POLICY "Service role full access to %I" ON public.%I FOR ALL USING (auth.role() = ''service_role'')', archive_table_name, archive_table_name);
+
+    RAISE NOTICE 'Normalized leads archived to table: %.', archive_table_name;
 END;
 $$;
-COMMENT ON FUNCTION public.archive_normalized_leads(TEXT) IS 'Archives the normalized_leads table to a new table with a name based on the source filename, then truncates both the normalized_leads and leads tables to prepare for the next upload.';
+COMMENT ON FUNCTION public.archive_normalized_leads(TEXT) IS 'Archives the normalized_leads table to a new table with a name based on the source filename.';
+GRANT EXECUTE ON FUNCTION public.archive_normalized_leads(TEXT) TO service_role;
+
+-- ===================== CLEAR TABLES FUNCTION ============================
+CREATE OR REPLACE FUNCTION public.clear_lead_tables()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    DELETE FROM public.normalized_leads WHERE TRUE;
+    DELETE FROM public.leads WHERE TRUE;
+    RAISE NOTICE 'Cleared all rows from normalized_leads and leads.';
+END;
+$$;
+COMMENT ON FUNCTION public.clear_lead_tables() IS 'Clears all rows from normalized_leads and leads tables. Call this at the start of the ingestion pipeline.';
+GRANT EXECUTE ON FUNCTION public.clear_lead_tables() TO service_role;
 GRANT EXECUTE ON FUNCTION public.archive_normalized_leads(TEXT) TO service_role;
 
 -- Helper function to get the latest filename from lead_sources
@@ -461,6 +492,45 @@ AS $$
 $$;
 
 
+-- Function: Normalize archive table column types
+-- Usage: SELECT public.normalize_archive_table_types('your_archive_table_name');
+-- Edit the mapping section to add your columns and desired types!
+CREATE OR REPLACE FUNCTION public.normalize_archive_table_types(archive_table_name TEXT)
+RETURNS void AS $$
+DECLARE
+  rec RECORD;
+  target_type TEXT;
+BEGIN
+  FOR rec IN
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = archive_table_name
+  LOOP
+    -- === COLUMN TYPE MAPPING SECTION ===
+    -- Add more columns and types as needed below:
+    IF rec.column_name = 'beds' THEN
+      target_type := 'integer';
+    ELSIF rec.column_name = 'baths' THEN
+      target_type := 'integer';
+    ELSIF rec.column_name = 'offer_price' THEN
+      target_type := 'numeric';
+    ELSIF rec.column_name = 'created_at' THEN
+      target_type := 'timestamptz';
+    -- EXAMPLES: Add more mappings here
+    -- ELSIF rec.column_name = 'property_type' THEN
+    --   target_type := 'text';
+    ELSE
+      CONTINUE;
+    END IF;
+    -- === END MAPPING SECTION ===
+    EXECUTE format(
+      'ALTER TABLE public.%I ALTER COLUMN %I TYPE %s USING %I::%s',
+      archive_table_name, rec.column_name, target_type, rec.column_name, target_type
+    );
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- List dynamic lead tables function
 DROP FUNCTION IF EXISTS public.list_dynamic_lead_tables();

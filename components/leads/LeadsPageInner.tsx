@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import LeadUploader from './LeadUploader';
 import LeadsWorkspace from './LeadsWorkspace';
 import ProcessingStatusTable from './ProcessingStatusTable';
-import { fetchConsoleLogEvents, useRealtimeConsoleLogEvents } from './useConsoleLogEvents';
+import { fetchConsoleLogEvents } from './useConsoleLogEvents';
 import { useTheme } from '../ui/theme-context';
 import ThemeToggle from '../ui/ThemeToggle';
 
@@ -19,7 +19,9 @@ export default function LeadsPageInner() {
     timestamp?: number;
   }[]>([]);
 
-  useRealtimeConsoleLogEvents(setMessages);
+  // Only fetch logs at specific events (not real-time or polling)
+  // On page load
+  useEffect(() => { fetchConsoleLogEvents().then(setMessages); }, []);
 
   function addMessage(type: 'info' | 'error' | 'success', message: string) {
     setMessages(msgs => [...msgs, { type, message, timestamp: Date.now() }]);
@@ -49,7 +51,13 @@ export default function LeadsPageInner() {
       </div>
       <h1 className="text-2xl md:text-3xl font-bold text-green-300 mb-4 tracking-wide">Leads Dashboard</h1>
       <div className="w-full max-w-md mx-auto">
-        <LeadUploader onUpload={() => { fetchTables(); fetchConsoleLogEvents().then(setMessages); }} />
+        <LeadUploader 
+          onUpload={() => {
+            fetchTables();
+            fetchConsoleLogEvents().then(setMessages); // On successful archiving
+          }}
+          addMessage={addMessage}
+        />
       </div>
       {/* Show processing status table for this user */}
       <ProcessingStatusTable />
@@ -64,6 +72,7 @@ export default function LeadsPageInner() {
         }}
         onRefresh={() => {
           if (selected) fetchLeads(selected);
+          fetchConsoleLogEvents().then(setMessages); // On refresh button click
         }}
         onSave={() => {
           // TODO: Implement save all changes logic (batch update to backend)
