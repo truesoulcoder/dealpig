@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.storage
-      .from('lead-imports')
+      .from('lead-uploads') // Bucket for lead uploads
       .list('', { limit: 100, sortBy: { column: 'updated_at', order: 'desc' } });
     if (error) {
       console.error('[API /leads/list] storage list error:', error);

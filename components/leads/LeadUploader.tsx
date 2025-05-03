@@ -12,8 +12,16 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
 
   // Initialize audio elements on client only
   useEffect(() => {
-    successAudioRef.current = new Audio('/success.mp3');
-    failureAudioRef.current = new Audio('/failed.mp3');
+    try {
+      successAudioRef.current = new Audio('/success.mp3');
+      failureAudioRef.current = new Audio('/failed.mp3');
+      
+      // Preload audio files
+      successAudioRef.current.load();
+      failureAudioRef.current.load();
+    } catch (err) {
+      console.warn('Audio initialization error:', err);
+    }
   }, []);
 
   // Helper to add a progress message
@@ -50,13 +58,31 @@ export default function LeadUploader({ onUpload }: { onUpload?: () => void }) {
         setMessage(`${result.rows ?? result.count} leads imported.`);
         setSelectedFile(null);
         onUpload?.();
-        successAudioRef.current?.play().catch(err => console.error('Audio playback error', err));
+        // Play success sound with better error handling
+        if (successAudioRef.current) {
+          try {
+            successAudioRef.current.play().catch(err => {
+              console.warn('Success audio playback error:', err);
+            });
+          } catch (err) {
+            console.warn('Success audio error:', err);
+          }
+        }
       } catch (err) {
         console.error(err);
         const msg = err instanceof Error ? err.message : String(err);
         setMessage(`Upload failed: ${msg}`);
         addProgress(`❌ Upload failed: ${msg}`);
-        failureAudioRef.current?.play().catch(err => console.error('Audio playback error', err));
+        // Play failure sound with better error handling
+        if (failureAudioRef.current) {
+          try {
+            failureAudioRef.current.play().catch(err => {
+              console.warn('Failure audio playback error:', err);
+            });
+          } catch (err) {
+            console.warn('Failure audio error:', err);
+          }
+        }
       }
     });
   }

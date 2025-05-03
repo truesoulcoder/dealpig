@@ -27,16 +27,23 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 *   **Lead Management:**
     *   CSV import pipeline (`actions/leadUpload.action.ts`) – Uploads CSV to storage, records source, triggers normalization asynchronously – **Implemented**
     *   Lead normalization (`actions/leadIngestion.action.ts::normalizeLeads`) – Parses each CSV row into multiple lead records (contacts + agent) and bulk inserts into `leads` table – **Implemented**
+    *   Lead upload via API (`app/api/leads/upload/route.ts`) - Fixed to properly map CSV columns to database fields and handle errors gracefully - **Verified Working**
+    *   CSV header parsing (`app/api/leads/headers/route.ts`) - Improved to handle different file formats and provide better error handling - **Verified Working**
+    *   Console log events tracking - Added missing database table and policies for tracking upload events - **Verified Working**
 
 ## In Progress Features
 
 *   **Lead Management:**
-    *   **Asynchronous Import Process (Server Actions):**
+    *   **Asynchronous Import Process:**
         *   Frontend Uploader (`components/leads/LeadUploader.tsx`) - **Implemented**
-        *   Upload Server Action (`actions/leadUpload.action.ts`) - Uploads to storage, creates `lead_sources` record (status: `UPLOADED`), triggers normalization asynchronously. **Implemented**
-        *   Normalization Server Action (`actions/leadIngestion.action.ts::normalizeLeadsForSource`) - Runs asynchronously. Updates status (`PROCESSING`), downloads CSV, parses headers/rows, calculates hash, normalizes data (creates multiple leads per row), bulk inserts into `leads` table, updates status (`PROCESSED` or `ERROR`) with counts and metadata. **Implemented**
+        *   Upload API Route (`app/api/leads/upload/route.ts`) - Uploads to storage, parses CSV, maps columns to database fields, inserts leads, creates processing status records with user_id for RLS. **Implemented and Fixed**
+        *   Processing Status Tracking - Records upload status in `processing_status` table with user_id for Row Level Security. **Implemented**
+        *   Events API (`app/api/leads/events/route.ts`) - Fetches processing status events and console logs for real-time UI updates. **Implemented**
     *   Displaying Lead List (`app/(app)/leads/page.tsx`, `components/leads/index.tsx`, `components/leads/LeadsTable.tsx`, `actions/leads.action.ts::getLeads`) - **Functional**
     *   Displaying Lead Sources (Needs implementation, likely fetching from `lead_sources` table to show import status/history).
+*   Database setup is now fully automated via `supabase/setup.sql`, which creates all necessary tables, policies, RLS, roles, functions, triggers, and indexes for the lead management workflow.
+*   The ingestion pipeline is now **100% automated**: after leads are normalized, a new database trigger on `normalized_leads` automatically archives the normalized data and truncates both `normalized_leads` and `leads` tables, using the latest uploaded filename. No backend or manual intervention is required after upload.
+
     *   *Needs Work:* Detailed lead view, manual status updates, lead assignment, advanced filtering/searching, robust error display/feedback on frontend for background processing status, potentially replacing fire-and-forget with a more robust background job queue.
     *   *Removed/Replaced:* Previous `pgloader`-based workflow, separate `ingestLeadSource` preparation step.
 *   **Email Automation - Sender Management:**

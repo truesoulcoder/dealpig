@@ -13,7 +13,7 @@ export default function FileExplorer() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/leads/files?bucket=lead-imports') // <-- ensure this hits the right bucket
+    fetch('/api/leads/files?bucket=lead-uploads') // <-- bucket name for lead uploads
       .then(res => {
         if (!res.ok) throw new Error('Failed to load files');
         return res.json();
@@ -25,7 +25,7 @@ export default function FileExplorer() {
 
   return (
     <div style={{ border: '2px solid #0f0', borderRadius: 8, padding: 12, background: 'rgba(0,0,0,0.7)', marginBottom: 16 }}>
-      <h2 style={{ color: '#0f0', fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>Uploaded Files (lead-imports bucket)</h2>
+      <h2 style={{ color: '#0f0', fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>Uploaded Files (lead-uploads bucket)</h2>
       {loading && <p>Loading files…</p>}
       {error && <p className="text-red-600">Error: {error}</p>}
       {!loading && !error && files.length === 0 && <p className="text-gray-500 italic">No uploaded files.</p>}

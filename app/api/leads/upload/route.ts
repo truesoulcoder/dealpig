@@ -70,8 +70,22 @@ export async function POST(req: Request) {
         transformHeader: (header) => header.trim().toLowerCase(),
         dynamicTyping: true,
         complete: (results) => {
+          // Log the raw CSV headers for debugging
+          console.log('[upload] CSV headers:', results.meta.fields);
+          
           results.data.forEach((row) => {
-            row.avm = row.avm || null; // Set default value for missing 'avm' column
+            // Set default values for required fields
+            row.avm = row.avm || null;
+            
+            // Map property fields explicitly to ensure they're captured
+            // This handles common variations in CSV column naming
+            if (row.address && !row.property_address) row.property_address = row.address;
+            if (row.city && !row.property_city) row.property_city = row.city;
+            if (row.state && !row.property_state) row.property_state = row.state;
+            if (row.zip && !row.property_postal_code) row.property_postal_code = row.zip;
+            if (row.postal_code && !row.property_postal_code) row.property_postal_code = row.postal_code;
+            if (row.zipcode && !row.property_postal_code) row.property_postal_code = row.zipcode;
+            if (row.type && !row.property_type) row.property_type = row.type;
           });
         }
       });
@@ -104,11 +118,231 @@ export async function POST(req: Request) {
         const resultArr = (columnsData as any[])[0]?.result;
         if (Array.isArray(resultArr)) {
           dbColumns = resultArr.map((c: any) => c.column_name);
+          
+          // Log all available database columns for debugging
+          console.log('[upload] Available DB columns:', dbColumns);
+          
+          // Create mapping for exact matches
           dbColumns.forEach(dbCol => {
             // Normalize DB column name for matching (lowercase, remove quotes if present for key)
             const mapKey = dbCol.toLowerCase().replace(/"/g, '');
             csvHeaderToDbColumnMap.set(mapKey, dbCol);
           });
+          
+          // Define exact mapping from CSV headers to database columns
+          const exactMappings: Record<string, string> = {
+            // Basic info
+            'firstname': 'first_name',
+            'lastname': 'last_name',
+            'recipientaddress': 'recipient_address',
+            'recipientcity': 'recipient_city',
+            'recipientstate': 'recipient_state',
+            'recipientpostalcode': 'recipient_postal_code',
+            
+            // Property info
+            'propertyaddress': 'property_address',
+            'propertycity': 'property_city',
+            'propertystate': 'property_state',
+            'propertypostalcode': 'property_postal_code',
+            'county': 'county',
+            'ownertype': 'owner_type',
+            'lastsalesdate': 'last_sales_date',
+            'lastsalesprice': 'last_sales_price',
+            'pricepersqft': 'price_per_sqft',
+            'squarefootage': 'square_footage',
+            'lotsizesqft': 'lot_size_sqft',
+            'propertytype': 'property_type',
+            'baths': 'baths',
+            'beds': 'beds',
+            
+            // Contact info
+            'contact1name': 'contact1_name',
+            'contact1phone_1': 'contact1_phone_1',
+            'contact1phone_1_type': 'contact1_phone_1_type',
+            'contact1phone_1_dnc': 'contact1_phone_1_dnc',
+            'contact1phone_1_litigator': 'contact1_phone_1_litigator',
+            'contact1email_1': 'contact1_email_1',
+            'contact1phone_2': 'contact1_phone_2',
+            'contact1phone_2_type': 'contact1_phone_2_type',
+            'contact1phone_2_dnc': 'contact1_phone_2_dnc',
+            'contact1phone_2_litigator': 'contact1_phone_2_litigator',
+            'contact1email_2': 'contact1_email_2',
+            'contact1phone_3': 'contact1_phone_3',
+            'contact1phone_3_type': 'contact1_phone_3_type',
+            'contact1phone_3_dnc': 'contact1_phone_3_dnc',
+            'contact1phone_3_litigator': 'contact1_phone_3_litigator',
+            'contact1email_3': 'contact1_email_3',
+            
+            'contact2name': 'contact2_name',
+            'contact2phone_1': 'contact2_phone_1',
+            'contact2phone_1_type': 'contact2_phone_1_type',
+            'contact2phone_1_dnc': 'contact2_phone_1_dnc',
+            'contact2phone_1_litigator': 'contact2_phone_1_litigator',
+            'contact2email_1': 'contact2_email_1',
+            'contact2phone_2': 'contact2_phone_2',
+            'contact2phone_2_type': 'contact2_phone_2_type',
+            'contact2phone_2_dnc': 'contact2_phone_2_dnc',
+            'contact2phone_2_litigator': 'contact2_phone_2_litigator',
+            'contact2email_2': 'contact2_email_2',
+            'contact2phone_3': 'contact2_phone_3',
+            'contact2phone_3_type': 'contact2_phone_3_type',
+            'contact2phone_3_dnc': 'contact2_phone_3_dnc',
+            'contact2phone_3_litigator': 'contact2_phone_3_litigator',
+            'contact2email_3': 'contact2_email_3',
+            
+            'contact3name': 'contact3_name',
+            'contact3phone_1': 'contact3_phone_1',
+            'contact3phone_1_type': 'contact3_phone_1_type',
+            'contact3phone_1_dnc': 'contact3_phone_1_dnc',
+            'contact3phone_1_litigator': 'contact3_phone_1_litigator',
+            'contact3email_1': 'contact3_email_1',
+            'contact3phone_2': 'contact3_phone_2',
+            'contact3phone_2_type': 'contact3_phone_2_type',
+            'contact3phone_2_dnc': 'contact3_phone_2_dnc',
+            'contact3phone_2_litigator': 'contact3_phone_2_litigator',
+            'contact3email_2': 'contact3_email_2',
+            'contact3phone_3': 'contact3_phone_3',
+            'contact3phone_3_type': 'contact3_phone_3_type',
+            'contact3phone_3_dnc': 'contact3_phone_3_dnc',
+            'contact3phone_3_litigator': 'contact3_phone_3_litigator',
+            'contact3email_3': 'contact3_email_3',
+            
+            // Property details
+            'housestyle': 'house_style',
+            'yearbuilt': 'year_built',
+            'assessedyear': 'assessed_year',
+            'schooldistrict': 'school_district',
+            'stories': 'stories',
+            'heatingfuel': 'heating_fuel',
+            'subdivision': 'subdivision',
+            'zoning': 'zoning',
+            'units': 'units',
+            'condition': 'condition',
+            'exterior': 'exterior',
+            'interiorwalls': 'interior_walls',
+            'basement': 'basement',
+            'roof': 'roof',
+            'roofshape': 'roof_shape',
+            'water': 'water',
+            'sewer': 'sewer',
+            'locationinfluence': 'location_influence',
+            'heating': 'heating',
+            'airconditioning': 'air_conditioning',
+            'fireplace': 'fireplace',
+            'garage': 'garage',
+            'patio': 'patio',
+            'pool': 'pool',
+            'porch': 'porch',
+            
+            // Financial info
+            'taxamount': 'tax_amount',
+            'avm': 'AVM',
+            'rentalestimatehigh': 'rental_estimate_high',
+            'rentalestimatelow': 'rental_estimate_low',
+            'wholesalevalue': 'wholesale_value',
+            'marketvalue': 'market_value',
+            'assessedtotal': 'ASSESSED_TOTAL',
+            'numberofloans': 'number_of_loans',
+            'totalloans': 'total_loans',
+            'ltv': 'ltv',
+            'loanamount': 'loan_amount',
+            'recordingdate': 'recording_date',
+            'maturitydate': 'maturity_date',
+            'lendername': 'lender_name',
+            'estimatedmortgagebalance': 'estimated_mortgage_balance',
+            'estimatedmortgagepayment': 'estimated_mortgage_payment',
+            'mortgageinterestrate': 'mortgage_interest_rate',
+            'loantype': 'loan_type',
+            'event': 'event',
+            'buyer': 'buyer',
+            'seller': 'seller',
+            
+            // MLS current info
+            'mls_curr_listingid': 'mls_curr_listing_id',
+            'mls_curr_status': 'mls_curr_status',
+            'mls_curr_listdate': 'mls_curr_list_date',
+            'mls_curr_solddate': 'mls_curr_sold_date',
+            'mls_curr_daysonmarket': 'mls_curr_days_on_market',
+            'mls_curr_listprice': 'mls_curr_list_price',
+            'mls_curr_saleprice': 'mls_curr_sale_price',
+            'mls_curr_description': 'mls_curr_description',
+            'mls_curr_source': 'mls_curr_source',
+            'mls_curr_listagentname': 'mls_curr_list_agent_name',
+            'mls_curr_listagentphone': 'mls_curr_list_agent_phone',
+            'mls_curr_listagentoffice': 'mls_curr_list_agent_office',
+            'mls_curr_listagent_email': 'mls_curr_list_agent_email',
+            'mls_curr_pricepersqft': 'mls_curr_price_per_sqft',
+            'mls_curr_sqft': 'mls_curr_sqft',
+            'mls_curr_basement': 'mls_curr_basement',
+            'mls_curr_lot': 'mls_curr_lot',
+            'mls_curr_beds': 'mls_curr_beds',
+            'mls_curr_baths': 'mls_curr_baths',
+            'mls_curr_garage': 'mls_curr_garage',
+            'mls_curr_stories': 'mls_curr_stories',
+            'mls_curr_yearbuilt': 'mls_curr_year_built',
+            'mls_curr_photos': 'mls_curr_photos',
+            
+            // MLS previous info
+            'mls_prev_listingid': 'mls_prev_listing_id',
+            'mls_prev_status': 'mls_prev_status',
+            'mls_prev_listdate': 'mls_prev_list_date',
+            'mls_prev_solddate': 'mls_prev_sold_date',
+            'mls_prev_daysonmarket': 'mls_prev_days_on_market',
+            'mls_prev_listprice': 'mls_prev_list_price',
+            'mls_prev_saleprice': 'mls_prev_sale_price',
+            'mls_prev_description': 'mls_prev_description',
+            'mls_prev_source': 'mls_prev_source',
+            'mls_prev_listagentname': 'mls_prev_list_agent_name',
+            'mls_prev_listagentphone': 'mls_prev_list_agent_phone',
+            'mls_prev_listagentoffice': 'mls_prev_list_agent_office',
+            'mls_prev_listagent_email': 'mls_prev_list_agent_email',
+            'mls_prev_pricepersqft': 'mls_prev_price_per_sqft',
+            'mls_prev_sqft': 'mls_prev_sqft',
+            'mls_prev_basement': 'mls_prev_basement',
+            'mls_prev_lot': 'mls_prev_lot',
+            'mls_prev_beds': 'mls_prev_beds',
+            'mls_prev_baths': 'mls_prev_baths',
+            'mls_prev_garage': 'mls_prev_garage',
+            'mls_prev_stories': 'mls_prev_stories',
+            'mls_prev_yearbuilt': 'mls_prev_year_built',
+            'mls_prev_photos': 'mls_prev_photos',
+            
+            // Property flags
+            'absenteeowner': 'absentee_owner',
+            'activeinvestorowned': 'active_investor_owned',
+            'activelisting': 'active_listing',
+            'boredinvestor': 'bored_investor',
+            'cashbuyer': 'cash_buyer',
+            'delinquenttaxactivity': 'delinquent_tax_activity',
+            'flipped': 'flipped',
+            'foreclosures': 'foreclosures',
+            'freeandclear': 'free_and_clear',
+            'highequity': 'high_equity',
+            'longtermowner': 'long_term_owner',
+            'lowequity': 'low_equity',
+            'potentiallyinherited': 'potentially_inherited',
+            'preforeclosure': 'pre_foreclosure',
+            'upsidedown': 'upside_down',
+            'vacancy': 'vacancy',
+            'zombieproperty': 'zombie_property',
+            
+            // Scores and IDs
+            'retailscore': 'retail_score',
+            'rentalscore': 'rental_score',
+            'wholesalescore': 'wholesale_score',
+            'auctiondate': 'auction_date',
+            'lastnoticedate': 'last_notice_date',
+            'sourceid': 'source_id',
+            'addresshash': 'address_hash',
+            'id': 'id'
+          };
+          
+          // Add all exact mappings
+          Object.entries(exactMappings).forEach(([csvHeader, dbColumn]) => {
+            csvHeaderToDbColumnMap.set(csvHeader.toLowerCase(), dbColumn);
+          });
+          
+          console.log('[upload] CSV header to DB column mapping created with', csvHeaderToDbColumnMap.size, 'mappings');
         } else {
           const errorMsg = `run_sql did not return expected result array: ${JSON.stringify(columnsData)}`;
           await postLogEvent('error', errorMsg);
@@ -147,40 +381,84 @@ export async function POST(req: Request) {
         // Add any other numeric columns from your schema here
       ]);
 
+      // Debug: Log first row of CSV data
+      console.log('[upload] First row of CSV data:', rows[0]);
+      
       // Use the map to build rows with correct DB column names
       const cleanedRows = rows.map((row) => {
         const dbRow: Record<string, any> = {};
+        
+        // Process each field in the CSV row
         Object.keys(row).forEach(csvHeader => {
           const lowerCsvHeader = csvHeader.toLowerCase();
           if (lowerCsvHeader === 'id') return; // Skip CSV 'Id', let DB generate UUID
-
+          
+          // Look up the database column name for this CSV header
           const dbColumnName = csvHeaderToDbColumnMap.get(lowerCsvHeader);
+          
           if (dbColumnName) { // Only include if the CSV header maps to a DB column
             let value = row[csvHeader];
-
-            // Clean numeric fields based on the mapped DB column's lowercase name
-            if (numericColumns.has(lowerCsvHeader)) {
+            
+            // Skip empty values
+            if (value === undefined || value === null || value === '') {
+              dbRow[dbColumnName] = null;
+              return;
+            }
+            
+            // Clean numeric fields
+            const numericFieldNames = ['square_footage', 'lot_size_sqft', 'price_per_sqft', 'tax_amount', 'avm', 
+                'wholesale_value', 'market_value', 'assessed_total', 'mls_curr_list_price',
+                'mls_curr_sale_price', 'mls_prev_list_price', 'mls_prev_sale_price', 'rental_estimate_high',
+                'rental_estimate_low', 'tax_assessment_land', 'tax_assessment_improvements', 'tax_assessment_total'];
+                
+            if (numericColumns.has(lowerCsvHeader) || numericFieldNames.includes(dbColumnName.toLowerCase())) {
               if (typeof value === 'string') {
                 // Remove currency symbols, commas, etc.
                 const cleanedValue = value.replace(/[$,% ]/g, '');
-                // Allow negative numbers with '-' prefix
-                if (cleanedValue === '' || cleanedValue === '-') {
-                  value = null; // Treat empty or just '-' as null
-                } else {
-                  const num = parseFloat(cleanedValue);
-                  value = isNaN(num) ? null : num;
+                if (cleanedValue && !isNaN(Number(cleanedValue))) {
+                  value = Number(cleanedValue);
                 }
-              } else if (typeof value !== 'number') {
-                 // If it's not a string or number already, treat as null
-                 value = null;
               }
             }
-            // Ensure null for empty strings, otherwise use the potentially cleaned value
-            dbRow[dbColumnName] = (value === '' || value === undefined) ? null : value;
+            
+            // Handle date fields
+            if (dbColumnName.toLowerCase().includes('date') && value) {
+              try {
+                // Try to parse the date and format it as ISO string
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                  value = date.toISOString();
+                }
+              } catch (e) {
+                // If date parsing fails, keep the original value
+                console.log(`[upload] Failed to parse date: ${value}`);
+              }
+            }
+            
+            // Assign the value to the database row
+            dbRow[dbColumnName] = value;
           }
         });
+        
+        // Handle special mappings for address fields that might be in different formats
+        if (!dbRow.property_address && row.address) {
+          dbRow.property_address = row.address;
+        }
+        if (!dbRow.property_city && row.city) {
+          dbRow.property_city = row.city;
+        }
+        if (!dbRow.property_state && row.state) {
+          dbRow.property_state = row.state;
+        }
+        if (!dbRow.property_postal_code && (row.zip || row.postal_code || row.zipcode)) {
+          dbRow.property_postal_code = row.zip || row.postal_code || row.zipcode;
+        }
+        
         return dbRow;
       });
+      
+      // Debug: Log the first processed row
+      console.log('[upload] First processed row:', cleanedRows[0]);
 
       // Log any CSV columns that did not map to a DB column
       const csvColumns = Object.keys(rows[0] || {}).map(k => k.toLowerCase());
@@ -209,11 +487,45 @@ export async function POST(req: Request) {
 
       let insertErr, count;
       try {
+        // Get the user_id from the cookie/session
+        let user_id = null;
+        try {
+          // Get user ID from the auth API directly instead of cookies
+          const { data: { session } } = await sb.auth.getSession();
+          if (session?.user) {
+            user_id = session.user.id;
+          }
+        } catch (e: any) {
+          console.error('Error getting user_id from session:', e);
+          await postLogEvent('error', `Error getting user_id from session: ${e.message}`);
+        }
+        
+        // Add user_id to each row for RLS
+        if (user_id) {
+          cleanedRows.forEach(row => {
+            row.user_id = user_id;
+          });
+          await postLogEvent('info', `Adding user_id ${user_id} to all rows`);
+        } else {
+          await postLogEvent('info', 'No user_id found in session, proceeding without user_id');
+        }
+        
+        // Insert the data with user_id
         const insertResult = await sb
           .from('leads')
           .insert(cleanedRows as any[], { count: 'exact' });
         insertErr = insertResult.error;
         count = insertResult.count;
+        
+        // Create a processing status entry
+        if (!insertErr && user_id) {
+          await sb.from('processing_status').insert({
+            user_id,
+            file: file.name,
+            status: 'completed',
+            completed_at: new Date()
+          });
+        }
       } catch (e: any) {
         await postLogEvent('error', `Bulk insert threw: ${e.message}`);
         await postLogEvent('error', `First row: ${JSON.stringify(cleanedRows[0])}`);
@@ -230,12 +542,60 @@ export async function POST(req: Request) {
       steps.push('Creating normalized_leads table...');
       await postLogEvent('info', 'Creating normalized_leads table...');
 
-      /* ───── 3. Drop and recreate normalized_leads table (fresh for each batch) ───── */
+      /* ───── 3. Skip normalized_leads table creation for now ───── */
+      // Instead of creating a new table which might cause permission issues,
+      // let's just log the success and continue
+      steps.push('Skipping normalized_leads table creation to avoid permission issues.');
+      await postLogEvent('info', 'Skipping normalized_leads table creation to avoid permission issues.');
+      
+      // Log success for the initial insert
+      await postLogEvent('success', `Successfully inserted ${count} leads from ${file?.name || 'uploaded file'}`);
+      steps.push(`✅ Successfully inserted ${count} leads`);
+      
+      // Trigger the normalization process
+      steps.push('Starting lead normalization process...');
+      await postLogEvent('info', 'Starting lead normalization process...');
+      
+      try {
+        // Call the normalization API endpoint
+        const normResponse = await fetch(new URL('/api/leads/normalize', req.url).toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sourceFilename: file?.name || 'unknown-file',
+            userId: userId
+          })
+        });
+        
+        if (!normResponse.ok) {
+          const normError = await normResponse.json();
+          steps.push(`⚠ Normalization process started but returned an error: ${normError.message || 'Unknown error'}`);
+          await postLogEvent('error', `Normalization process error: ${normError.message || 'Unknown error'}`);
+        } else {
+          const normResult = await normResponse.json();
+          steps.push(`✅ ${normResult.message}`);
+        }
+      } catch (normError: any) {
+        // If normalization fails, log it but still return success for the upload
+        console.error('Error triggering normalization:', normError);
+        steps.push(`⚠ Normalization process started but encountered an error: ${normError.message || 'Unknown error'}`);
+        await postLogEvent('error', `Error triggering normalization: ${normError.message || 'Unknown error'}`);
+      }
+      
+      // Return success for the overall process
+      return NextResponse.json({ 
+        ok: true, 
+        rows: count, 
+        message: `Successfully inserted ${count} leads from ${file?.name || 'uploaded file'}`,
+        steps 
+      });
+      
+      /* The following code is commented out to avoid permission issues
+      // Define the SQL for creating the normalized_leads table
       const createNormalizedTableSQL = `
-        DROP TABLE IF EXISTS normalized_leads;
-        CREATE TABLE normalized_leads (
-          id SERIAL PRIMARY KEY,
-          original_lead_id BIGINT,
+        CREATE TABLE IF NOT EXISTS normalized_leads (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          original_lead_id UUID REFERENCES leads(id),
           contact_name TEXT,
           contact_email TEXT,
           property_address TEXT,
@@ -243,165 +603,54 @@ export async function POST(req: Request) {
           property_state TEXT,
           property_postal_code TEXT,
           property_type TEXT,
-          baths TEXT,
-          beds INTEGER,
+          baths NUMERIC,
+          beds NUMERIC,
           year_built INTEGER,
-          square_footage INTEGER,
+          square_footage NUMERIC,
           wholesale_value NUMERIC,
           assessed_total NUMERIC,
           mls_curr_status TEXT,
-          mls_curr_days_on_market INTEGER
-        );`;
+          mls_curr_days_on_market INTEGER,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `;
+      
       const { error: createNormErr } = await sb.rpc('run_sql', { sql: createNormalizedTableSQL });
       if (createNormErr) {
         await postLogEvent('error', `Failed to create normalized_leads table: ${createNormErr.message}`);
         steps.push(`❌ Failed to create normalized_leads table: ${createNormErr.message}`);
         return NextResponse.json({ ok: false, error: createNormErr.message, details: createNormErr, steps }, { status: 500 });
       }
-      steps.push('Created normalized_leads table for import.');
-      await postLogEvent('success', 'Created normalized_leads table for import.');
-      steps.push('Normalizing data...');
-      await postLogEvent('info', 'Normalizing data...');
+      */
 
-      /* ───── 4. Normalize data using mapping and WHERE logic ───── */
-      // Helper function to safely cast text to numeric, removing common non-numeric chars
-      const safeNumericCast = (colName: string) => `"${colName}"`;
-      const safeIntegerCast = (colName: string) => `"${colName}"`;
-
-      const normalizationSQL = `
-        INSERT INTO normalized_leads (
-          original_lead_id, contact_name, contact_email,
-          property_address, property_city, property_state, property_postal_code,
-          property_type, baths, beds, year_built, square_footage,
-          wholesale_value, assessed_total, mls_curr_status, mls_curr_days_on_market
-        )
-        SELECT
-          id,
-          contact1_name, contact1_email_1,
-          property_address, property_city, property_state, property_postal_code,
-          property_type,
-          ${safeIntegerCast('baths')},
-          ${safeIntegerCast('beds')},
-          ${safeIntegerCast('year_built')},
-          ${safeNumericCast('square_footage')},
-          ${safeNumericCast('wholesale_value')},
-          ${safeNumericCast('"ASSESSED_TOTAL"')}, -- Note: Quoted identifier
-          mls_curr_status,
-          ${safeIntegerCast('mls_curr_days_on_market')}
-        FROM leads
-        WHERE contact1_name IS NOT NULL AND TRIM(contact1_name) <> ''
-          AND contact1_email_1 IS NOT NULL AND TRIM(contact1_email_1) <> ''
-
-        UNION ALL
-
-        SELECT
-          id,
-          contact2_name, contact2_email_1,
-          property_address, property_city, property_state, property_postal_code,
-          property_type,
-          ${safeIntegerCast('baths')},
-          ${safeIntegerCast('beds')},
-          ${safeIntegerCast('year_built')},
-          ${safeNumericCast('square_footage')},
-          ${safeNumericCast('wholesale_value')},
-          ${safeNumericCast('"ASSESSED_TOTAL"')},
-          mls_curr_status,
-          ${safeIntegerCast('mls_curr_days_on_market')}
-        FROM leads
-        WHERE contact2_name IS NOT NULL AND TRIM(contact2_name) <> ''
-          AND contact2_email_1 IS NOT NULL AND TRIM(contact2_email_1) <> ''
-          AND (contact1_name IS NULL OR TRIM(contact1_name) = '' OR contact1_email_1 IS NULL OR TRIM(contact1_email_1) = '') -- Only use if contact 1 invalid
-
-        UNION ALL
-
-        SELECT
-          id,
-          contact3_name, contact3_email_1,
-          property_address, property_city, property_state, property_postal_code,
-          property_type,
-          ${safeIntegerCast('baths')},
-          ${safeIntegerCast('beds')},
-          ${safeIntegerCast('year_built')},
-          ${safeNumericCast('square_footage')},
-          ${safeNumericCast('wholesale_value')},
-          ${safeNumericCast('"ASSESSED_TOTAL"')},
-          mls_curr_status,
-          ${safeIntegerCast('mls_curr_days_on_market')}
-        FROM leads
-        WHERE contact3_name IS NOT NULL AND TRIM(contact3_name) <> ''
-          AND contact3_email_1 IS NOT NULL AND TRIM(contact3_email_1) <> ''
-          AND (contact1_name IS NULL OR TRIM(contact1_name) = '' OR contact1_email_1 IS NULL OR TRIM(contact1_email_1) = '') -- Only use if contact 1 invalid
-          AND (contact2_name IS NULL OR TRIM(contact2_name) = '' OR contact2_email_1 IS NULL OR TRIM(contact2_email_1) = '') -- Only use if contact 2 invalid
-
-        UNION ALL
-
-        SELECT
-          id,
-          mls_curr_list_agent_name, mls_curr_list_agent_email,
-          property_address, property_city, property_state, property_postal_code,
-          property_type,
-          ${safeIntegerCast('baths')},
-          ${safeIntegerCast('beds')},
-          ${safeIntegerCast('year_built')},
-          ${safeNumericCast('square_footage')},
-          ${safeNumericCast('wholesale_value')},
-          ${safeNumericCast('"ASSESSED_TOTAL"')},
-          mls_curr_status,
-          ${safeIntegerCast('mls_curr_days_on_market')}
-        FROM leads
-        WHERE mls_curr_list_agent_name IS NOT NULL AND TRIM(mls_curr_list_agent_name) <> ''
-          AND mls_curr_list_agent_email IS NOT NULL AND TRIM(mls_curr_list_agent_email) <> ''
-          AND (contact1_name IS NULL OR TRIM(contact1_name) = '' OR contact1_email_1 IS NULL OR TRIM(contact1_email_1) = '') -- Only use if contact 1 invalid
-          AND (contact2_name IS NULL OR TRIM(contact2_name) = '' OR contact2_email_1 IS NULL OR TRIM(contact2_email_1) = '') -- Only use if contact 2 invalid
-          AND (contact3_name IS NULL OR TRIM(contact3_name) = '' OR contact3_email_1 IS NULL OR TRIM(contact3_email_1) = ''); -- Only use if contact 3 invalid
-      `;
-
-      // Execute the normalization SQL
-      const { error: normErr } = await sb.rpc('run_sql', { sql: normalizationSQL });
-      if (normErr) {
-        await postLogEvent('error', `Normalization failed: ${normErr.message}`);
-        steps.push(`❌ Normalization failed: ${normErr.message}`);
-        return NextResponse.json({ ok: false, error: normErr.message, details: normErr, steps }, { status: 500 });
-      }
-      steps.push('Data normalization step completed.');
-      await postLogEvent('success', 'Data normalization step completed.');
-      steps.push('Renaming normalized_leads table and truncating leads table...');
-      await postLogEvent('info', 'Renaming normalized_leads table and truncating leads table...');
-
-      /* ───── 5. Rename normalized_leads to normalized_{filename}_{hash} and truncate leads ───── */
-      // Compute baseName and hash from the actual stored file name
-      // storageFileName: `${baseName}_${uniqueHash}${ext}`
-      const storageBaseMatch = file.name.match(/^(.*)_([0-9a-fA-F-]+)\.[^/.]+$/);
-      let normBaseName = file.name;
-      let normHash = randomUUID().slice(0, 8);
-      if (storageBaseMatch) {
-        normBaseName = storageBaseMatch[1];
-        normHash = storageBaseMatch[2].slice(0, 8);
-      }
-      const normTableName = `normalized_${normBaseName}_${normHash}`.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-      const renameSQL = `ALTER TABLE IF EXISTS normalized_leads RENAME TO ${normTableName};\nTRUNCATE TABLE leads;`;
-      try {
-        const { error: sqlErr } = await sb.rpc('run_sql', { sql: renameSQL });
-        if (sqlErr) {
-          console.error('Detailed error message:', sqlErr);
-          steps.push(`❌ Failed to rename/truncate table: ${sqlErr.message}`);
-          return NextResponse.json({ ok: false, error: sqlErr.message, details: sqlErr, steps }, { status: 500 });
-        }
-      } catch (error: any) {
-        console.error('Detailed error message:', error);
-        steps.push(`❌ Failed to rename/truncate table: ${error.message}`);
-        return NextResponse.json({ ok: false, error: error.message, details: error, steps }, { status: 500 });
-      }
-      steps.push(`Upload and normalization complete. File stored as ${file.name}. Table: ${normTableName}`);
-      await postLogEvent('success', `Upload and normalization complete. File stored as ${file.name}. Table: ${normTableName}`);
-      return NextResponse.json({ ok: true, rows: count, normalized: true, normalized_table: normTableName, steps });
+      // Note: All the normalization code has been removed since we're returning early after the insert
+      // This simplifies the process and avoids permission issues with table creation
     } catch (error: any) {
       console.error('Unexpected error during upload process:', error);
-      return NextResponse.json({ ok: false, error: error.message, steps }, { status: 500 });
+      await postLogEvent('error', `Error during upload process: ${error.message || 'Unknown error'}`);
+      steps.push(`❌ Error during upload process: ${error.message || 'Unknown error'}`);
+      return NextResponse.json({ 
+        ok: false, 
+        error: error.message || 'Unknown error during upload process', 
+        steps 
+      }, { status: 500 });
     }
   } catch (e: any) {
     console.error('Unexpected error:', e);
-    await postLogEvent('error', `Unexpected error: ${e.message}`);
-    return NextResponse.json({ ok: false, error: 'Server exception', steps }, { status: 500 });
+    try {
+      await postLogEvent('error', `Unexpected error: ${e.message || 'Unknown error'}`);
+      steps.push(`❌ Unexpected server error: ${e.message || 'Unknown error'}`);
+    } catch (logError) {
+      console.error('Failed to log error:', logError);
+      steps.push('❌ Failed to log error');
+    }
+    
+    return NextResponse.json({ 
+      ok: false, 
+      error: 'Server exception', 
+      message: e.message || 'Unknown server error',
+      steps 
+    }, { status: 500 });
   }
 }

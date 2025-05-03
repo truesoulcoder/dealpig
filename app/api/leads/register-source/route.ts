@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         id: sourceId,             // The generated UUID from the client
         name: sourceName,           // Combined UUID + original name
         file_name: originalFileName, // The original file name
-        storage_path: storagePath,    // Path in storage (e.g., lead-imports/uuid)
+        storage_path: storagePath,    // Path in storage (e.g., lead-uploads/uuid)
         record_count: 0,            // Initial count, will be updated after processing
         is_active: true,
         last_imported: createdAt,   // Set to createdAt, as it was just uploaded

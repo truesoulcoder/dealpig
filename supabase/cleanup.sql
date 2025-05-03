@@ -126,7 +126,9 @@ DROP FUNCTION IF EXISTS public.create_dynamic_lead_table(text, text) CASCADE;
 DROP FUNCTION IF EXISTS public.execute_sql(text) CASCADE;
 DROP FUNCTION IF EXISTS public.create_policy_if_not_exists(text, text, text, text, text) CASCADE;
 DROP FUNCTION IF EXISTS public.run_sql(text) CASCADE;
-DROP FUNCTION IF EXISTS public.normalize_staged_leads() CASCADE; -- Added this line
+DROP FUNCTION IF EXISTS public.normalize_staged_leads() CASCADE;
+DROP FUNCTION IF EXISTS public.archive_normalized_leads(TEXT) CASCADE; -- Drop archive function
+DROP FUNCTION IF EXISTS public.fn_trigger_normalize_leads() CASCADE; -- Drop trigger function
 
 -- Step 5: Drop all dynamic lead tables (ending in _leads, excluding 'leads' and 'campaign_leads')
 DO $$
@@ -189,7 +191,7 @@ BEGIN
     WHERE table_schema = 'public'
     AND table_name IN ('profiles', 'leads', 'lead_sources', 'senders',
                       'templates', 'campaigns', 'campaign_senders', 'campaign_leads', 'emails', 'email_events',
-                      'normalized_leads'); -- Added normalized_leads
+                      'normalized_leads', 'console_log_events', 'processing_status');
 
     -- Check for remaining dynamic tables created by setup
     SELECT COUNT(*)
@@ -209,7 +211,7 @@ BEGIN
                      'query_dynamic_lead_table', 'group_by_status', 'get_sender_stats',
                      'get_daily_stats', 'create_dynamic_lead_table', 'execute_sql',
                      'create_policy_if_not_exists', 'run_sql',
-                     'normalize_staged_leads'); -- Added normalize_staged_leads
+                     'normalize_staged_leads', 'archive_normalized_leads', 'fn_trigger_normalize_leads'); -- Added normalize_staged_leads
 
     -- Check for remaining policies in public schema
     SELECT COUNT(*)
