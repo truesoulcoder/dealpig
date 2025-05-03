@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Navbar,
   NavbarBrand,
@@ -119,3 +121,5 @@ export default function NavbarWithAvatar() {
     </>
   );
 }
+
+export default NavbarWithAvatar;
