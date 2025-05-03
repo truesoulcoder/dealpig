@@ -5,6 +5,7 @@ import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 import { NavigationProvider } from "./providers/navigation-provider";
+import { ThemeProvider as CustomThemeProvider } from "../components/ui/theme-context";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -50,11 +51,13 @@ export function Providers({ children, themeProps }: ProvidersProps) {
       enableColorScheme={true}
       disableTransitionOnChange
       {...themeProps}>
-      <HeroUIProvider>
-        <NavigationProvider>
-          {children}
-        </NavigationProvider>
-      </HeroUIProvider>
+      <CustomThemeProvider>
+        <HeroUIProvider>
+          <NavigationProvider>
+            {children}
+          </NavigationProvider>
+        </HeroUIProvider>
+      </CustomThemeProvider>
     </NextThemesProvider>
   );
 }
