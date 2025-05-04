@@ -13,7 +13,7 @@ export const metadata = {
   description: 'A blind pig might find a nut but DealPig shakes the tree',
 }
 
-import { NavbarWithAvatar } from '../components/navbar/navbar-with-avatar';
+// import { NavbarWithAvatar } from '../components/navbar/navbar-with-avatar'; // Temporarily commented out
 
 export default function RootLayout({
   children,
@@ -25,7 +25,7 @@ export default function RootLayout({
       <head></head>
       <body className={inter.className}>
         <Providers>
-          <NavbarWithAvatar />
+          {/* <NavbarWithAvatar /> */} {/* Temporarily commented out */}
           <main>
             {children}
           </main>

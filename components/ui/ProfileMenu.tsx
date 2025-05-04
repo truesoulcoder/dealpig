@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LetterFx } from './LetterFx';
-import { MatrixBackground } from './MatrixBackground';
+
 
 interface ProfileMenuProps {
   user: {

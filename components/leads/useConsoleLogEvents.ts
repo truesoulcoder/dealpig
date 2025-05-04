@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useEffect, useState } from 'react';
+import supabase from '@/lib/supabase/client';
 
 interface LogEvent {
   type: 'info' | 'error' | 'success';
@@ -7,18 +7,29 @@ interface LogEvent {
   timestamp: number;
 }
 
-// Fetches log events from API once
-export async function fetchConsoleLogEvents(): Promise<LogEvent[]> {
-  const res = await fetch('/api/leads/events');
-  const response = await res.json();
-  // Check if the response has an events property (our API returns {events: [...]})
-  const events: LogEvent[] = response.events || [];
-  return events.sort((a, b) => {
-    // Handle both string timestamps and numeric timestamps
-    const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp;
-    const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp;
-    return timeB - timeA; // Sort newest first
-  });
+export function useConsoleLogEvents(): LogEvent[] {
+  const [events, setEvents] = useState<LogEvent[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    // Initial load ordered by newest first
+    supabase
+      .from('processing_status')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data && !cancelled) setEvents(data as LogEvent[]);
+      });
+    // Subscribe to real-time inserts
+    const subscription = supabase
+      .channel('public:processing_status')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'processing_status' }, ({ new: payload }) => {
+        setEvents(prev => [payload as LogEvent, ...prev]);
+      })
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(subscription);
+    };
+  }, []);
+  return events;
 }
-
-

@@ -24,8 +24,8 @@ export const MatrixBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Matrix characters (expanded set for more variety)
-    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン'.split('');
+    // Matrix characters (office set + envelopes)
+    const chars = '🖹🗅🗆🗇🗈🗉🗊🗋🗌🗍🗎🗏🗐🖂🖃🖄🖅🖆✉'.split('');
     const fontSize = 16;
     const columns = Math.floor(canvas.width / fontSize);
     const drops: number[] = new Array(columns).fill(0);

@@ -1,8 +1,5 @@
 "use client";
-import {
-  Button,
-  Input,
-  Modal,
+import { Button, Input, Modal } from "@heroui/react";
 import React, { useState, useEffect } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useSearchParams } from "next/navigation";

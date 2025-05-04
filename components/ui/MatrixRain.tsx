@@ -1,29 +1,11 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 
-interface MatrixRainProps {
-  isVisible: boolean;
-}
-
-const MatrixRain: React.FC<MatrixRainProps> = ({ isVisible }) => {
+const MatrixRain: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isRendered, setIsRendered] = useState(isVisible);
-
-  // Keep the component rendered during fade-out
-  useEffect(() => {
-    if (isVisible) {
-      setIsRendered(true);
-    } else {
-      // Start fade-out, then unmount after transition
-      const timer = setTimeout(() => setIsRendered(false), 500); // Match transition duration
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible]);
 
   useEffect(() => {
-    if (!isRendered) return; // Only run effect if rendered
-
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -35,8 +17,8 @@ const MatrixRain: React.FC<MatrixRainProps> = ({ isVisible }) => {
     const columns = Math.floor(width / 20); // Number of columns based on font size
     const yPositions = Array(columns).fill(0);
 
-    // Characters to use - Katakana + numbers + symbols
-    const characters = 'アァカサタナハマヤャラワガザダバパイィキシチニヒミリヰギジヂビピウゥクスツヌフムユュルグズブヅプエェケセテネヘメレヱゲゼデベペオォコソトノホモヨョロヲゴゾドボポヴッン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    // Characters to use - office set + envelopes
+    const characters = '🖹🗅🗆🗇🗈🗉🗊🗋🗌🗍🗎🗏🗐🖂🖃🖄🖅🖆✉';
 
     let animationFrameId: number;
 
@@ -83,11 +65,7 @@ const MatrixRain: React.FC<MatrixRainProps> = ({ isVisible }) => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isRendered]); // Rerun effect if isRendered changes
-
-  if (!isRendered) {
-    return null; // Don't render canvas if not visible or faded out
-  }
+  }, []);
 
   return (
     <canvas
@@ -98,11 +76,9 @@ const MatrixRain: React.FC<MatrixRainProps> = ({ isVisible }) => {
         left: 0,
         width: '100vw',
         height: '100vh',
-        zIndex: 9999,
-        pointerEvents: 'none',
-        opacity: isVisible ? 1 : 0, // Control fade with opacity
-        transition: 'opacity 0.5s ease-in-out', // Add fade transition
-        backgroundColor: 'black', // Ensure background is black during fade
+        zIndex: -1, // Position behind other content
+        pointerEvents: 'none', // Allow clicks to pass through
+        // Consider adding background color if needed, e.g., backgroundColor: 'black'
       }}
     />
   );

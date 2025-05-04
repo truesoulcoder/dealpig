@@ -4,8 +4,8 @@ import * as React from "react";
 import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
-import { NavigationProvider } from "./providers/navigation-provider";
 import { ThemeProvider as CustomThemeProvider } from "../components/ui/theme-context";
+import MatrixRain from "../components/ui/MatrixRain";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -43,19 +43,20 @@ export function Providers({ children, themeProps }: ProvidersProps) {
 
   return (
     <NextThemesProvider
-      defaultTheme="dark"
+      defaultTheme="leet"
       attribute="data-theme"
-      value={{ light: "light", dark: "dark", leet: "leet" }}
-      themes={["light", "dark", "leet"]}
+      value={{ leet: "leet", dark: "dark" }}
+      themes={["leet", "dark"]}
       enableSystem={true}
       enableColorScheme={true}
       disableTransitionOnChange
       {...themeProps}>
       <CustomThemeProvider>
         <HeroUIProvider>
-          <NavigationProvider>
-            {children}
-          </NavigationProvider>
+          {/* Render MatrixRain behind everything */}
+          <MatrixRain /> 
+          {/* Render the rest of the application on top */}
+          {children}
         </HeroUIProvider>
       </CustomThemeProvider>
     </NextThemesProvider>

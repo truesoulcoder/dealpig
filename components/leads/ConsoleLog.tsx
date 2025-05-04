@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Icon } from '@iconify/react';
 
@@ -53,7 +55,11 @@ const ConsoleLog: React.FC<ConsoleLogProps> = ({ messages }) => {
       <div style={{ borderBottom: '2px solid #0f0', background: '#011', color: '#0f0', padding: '8px 16px', fontWeight: 'bold', fontSize: 16 }}>
         Upload Progress Console
       </div>
-      <div ref={consoleRef} className="p-4 bg-black text-green-400 h-60 overflow-y-auto text-sm font-mono" style={{ minHeight: 180 }}>
+      <div
+        ref={consoleRef}
+        className="p-4 bg-black text-green-400 h-60 overflow-y-auto text-sm"
+        style={{ minHeight: 180, fontFamily: "Consolas, 'Courier New', monospace" }}
+      >
         {messages.map((msg, index) => (
           <div key={index} className="mb-2 flex items-start">
             <span className="text-gray-400 mr-2">[{formatTimestamp()}]</span>

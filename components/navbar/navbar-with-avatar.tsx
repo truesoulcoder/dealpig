@@ -4,11 +4,6 @@ import {
   Navbar,
   NavbarBrand,
   NavbarContent,
-  NavbarItem,
-  DropdownItem,
-  DropdownTrigger,
-  Dropdown,
-  DropdownMenu,
 } from "@heroui/react";
 import { useTheme } from "../ui/theme-context";
 import User from "../User";
@@ -42,15 +37,8 @@ function MobileNavbarMenu({ open, setOpen }: { open: boolean; setOpen: (v: boole
           L33T Theme
         </button>
         <div className="mt-4">
-          <Dropdown placement="bottom-end">
-            <DropdownTrigger>
-              <User showAvatar size="sm" />
-            </DropdownTrigger>
-            <DropdownMenu aria-label="Profile Actions" variant="flat">
-              <DropdownItem key="settings">Settings</DropdownItem>
-              <DropdownItem key="logout" color="danger">Log Out</DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
+          {/* Temporarily removed Dropdown with User */}
+          <div className="p-2 rounded bg-default-100">User Placeholder</div>
         </div>
       </div>
     </div>
@@ -83,35 +71,13 @@ export default function NavbarWithAvatar() {
       <nav className="hidden md:block">
         <Navbar>
           <NavbarContent className="flex gap-4" justify="center">
-            <NavbarItem>
-              <button
-                className={`px-4 py-1 rounded ${theme === 'heroui' ? 'bg-primary-600 text-white' : 'bg-default-100'}`}
-                onClick={() => theme !== 'heroui' && toggleTheme()}
-                aria-pressed={theme === 'heroui'}
-              >
-                Dark Theme
-              </button>
-            </NavbarItem>
-            <NavbarItem>
-              <button
-                className={`px-4 py-1 rounded ${theme === 'leet' ? 'bg-green-500 text-black' : 'bg-default-100'}`}
-                onClick={() => theme !== 'leet' && toggleTheme()}
-                aria-pressed={theme === 'leet'}
-              >
-                L33T Theme
-              </button>
-            </NavbarItem>
+            {/* Temporarily removed NavbarItems with buttons */}
+            <div className="px-4 py-1 rounded bg-default-100">Dark Theme Placeholder</div>
+            <div className="px-4 py-1 rounded bg-default-100">L33T Theme Placeholder</div>
           </NavbarContent>
           <NavbarContent as="div" justify="end">
-            <Dropdown placement="bottom-end">
-              <DropdownTrigger>
-                <User showAvatar size="sm" />
-              </DropdownTrigger>
-              <DropdownMenu aria-label="Profile Actions" variant="flat">
-                <DropdownItem key="settings">Settings</DropdownItem>
-                <DropdownItem key="logout" color="danger">Log Out</DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+            {/* Temporarily removed Dropdown with User */}
+            <div className="p-2 rounded bg-default-100">User Placeholder</div>
           </NavbarContent>
         </Navbar>
       </nav>
@@ -120,4 +86,3 @@ export default function NavbarWithAvatar() {
 }
 
 export { NavbarWithAvatar };
-

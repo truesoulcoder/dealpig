@@ -11,7 +11,7 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       className="mx-2"
     >
-      {theme === 'leet' ? 'HeroUI Theme' : 'Leet Theme'}
+      {theme === 'leet' ? 'leet' : 'dark'}
     </Button>
   );
 }
