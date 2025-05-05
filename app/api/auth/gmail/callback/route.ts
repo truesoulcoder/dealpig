@@ -80,8 +80,21 @@ export async function GET(request: NextRequest) {
       // Redirect back to the accounts page with success message
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?success=true`);
     } catch (error) {
-      console.error('Error during token processing:', error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed during token processing: ' + (error instanceof Error ? error.message : String(error)))}`);
+      // Log the actual error object for better debugging
+      let errorMsg = '';
+      if (error instanceof Error) {
+        errorMsg = error.message;
+      } else if (typeof error === 'object') {
+        try {
+          errorMsg = JSON.stringify(error, null, 2);
+        } catch (e) {
+          errorMsg = String(error);
+        }
+      } else {
+        errorMsg = String(error);
+      }
+      console.error('Error during token processing:', errorMsg);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed during token processing: ' + errorMsg)}`);
     }
   } catch (error) {
     console.error('Error completing Gmail OAuth:', error);
