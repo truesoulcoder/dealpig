@@ -28,24 +28,29 @@ import useSWR from "swr";
 
 const fetcher = (...args) => fetch(...args).then((res) => res.json());
 
-export default function LeadsAsyncTable() {
+interface LeadsAsyncTableProps {
+  table: string;
+}
+
+export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
   const [page, setPage] = React.useState(1);
   const [rowsPerPage, setRowsPerPage] = React.useState(25);
-  const [selectedLead, setSelectedLead] = React.useState(null);
-  const [editableLead, setEditableLead] = React.useState(null);
+  const [selectedLead, setSelectedLead] = React.useState<Record<string, any> | null>(null);
+  const [editableLead, setEditableLead] = React.useState<Record<string, any>>({});
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
   const [sortDescriptor, setSortDescriptor] = React.useState({
     column: "name",
     direction: "ascending",
   });
 
-  const { data, isLoading } = useSWR(`/api/leads/data?page=${page}&limit=${rowsPerPage}`, fetcher, {
-    keepPreviousData: true,
-  });
+  // Fetch only when a table is selected
+  const { data, isLoading } = useSWR(
+    table ? `/api/leads/data?table=${encodeURIComponent(table)}&page=${page}&limit=${rowsPerPage}` : null,
+    fetcher,
+    { keepPreviousData: true }
+  );
 
-  const pages = React.useMemo(() => {
-    return data?.total ? Math.ceil(data.total / rowsPerPage) : 0;
-  }, [data?.total, rowsPerPage]);
+  const pages = React.useMemo(() => data?.total ? Math.ceil(data.total / rowsPerPage) : 0, [data?.total, rowsPerPage]);
 
   React.useEffect(() => {
     setPage(1);
@@ -98,16 +103,18 @@ export default function LeadsAsyncTable() {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <span className="text-default-400 text-small">Rows per page:</span>
-            <select
-              className="bg-transparent text-small outline-none"
-              onChange={onRowsPerPageChange}
-              defaultValue={rowsPerPage}
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
+            <Dropdown>
+              <DropdownTrigger>
+                <Button variant="flat" size="sm">{rowsPerPage}</Button>
+              </DropdownTrigger>
+              <DropdownMenu>
+                {[10, 25, 50, 100].map((count) => (
+                  <DropdownItem key={count} onPress={() => setRowsPerPage(count)}>
+                    {count}
+                  </DropdownItem>
+                ))}
+              </DropdownMenu>
+            </Dropdown>
           </div>
           <span className="text-small text-default-400">
             {data ? `Total ${data.total} leads` : "Loading..."}
@@ -189,8 +196,8 @@ export default function LeadsAsyncTable() {
                 )}
               </ModalBody>
               <ModalFooter>
-                <Button color="primary" onClick={handleSave}>Save</Button>
-                <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                <Button color="primary" onPress={handleSave}>Save</Button>
+                <Button variant="ghost" onPress={onClose}>Cancel</Button>
               </ModalFooter>
             </>
           )}

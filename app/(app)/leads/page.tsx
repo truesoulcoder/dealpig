@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import LeadUploader from '@/components/leads/LeadUploader';
 import LeadSelector from '@/components/leads/LeadSelector';
-import DynamicLeadsTable from '@/components/leads/DynamicLeadsTable';
+import LeadsAsyncTable from '@/components/leads/LeadsAsyncTable';
 import FileExplorer from '@/components/leads/FileExplorer';
 import ConsoleLog from '@/components/leads/ConsoleLog';
 import { useConsoleLogEvents } from '@/components/leads/useConsoleLogEvents';
@@ -46,13 +46,11 @@ export default function LeadsPage() {
           Save
         </button>
       </div>
-      <DynamicLeadsTable
-        table={selected}
-        leads={[]}
-        onEdit={() => {}}
-        onRefresh={() => { fetchTables(); }}
-        onSave={() => { /* no-op, real-time updates cover it */ }}
-      />
+      {selected ? (
+        <LeadsAsyncTable table={selected} />
+      ) : (
+        <p className="text-gray-500">Select a table to view leads.</p>
+      )}
     </div>
   );
 }

@@ -2,12 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import dynamic from 'next/dynamic';
-
-// Dynamically import MatrixRain with SSR turned off
-const MatrixRain = dynamic(() => import('@/components/ui/MatrixRain'), {
-  ssr: false,
-});
 
 interface NavigationContextProps {
   currentPath: string;
@@ -47,7 +41,7 @@ export const NavigationProvider = ({ children }: { children: React.ReactNode }) 
 
   return (
     <NavigationContext.Provider value={{ currentPath: pathname }}>
-      <MatrixRain isVisible={isNavigating} />
+      
       {children}
     </NavigationContext.Provider>
   );

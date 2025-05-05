@@ -10,9 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
-import { MatrixBackground } from "@/components/ui/MatrixBackground";
 import { LetterFx } from "@/components/ui/LetterFx";
-import { SpotlightOverlay } from "@/components/ui/SpotlightOverlay";
 
 export const Login = () => {
   const router = useRouter();
@@ -76,8 +74,6 @@ export const Login = () => {
 
   return (
     <>
-      <MatrixBackground />
-      <SpotlightOverlay />
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
         <div className="mb-8 text-center">
           <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />

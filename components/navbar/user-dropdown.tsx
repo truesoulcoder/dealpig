@@ -1,10 +1,10 @@
 import {
-  User,
   Dropdown,
   DropdownItem,
   DropdownMenu,
   DropdownTrigger,
 } from "@heroui/react";
+import User from "../User";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteAuthCookie } from "@/actions/auth.action";
@@ -35,16 +35,7 @@ export const UserDropdown = () => {
     <div className="flex items-center">
       <Dropdown>
         <DropdownTrigger>
-          <User
-            name="Chris Phillips"
-            description="chrisphillips@truesoulpartners.com"
-            avatarProps={{
-              src: "https://i.pravatar.cc/150",
-              size: "sm",
-              className: "bg-green-400 text-black font-mono cursor-pointer"
-            }}
-            className="transition-transform cursor-pointer"
-          />
+          <User size="sm" className="transition-transform cursor-pointer" />
         </DropdownTrigger>
         <DropdownMenu
           aria-label="User menu actions"

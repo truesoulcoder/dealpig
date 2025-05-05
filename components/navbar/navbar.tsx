@@ -1,11 +1,11 @@
 'use client';
 
 import { Navbar, NavbarContent } from "@heroui/react";
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import ThemeToggle from "./theme-toggle";
+import { UserDropdown } from "./user-dropdown";
 import { supabase } from "@/lib/supabase";
-import { BurguerButton } from "./burguer-button";
 import User from "../User";
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -45,19 +45,14 @@ export const NavbarWrapper = ({ children }: Props) => {
   return (
     <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
       <Navbar
-        isBordered
-        className={`w-full sticky top-0 z-40 ${
-          isLight
-            ? 'bg-white border border-green-400 text-black font-mono'
-            : 'bg-background/90 backdrop-blur-md'
-        }`}
+        isBordered={false}
+        className={`w-full sticky top-0 z-40 bg-transparent text-black font-mono`} // No blur, no glass, just transparent
       >
         <NavbarContent justify="start" className="flex items-center gap-4 px-4">
-          <BurguerButton />
         </NavbarContent>
         <NavbarContent justify="end" className="flex items-center gap-4 px-4">
           <ThemeToggle />
-          <User size="sm" />
+          <UserDropdown />
         </NavbarContent>
       </Navbar>
       {children}

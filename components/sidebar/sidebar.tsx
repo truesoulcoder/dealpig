@@ -1,6 +1,7 @@
 'use client';
 import React from "react";
 import { Sidebar } from "./sidebar.styles";
+
 import { HomeIcon } from "../icons/sidebar/home-icon";
 import { AccountsIcon } from "../icons/sidebar/accounts-icon";
 import { ProductsIcon } from "../icons/sidebar/products-icon";
@@ -23,7 +24,9 @@ export const SidebarWrapper = () => {
       ) : null}
       <div
         className={Sidebar({ collapsed })}
+        style={{ position: 'relative', overflow: 'hidden' }}
       >
+
         <div className={Sidebar.Header()}>
           {/* Replace static Image with AnimatedDealpig component */}
           <div className="relative w-full h-full flex items-center justify-center">

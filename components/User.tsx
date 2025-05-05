@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import supabase from '@/lib/supabase';
 import Image from 'next/image';
+import { Database } from '@/helpers/types';
 
 interface UserProps {
   userId?: string;
@@ -10,11 +11,6 @@ interface UserProps {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
-
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function User({ userId, showAvatar = true, size = 'md', className = '' }: UserProps) {
   const [user, setUser] = useState<{
@@ -68,7 +64,23 @@ export default function User({ userId, showAvatar = true, size = 'md', className
   }
 
   if (!user) {
-    return null;
+    // Always render a fallback avatar and label if user is missing
+    const avatarSize = size === 'sm' ? 24 : size === 'md' ? 32 : 48;
+    const textSize = size === 'sm' ? 'text-sm' : size === 'md' ? 'text-base' : 'text-lg';
+    return (
+      <div className={`flex items-center gap-2 ${className}`}>
+        {showAvatar && (
+          <div className={`
+            ${size === 'sm' ? 'w-6 h-6' : size === 'md' ? 'w-8 h-8' : 'w-12 h-12'}
+            rounded-full bg-gray-400 flex items-center justify-center text-white font-medium
+            ${size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base'}
+          `}>
+            ?
+          </div>
+        )}
+        <span className={`font-medium ${textSize}`}>Not signed in</span>
+      </div>
+    );
   }
 
   const avatarSize = size === 'sm' ? 24 : size === 'md' ? 32 : 48;

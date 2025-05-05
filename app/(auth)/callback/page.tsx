@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MatrixBackground } from '@/components/ui/MatrixBackground';
+
 import { DealpigText as AnimatedDealpigText } from '@/components/icons/AnimatedDealpigText';
 import { LetterFx } from '@/components/ui/LetterFx';
 
@@ -74,7 +74,7 @@ export default function CallbackHandler() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
-      <MatrixBackground />
+
       <div className="relative z-10 w-full max-w-md px-4 py-8 space-y-8">
         <div className="text-center">
           <AnimatedDealpigText />

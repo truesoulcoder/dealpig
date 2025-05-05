@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
-  Button, Input, Card, CardHeader, CardBody, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
+  Button, Input, Card, CardHeader, CardBody, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Pagination,
   Dropdown, DropdownTrigger, DropdownMenu, DropdownItem
 } from "@heroui/react";
+import type { SortDescriptor, SortDirection, Key } from "@react-types/shared";
 import { DotsIcon } from "@/components/icons/accounts/dots-icon";
 import { ExportIcon } from "@/components/icons/accounts/export-icon";
 import { TrashIcon } from "@/components/icons/accounts/trash-icon";
@@ -75,12 +76,7 @@ export default function AccountsClient({ initialSenders }: AccountsClientProps) 
         </div>
       </CardHeader>
       <CardBody>
-        <Table 
-          data={filteredSenders} 
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={setPage}
-          onRowsPerPageChange={setRowsPerPage}
+        <Table
           sortDescriptor={sortDescriptor}
           onSortChange={setSortDescriptor}
         >
@@ -93,7 +89,7 @@ export default function AccountsClient({ initialSenders }: AccountsClientProps) 
             <TableColumn key="actions">Actions</TableColumn>
           </TableHeader>
           <TableBody>
-            {filteredSenders.map(sender => (
+            {filteredSenders.slice((page - 1) * rowsPerPage, page * rowsPerPage).map(sender => (
               <TableRow key={sender.id}>
                 <TableCell>{sender.name}</TableCell>
                 <TableCell>{sender.email}</TableCell>
@@ -106,11 +102,11 @@ export default function AccountsClient({ initialSenders }: AccountsClientProps) 
                       <DotsIcon />
                     </DropdownTrigger>
                     <DropdownMenu>
-                      <DropdownItem onClick={() => window.location.href = `/api/auth/gmail/refresh?sender_id=${sender.id}`}>Refresh OAuth</DropdownItem>
-                      <DropdownItem onClick={() => handleExportCSV()}>Export</DropdownItem>
+                      <DropdownItem key="refresh-oauth" onPress={() => window.location.href = `/api/auth/gmail/refresh?sender_id=${sender.id}`}>Refresh OAuth</DropdownItem>
+                      <DropdownItem key="export" onPress={() => handleExportCSV()}>Export</DropdownItem>
                     </DropdownMenu>
                   </Dropdown>
-                  <Button variant="danger" onClick={() => {
+                  <Button variant="ghost" onPress={() => {
                     if (confirm('Delete this sender?')) {
                       fetch(`/api/senders/${sender.id}`, { method: 'DELETE' })
                         .then(() => setSenders(prev => prev.filter(s => s.id !== sender.id)));
@@ -123,6 +119,20 @@ export default function AccountsClient({ initialSenders }: AccountsClientProps) 
             ))}
           </TableBody>
         </Table>
+        <div className="flex justify-between items-center mt-2">
+          <Pagination
+            total={Math.ceil(filteredSenders.length / rowsPerPage)}
+            page={page}
+            onChange={setPage}
+          />
+          <select
+            value={rowsPerPage}
+            onChange={e => { setRowsPerPage(Number(e.target.value)); setPage(1); }}
+            className="border rounded p-1"
+          >
+            {[5, 10, 20].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
       </CardBody>
     </Card>
   );

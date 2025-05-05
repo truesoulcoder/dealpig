@@ -5,6 +5,7 @@ import type { Key, Selection, SortDescriptor, SortDirection } from "@heroui/reac
 "use client";
 import { Button, Input, Card, CardHeader, CardBody, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Avatar, Tooltip, Badge } from "@heroui/react";
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { DotsIcon } from "@/components/icons/accounts/dots-icon";
 import { ExportIcon } from "@/components/icons/accounts/export-icon";
 import { InfoIcon } from "@/components/icons/accounts/info-icon";

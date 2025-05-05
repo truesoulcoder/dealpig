@@ -5,7 +5,6 @@ import { HeroUIProvider } from "@heroui/system";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 import { ThemeProvider as CustomThemeProvider } from "../components/ui/theme-context";
-import MatrixRain from "../components/ui/MatrixRain";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -53,8 +52,6 @@ export function Providers({ children, themeProps }: ProvidersProps) {
       {...themeProps}>
       <CustomThemeProvider>
         <HeroUIProvider>
-          {/* Render MatrixRain behind everything */}
-          <MatrixRain /> 
           {/* Render the rest of the application on top */}
           {children}
         </HeroUIProvider>

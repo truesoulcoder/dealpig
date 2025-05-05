@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 
-export type Theme = 'leet' | 'heroui';
+export type Theme = 'leet' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
@@ -13,11 +13,11 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('heroui');
-  const toggleTheme = () => setTheme(prev => (prev === 'leet' ? 'heroui' : 'leet'));
+  const [theme, setTheme] = useState<Theme>('leet');
+  const toggleTheme = () => setTheme(prev => (prev === 'leet' ? 'dark' : 'leet'));
   // Apply theme class to <html>
   useEffect(() => {
-    document.documentElement.classList.remove('heroui', 'leet');
+    document.documentElement.classList.remove('leet', 'dark');
     document.documentElement.classList.add(theme);
   }, [theme]);
   return (

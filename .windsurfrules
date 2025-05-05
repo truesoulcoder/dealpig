@@ -1,0 +1,12 @@
+Dealpig
+--------------------------------------------------------------------
+what?
+- a customers relations management app that allows users to add gmail accounts to send purchase offers to real estate leads using an automatic emailing algorithm and lead distribution sengine.
+Why?
+- as a shotgun approach to lowballing boomers who can't sell their house that has been on the market for more than 90 days
+How?
+- drip feed email marketing campaigns to multiple sender accounts using their auth tokens and refresh tokens saved in a database.
+Because why?
+- so we don't get flagged as spam by gmail and we buy houses at wholesale prices from motivated sellers in a housing crisis bubble
+Ok when?
+- as soon as you fucking make the app work like it's supposed to and sometime soon before the bubble bursts if you know what's good for you.

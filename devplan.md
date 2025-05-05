@@ -23,7 +23,10 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   HeroUI component library integration
     *   Basic Layout (`app/layout.tsx`, `app/(app)/layout.tsx`)
     *   Sidebar Navigation (`components/sidebar`)
+    *   **Background is now fully transparent to allow Matrix rain effect to show through.**
     *   Navbar (`components/navbar`)
+        *   User dropdown now dynamically displays the authenticated user's Google profile picture, name, and email using the User component (not hardcoded values).
+    *   **Background is now fully transparent to allow Matrix rain effect to show through.**
 *   **Lead Management:**
     *   CSV import pipeline (`actions/leadUpload.action.ts`) – Uploads CSV to storage, **registers every uploaded file in `lead_sources` by calling `/api/leads/register-source` after upload**, triggers normalization asynchronously – **Implemented**
     *   Lead normalization (`actions/leadIngestion.action.ts::normalizeLeads`) – Parses each CSV row into multiple lead records (contacts + agent) and bulk inserts into `leads` table – **Implemented**

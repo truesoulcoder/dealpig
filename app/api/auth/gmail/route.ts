@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       });
     } catch (dbError) {
       console.error('Error creating sender in database:', dbError);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to create sender record')}`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed to create sender record')}`);
     }
     
     console.log(`Sender created with ID: ${senderId}`);
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       console.log(`Redirecting to Google OAuth: ${authUrl}`);
     } catch (oauthError) {
       console.error('Error generating Google OAuth URL:', oauthError);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to connect to Google OAuth: ' + (oauthError instanceof Error ? oauthError.message : String(oauthError)))}`);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed to connect to Google OAuth: ' + (oauthError instanceof Error ? oauthError.message : String(oauthError)))}`);
     }
     
     return NextResponse.redirect(authUrl);
@@ -69,6 +69,6 @@ export async function GET(request: NextRequest) {
     console.error('Error initiating Gmail OAuth:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error details:', errorMessage);
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/app/accounts?error=${encodeURIComponent('Failed to initiate Gmail authentication')}`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed to initiate Gmail authentication')}`);
   }
 }

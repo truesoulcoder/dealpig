@@ -8,10 +8,10 @@ import { Formik } from "formik";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
-import { MatrixBackground } from "@/components/ui/MatrixBackground";
+
 import { DealpigText as AnimatedDealpigText } from "@/components/icons/AnimatedDealpigText";
 import { LetterFx } from "@/components/ui/LetterFx";
-import { SpotlightOverlay } from "@/components/ui/SpotlightOverlay";
+
 
 export const Register = () => {
   const router = useRouter();
@@ -65,8 +65,8 @@ export const Register = () => {
   if (verificationRequired) {
     return (
       <>
-        <MatrixBackground />
-        <SpotlightOverlay />
+        
+        
         <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
           <div className="mb-8 text-center">
             <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />
@@ -100,8 +100,8 @@ export const Register = () => {
 
   return (
     <>
-      <MatrixBackground />
-      <SpotlightOverlay />
+      
+      
       <div className="relative z-10 flex flex-col items-center max-w-md w-full mx-auto">
         <div className="mb-8 text-center">
           <AnimatedDealpigText width="316px" height="90px" className="mx-auto mb-4" />

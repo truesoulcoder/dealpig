@@ -36,7 +36,7 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-48 bg-black border border-green-400 rounded-none shadow-lg z-50">
-          <MatrixBackground className="absolute inset-0 opacity-20" />
+
           <div className="relative z-10">
             <div className="py-1">
               <div className="px-4 py-2 text-sm text-green-400 border-b border-green-400">

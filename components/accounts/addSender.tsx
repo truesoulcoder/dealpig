@@ -1,5 +1,5 @@
 "use client";
-import { Button, Input, Modal } from "@heroui/react";
+import { Button, Input, Modal, useDisclosure, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/react";
 import React, { useState, useEffect } from "react";
 import { FaGoogle } from "react-icons/fa";
 import { useSearchParams } from "next/navigation";
@@ -66,7 +66,7 @@ export const AddSender = () => {
       const encodedQuota = encodeURIComponent(dailyQuota);
 
       // Redirect to OAuth flow with sender details as query params
-      window.location.href = `/api/auth/gmail?email=${encodedEmail}&name=${encodedName}&title=${encodedTitle}&dailyQuota=${encodedQuota}`;
+      window.location.href = `/api/auth/gmail?email=${encodedEmail}&name=${encodedName}`;
     } catch (error) {
       console.error('Error starting Gmail authorization:', error);
       setIsAuthorizing(false);
