@@ -1,0 +1,45 @@
+
+{{property_address}}.{{property_city}}{{property_state}}{{property_zip}}.
+
+{{date}}
+
+
+Greetings {{contact_name}} ,
+
+I am writing to express my interest in structuring an all-cash offer on the property located at {{property_address}}.{{property_city}}{{property_state}}{{property_zip}}.
+
+Based on market conditions, comparable sales, and property profile, I would like to propose the following terms:
+
+Offer Summary:
+
+     - Price: {{wholesale_value}}
+
+     - Option Period: 7 days (excluding weekends and federal holidays)
+
+     - Earnest Money Deposit (EMD): {{emd}}
+
+     - Buyer’s Assignment Consideration (BAC): $10
+
+     - Closing Date: On or before {{closing_date})
+
+Offer Highlights:
+
+     - As-Is Condition
+
+     - Buyer Pays All Closing Costs
+
+     - Quick Close Available
+
+Title Company: Kristin Blay at Ghrist Law – Patten Title
+
+I am only able to acquire a limited number of properties at a time. As such, offer is only valid for 48 hours after it is received.
+
+Warm regards,
+
+{{sender_name}}
+{{sender_title}}
+
+{{company_name}}
+
+
+This Letter of Intent to Purchase Real Estate outlines general intentions and is not legally binding. Terms are subject to further negotiation and approval. No party is obligated until a formal agreement is executed.

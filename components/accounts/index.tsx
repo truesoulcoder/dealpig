@@ -95,8 +95,12 @@ const getSenderStatus = (sender) => {
   return "authorized";
 };
 
+import { useSearchParams } from "next/navigation";
+
 export const Accounts = () => {
   const [senders, setSenders] = useState<Sender[]>([]);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filteredSenders, setFilteredSenders] = useState<Sender[]>([]);
@@ -106,6 +110,23 @@ export const Accounts = () => {
 
   useEffect(() => {
     loadSenders();
+  }, []);
+
+  // Feedback effect for OAuth callback
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('success')) {
+        setFeedback({ type: 'success', message: 'Gmail account authorized successfully!' });
+        // Remove query param from URL without reload
+        params.delete('success');
+        window.history.replaceState({}, '', window.location.pathname + (params.toString() ? '?' + params.toString() : ''));
+      } else if (params.has('error')) {
+        setFeedback({ type: 'error', message: decodeURIComponent(params.get('error') || 'Unknown error') });
+        params.delete('error');
+        window.history.replaceState({}, '', window.location.pathname + (params.toString() ? '?' + params.toString() : ''));
+      }
+    }
   }, []);
 
   const filterSenders = useCallback(() => {
@@ -274,6 +295,12 @@ export const Accounts = () => {
 
   return (
     <div className="my-10 px-4 lg:px-6 max-w-[95rem] mx-auto w-full flex flex-col gap-4">
+      {feedback && (
+        <div className={`mb-4 rounded px-4 py-3 border ${feedback.type === 'success' ? 'bg-green-50 border-green-400 text-green-700' : 'bg-red-50 border-red-400 text-red-700'} flex items-center justify-between`} role="alert">
+          <span>{feedback.message}</span>
+          <button onClick={() => setFeedback(null)} className="ml-4 text-xl font-bold focus:outline-none">&times;</button>
+        </div>
+      )}
       <ul className="flex">
         <li className="flex gap-2">
           <HouseIcon />
