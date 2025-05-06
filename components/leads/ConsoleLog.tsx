@@ -51,14 +51,14 @@ const ConsoleLog: React.FC<ConsoleLogProps> = ({ messages }) => {
   };
 
   return (
-    <div style={{ border: '2px solid #0f0', borderRadius: 8, background: '#101010', marginTop: 12, marginBottom: 12 }}>
+    <div style={{ border: '2px solid #0f0', borderRadius: 8, background: '#101010' }}>
       <div style={{ borderBottom: '2px solid #0f0', background: '#011', color: '#0f0', padding: '8px 16px', fontWeight: 'bold', fontSize: 16 }}>
         Upload Progress Console
       </div>
       <div
         ref={consoleRef}
-        className="p-4 bg-black text-green-400 h-60 overflow-y-auto text-sm"
-        style={{ minHeight: 180, fontFamily: "Consolas, 'Courier New', monospace" }}
+        className="overflow-y-auto font-mono text-sm leading-tight"
+        style={{ fontFamily: "Consolas, 'Courier New', monospace", height: '191px', lineHeight: '1.25' }}
       >
         {messages.map((msg, index) => (
           <div key={index} className="mb-2 flex items-start">

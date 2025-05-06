@@ -102,6 +102,8 @@
       "pizzip": "^3.1.8",
       "prettier": "^3.5.3",
       "puppeteer": "^24.8.0",
+      "puppeteer-extra": "^3.3.6",
+      "puppeteer-extra-plugin-stealth": "^2.11.2",
       "react": "19.1.0",
       "react-dom": "19.1.0",
       "react-hot-toast": "^2.5.2",
@@ -118,7 +120,7 @@
       "ws": "^8.18.1",
       "xstate": "^5.19.2",
       "yup": "^1.6.1",
-      "zod": "^3.24.3"
+      "zod": "^3.24.4"
    },
    "devDependencies": {
       "@next/bundle-analyzer": "^15.3.1",

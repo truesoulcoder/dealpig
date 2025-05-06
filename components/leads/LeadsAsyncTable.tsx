@@ -25,8 +25,22 @@ import {
 } from "@heroui/react";
 import { Icon } from "@iconify/react";
 import useSWR from "swr";
+import { Lead } from "@/helpers/types";
 
-const fetcher = (...args) => fetch(...args).then((res) => res.json());
+interface SWRData {
+  data: Lead[];
+  total: number;
+  error?: string;
+}
+
+const fetcher = async (url: string): Promise<SWRData> => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || 'Failed to fetch data');
+  }
+  return res.json();
+};
 
 interface LeadsAsyncTableProps {
   table: string;
@@ -35,28 +49,25 @@ interface LeadsAsyncTableProps {
 export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
   const [page, setPage] = React.useState(1);
   const [rowsPerPage, setRowsPerPage] = React.useState(25);
-  const [selectedLead, setSelectedLead] = React.useState<Record<string, any> | null>(null);
-  const [editableLead, setEditableLead] = React.useState<Record<string, any>>({});
+  const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
+  const [editableLead, setEditableLead] = React.useState<Partial<Lead>>({});
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
   const [sortDescriptor, setSortDescriptor] = React.useState({
-    column: "name",
+    column: "PropertyAddress",
     direction: "ascending",
   });
 
-  // Fetch only when a table is selected
-  const { data, isLoading } = useSWR(
+  const { data, error, isLoading } = useSWR<SWRData>(
     table ? `/api/leads/data?table=${encodeURIComponent(table)}&page=${page}&limit=${rowsPerPage}` : null,
     fetcher,
-    { keepPreviousData: true }
+    { 
+      keepPreviousData: true,
+      revalidateOnFocus: false,
+    }
   );
 
   const pages = React.useMemo(() => data?.total ? Math.ceil(data.total / rowsPerPage) : 0, [data?.total, rowsPerPage]);
 
-  React.useEffect(() => {
-    setPage(1);
-  }, [rowsPerPage]);
-
-  // Use data columns if available
   const columns = React.useMemo(() => {
     if (data?.data && data.data.length > 0) return Object.keys(data.data[0]);
     return [];
@@ -64,12 +75,17 @@ export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
 
   const sortedItems = React.useMemo(() => {
     if (!data?.data) return [];
-    return data.data;
-  }, [data?.data]);
+    return [...data.data].sort((a, b) => {
+      const first = a[sortDescriptor.column as keyof Lead];
+      const second = b[sortDescriptor.column as keyof Lead];
+      const cmp = (first ?? '') < (second ?? '') ? -1 : (first ?? '') > (second ?? '') ? 1 : 0;
+      return sortDescriptor.direction === 'descending' ? -cmp : cmp;
+    });
+  }, [data?.data, sortDescriptor]);
 
-  const loadingState = isLoading || !data?.data || data.data.length === 0 ? "loading" : "idle";
+  const loadingState = isLoading ? "loading" : error ? "error" : (data?.data?.length === 0 ? "empty" : "idle");
 
-  const handleRowClick = (lead) => {
+  const handleRowClick = (lead: Lead) => {
     setSelectedLead(lead);
     setEditableLead({ ...lead });
     onOpen();
@@ -83,13 +99,20 @@ export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
   };
 
   const handleSave = () => {
-    setSelectedLead({ ...editableLead });
-    // API call to update the data would go here
+    setSelectedLead({ ...editableLead } as Lead);
+    console.log('Saving lead:', editableLead);
     onClose();
   };
 
-  const renderCell = React.useCallback((item, columnKey) => {
+  const renderCell = React.useCallback((item: Lead, columnKey: React.Key) => {
     const cellValue = getKeyValue(item, columnKey);
+    if (typeof cellValue === 'string' && (columnKey === 'CreatedAt' || columnKey === 'UpdatedAt' || columnKey === 'LastContactedAt' || columnKey === 'MLSListDate')) {
+      try {
+        return <TableCell>{new Date(cellValue).toLocaleString()}</TableCell>;
+      } catch (e) {
+        return <TableCell>{cellValue}</TableCell>; 
+      }
+    }
     return <TableCell>{cellValue}</TableCell>;
   }, []);
 
@@ -117,7 +140,9 @@ export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
             </Dropdown>
           </div>
           <span className="text-small text-default-400">
-            {data ? `Total ${data.total} leads` : "Loading..."}
+            {loadingState === 'loading' && "Loading leads..."}
+            {loadingState === 'error' && <span className="text-danger text-small">Error loading leads: {error.message}</span>}
+            {loadingState === 'idle' && `Total ${data.total} leads`}
           </span>
         </div>
 
@@ -125,8 +150,8 @@ export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
           aria-label="Uploaded Leads Table"
           selectionMode="single"
           onRowAction={(key) => {
-            const lead = data?.data.find((item) => item.id === key);
-            handleRowClick(lead);
+            const lead = sortedItems.find((item) => String(item.Id) === String(key)); 
+            if (lead) handleRowClick(lead);
           }}
           sortDescriptor={sortDescriptor}
           onSortChange={setSortDescriptor}
@@ -152,16 +177,22 @@ export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
         >
           <TableHeader>
             {columns.map((col) => (
-              <TableColumn key={col}>{col.replace(/_/g, " ")}</TableColumn>
+              <TableColumn 
+                key={col} 
+                allowsSorting={true}
+              >
+                {col.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+              </TableColumn>
             ))}
           </TableHeader>
           <TableBody
-            items={sortedItems}
-            loadingContent={<Spinner />}
+            items={sortedItems ?? []}
+            loadingContent={<Spinner label="Loading..." />}
             loadingState={loadingState}
+            emptyContent={loadingState !== 'loading' ? "No leads found." : " "}
           >
             {(item) => (
-              <TableRow key={item?.id}>
+              <TableRow key={item?.Id}>
                 {columns.map((col) => renderCell(item, col))}
               </TableRow>
             )}
@@ -183,13 +214,12 @@ export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
                     {columns.map((col) => (
                       <Input
                         key={col}
-                        label={col.replace(/_/g, " ")}
+                        label={col.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
                         labelPlacement="outside"
-                        placeholder={col.replace(/_/g, " ")}
-                        value={editableLead[col] ?? ''}
+                        placeholder={`Enter ${col.replace(/([A-Z])/g, ' $1').toLowerCase()}`}
+                        value={editableLead[col as keyof Lead] ?? ''}
                         onValueChange={(value) => handleInputChange(col, value)}
-                        startContent={<Icon icon="lucide:user" className="text-default-400" />}
-                        description={`Lead's ${col.replace(/_/g, " ")}`}
+                        type={typeof editableLead[col as keyof Lead] === 'number' ? 'number' : 'text'} 
                       />
                     ))}
                   </div>

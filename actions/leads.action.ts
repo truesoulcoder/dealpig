@@ -42,15 +42,17 @@ export async function getNormalizedLeads(): Promise<NormalizedLead[]> {
   return data || [];
 }
 
-// Fetch all normalized tables
+// Fetch all archived/normal tables (with prefix 'normal_')
 export async function getNormalizedTables(): Promise<string[]> {
   const admin = createAdminClient();
-  // Use RPC to list dynamic lead tables
+  // Use RPC to list all tables, then filter for 'normal_' prefix
   const { data, error } = await admin.rpc('list_dynamic_lead_tables');
   if (error) {
     console.error('RPC list_dynamic_lead_tables failed:', error);
     return [];
   }
   // Rpc returns [{ table_name: string }]
-  return (data || []).map((row: any) => row.table_name);
+  return (data || [])
+    .map((row: any) => row.table_name)
+    .filter((name: string) => name.startsWith('normal_'));
 }

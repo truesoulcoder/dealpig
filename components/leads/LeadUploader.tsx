@@ -2,38 +2,20 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 
-interface LeadUploaderProps {
-  onUpload?: () => void;
-  addMessage?: (type: 'info' | 'error' | 'success', message: string) => void;
+// Define the expected response structure from the upload API
+interface UploadResponse {
+  ok: boolean;
+  error?: string;
+  message?: string; // Optional success message from API
 }
 
-export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps) {
-  // Polling for console log events every 2 seconds during upload
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const [externalSetMessages, setExternalSetMessages] = useState<((msgs: string[]) => void) | null>(null);
+interface LeadUploaderProps {
+  onUpload?: () => void; // Callback to refresh parent data
+}
 
-  // Helper to start polling
-  function startConsoleLogPolling(setMessages: (msgs: string[]) => void) {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    pollingRef.current = setInterval(async () => {
-      const events = await fetch('/api/leads/events').then(res => res.json());
-      setMessages(events.events?.map((e: any) => e.message) || []);
-    }, 2000);
-    setExternalSetMessages(() => setMessages);
-  }
-
-  // Helper to stop polling
-  function stopConsoleLogPolling() {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    pollingRef.current = null;
-    setExternalSetMessages(null);
-  }
-
-  useEffect(() => () => stopConsoleLogPolling(), []); // Clean up on unmount
-
+export default function LeadUploader({ onUpload }: LeadUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [progressMessages, setProgressMessages] = useState<string[]>([]);
   const [isPending, start] = useTransition();
   const successAudioRef = useRef<HTMLAudioElement | null>(null);
   const failureAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -52,42 +34,11 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
     }
   }, []);
 
-  // Helper to add a progress message
-  function addProgress(msg: string) {
-    setProgressMessages(prev => [...prev, msg]);
-  }
-
-  // Poll API for UI refresh after audio
-  async function pollAndRefresh() {
-    const pollInterval = 1000; // ms
-    const maxAttempts = 10;
-    let attempts = 0;
-    let refreshed = false;
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        // Optionally, you could fetch a specific endpoint or just call onUpload
-        await new Promise(res => setTimeout(res, pollInterval));
-        if (onUpload) {
-          onUpload(); // This will refresh tables and logs in LeadsPage
-          refreshed = true;
-        }
-        // Optionally, add a check here to break early if data is ready
-      } catch (err) {
-        // Ignore polling errors
-      }
-    }
-    if (!refreshed && onUpload) onUpload();
-  }
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedFile) return;
 
-    setProgressMessages([`Uploading file: ${selectedFile.name}`]);
-    setMessage(null);
-    if (addMessage) addMessage('info', `Started upload: ${selectedFile.name}`);
-    startConsoleLogPolling(setProgressMessages); // Start polling during upload
+    setMessage(`Uploading file: ${selectedFile.name}...`); // Use local message state
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -95,13 +46,11 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
     start(async () => {
       try {
         const res = await fetch('/api/leads/upload', { method: 'POST', body: formData });
-        const result = await res.json();
+        const result: UploadResponse = await res.json(); // Type the result
 
         if (result.ok) {
-          setMessage('Upload successful!');
-          stopConsoleLogPolling(); // Stop polling after upload
-          if (addMessage) addMessage('success', 'Upload successful!');
-          if (onUpload) onUpload(); // Always trigger parent refresh
+          setMessage(result.message || 'Upload successful!'); // Show API message or default
+          if (onUpload) onUpload(); // Trigger parent refresh
           // Play success sound
           if (successAudioRef.current) {
             try {
@@ -111,11 +60,8 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
             }
           }
         } else {
-          const msg = result.error || 'Unknown error';
+          const msg = result.error || 'Unknown upload error';
           setMessage(`Upload failed: ${msg}`);
-          stopConsoleLogPolling(); // Stop polling after upload
-          if (addMessage) addMessage('error', `❌ Upload failed: ${msg}`);
-          if (onUpload) onUpload(); // Always trigger parent refresh
           // Play failure sound
           if (failureAudioRef.current) {
             try {
@@ -126,12 +72,9 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
           }
         }
       } catch (err) {
-        console.error(err);
+        console.error('Upload fetch error:', err);
         const msg = err instanceof Error ? err.message : String(err);
         setMessage(`Upload failed: ${msg}`);
-        stopConsoleLogPolling(); // Stop polling after upload
-        if (addMessage) addMessage('error', `❌ Upload failed: ${msg}`);
-        if (onUpload) onUpload(); // Always trigger parent refresh
         // Play failure sound
         if (failureAudioRef.current) {
           try {
@@ -161,9 +104,12 @@ export default function LeadUploader({ onUpload, addMessage }: LeadUploaderProps
         >
           Upload CSV
         </button>
-        {message && <p className="mt-2 text-sm text-gray-700">{message}</p>}
+        {/* Display local message state */}
+        {message && 
+          <p className={`mt-2 text-sm ${message.startsWith('Upload failed:') ? 'text-danger-500' : 'text-gray-700'}`}>
+            {message}
+          </p>}
       </form>
-
     </>
   );
 }

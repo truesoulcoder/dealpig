@@ -33,6 +33,11 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Lead upload via API (`app/api/leads/upload/route.ts`) - Fixed to properly map CSV columns to database fields and handle errors gracefully - **Verified Working**
     *   CSV header parsing (`app/api/leads/headers/route.ts`) - Improved to handle different file formats and provide better error handling - **Verified Working**
     *   Console log events tracking - Added missing database table and policies for tracking upload events - **Verified Working**
+*   **Template Management (CRUD):**
+    *   Created API routes (`/api/templates`, `/api/templates/[id]`) for GET, POST, PUT, DELETE operations on templates.
+    *   Developed `TemplatesTable.tsx` to display and manage templates.
+    *   Developed `TemplateEditor.tsx` modal for creating and editing templates.
+    *   Integrated components into `app/(app)/templates/page.tsx`.
 
 ## In Progress Features
 

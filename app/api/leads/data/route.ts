@@ -8,8 +8,8 @@ export async function GET(req: NextRequest) {
   if (!table) {
     return NextResponse.json({ error: 'Missing table param' }, { status: 400 });
   }
-  // Safety: allow only normalized_ prefix
-  if (!/^normalized_[a-z0-9_]+_[0-9]+$/.test(table)) {
+  // Safety: allow only normal_ prefix
+  if (!/^normal_[a-z0-9_]+_[0-9]+$/.test(table)) {
     return NextResponse.json({ error: 'Invalid table name' }, { status: 400 });
   }
   const admin = createAdminClient();

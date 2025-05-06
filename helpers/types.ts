@@ -155,20 +155,11 @@ export interface Template {
   id: UUID;
   name: string;
   subject: string | null;
-  content: string;
-  type: string | null; // 'EMAIL', 'LOI', etc.
+  body: string; // Renamed from 'content' to match API
+  type: 'EMAIL' | 'LOI' | 'CONTRACT' | 'LETTER' | null; // Specific union type
   created_at: Timestamp;
   updated_at: Timestamp;
-}
-
-// Email Template type (more specific than general Template)
-export interface EmailTemplate extends Template {
-  type: 'EMAIL';
-}
-
-// Document Template type (more specific than general Template)
-export interface DocumentTemplate extends Template {
-  type: 'LOI' | 'CONTRACT' | 'LETTER';
+  // user_id?: UUID; // Optional user ID if templates become user-specific
 }
 
 // Campaign types
