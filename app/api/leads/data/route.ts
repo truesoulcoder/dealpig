@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
+import { requireSuperAdmin } from '@/lib/api-guard';
 
 export async function GET(req: NextRequest) {
+  try {
+    await requireSuperAdmin(req);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
   const table = req.nextUrl.searchParams.get('table');
   const limit = parseInt(req.nextUrl.searchParams.get('limit') || '25', 10);
   const offset = parseInt(req.nextUrl.searchParams.get('offset') || '0', 10);

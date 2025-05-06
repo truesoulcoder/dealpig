@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase';
 import { createResponse } from '@/lib/api';
 import { normalizeLeadsForSource } from '@/actions/leadIngestion.action';
 import { LeadSourceMetadata } from '@/helpers/types';
+import { requireSuperAdmin } from '@/lib/api-guard';
 
 export const runtime = 'nodejs'; // Necessary for using Node.js APIs like crypto
 
@@ -10,7 +11,16 @@ export const runtime = 'nodejs'; // Necessary for using Node.js APIs like crypto
  * API Route to trigger the normalization and insertion of leads for a given source ID.
  */
 export async function POST(request: NextRequest) {
-  console.log('[API /leads/process] POST handler called');
+  try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return createResponse({ success: false, message: error.message }, 401);
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return createResponse({ success: false, message: error.message }, 403);
+    }
+    return createResponse({ success: false, message: 'Access denied' }, 403);
+  }
   try {
     const body = await request.json();
     const { sourceId } = body;

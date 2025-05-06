@@ -6,3 +6,4 @@ const login = () => {
 };
 
 export default login;
+// Only Google login is available. No registration, forgot, or reset password links.

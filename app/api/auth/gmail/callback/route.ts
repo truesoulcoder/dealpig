@@ -3,8 +3,20 @@ import { getTokens, getUserInfo } from '@/lib/gmail';
 import { getSenderById } from '@/lib/database';
 import { createAdminClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
+import { requireSuperAdmin } from '@/lib/api-guard/auth-guard'; 
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
   try {
     // Get the authorization code from the query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -79,7 +91,7 @@ export async function GET(request: NextRequest) {
       
       // Redirect back to the accounts page with success message
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?success=true`);
-    } catch (error) {
+    } catch (error: any) {
       // Log the actual error object for better debugging
       let errorMsg = '';
       if (error instanceof Error) {
@@ -96,7 +108,7 @@ export async function GET(request: NextRequest) {
       console.error('Error during token processing:', errorMsg);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed during token processing: ' + errorMsg)}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error completing Gmail OAuth:', error);
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed to complete Gmail authentication')}`);
   }

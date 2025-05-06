@@ -1,15 +1,25 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { Template } from '@/helpers/types';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSuperAdmin } from '@/lib/api-guard';
 import { cookies } from 'next/headers';
 
 // Fetch a single template by ID
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const templateId = params.id;
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+  try {
+    const cookieStore = cookies(); // Fix lint error: @typescript-eslint/no-unnecessary-call-expression
+    const supabase = createServerClient(cookieStore);
     const { data: template, error } = await supabase
       .from('templates')
       .select('*') // Select all columns for viewing/editing
@@ -29,9 +39,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     return NextResponse.json(template);
-  } catch (err) {
-    console.error(`Unexpected error fetching template ${templateId}:`, err);
-    const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+  } catch (error: any) {
+    console.error(`Unexpected error fetching template ${templateId}:`, error);
+    const message = error.message || 'An unexpected error occurred.';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -39,10 +49,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 // Update a template by ID
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   const templateId = params.id;
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+  try {
+    const cookieStore = cookies(); // Fix lint error: @typescript-eslint/no-unnecessary-call-expression
+    const supabase = createServerClient(cookieStore);
     const body = await request.json();
 
     // Basic validation
@@ -77,9 +96,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     return NextResponse.json(data);
-  } catch (err) {
-    console.error(`Unexpected error updating template ${templateId}:`, err);
-    const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+  } catch (error: any) {
+    console.error(`Unexpected error updating template ${templateId}:`, error);
+    const message = error.message || 'An unexpected error occurred.';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -87,10 +106,19 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 // Delete a template by ID
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const templateId = params.id;
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
-
   try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+  try {
+    const cookieStore = cookies(); // Fix lint error: @typescript-eslint/no-unnecessary-call-expression
+    const supabase = createServerClient(cookieStore);
     const { error } = await supabase
       .from('templates')
       .delete()
@@ -107,9 +135,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ message: 'Template deleted successfully' }, { status: 200 }); // Or 204 No Content
 
-  } catch (err) {
-    console.error(`Unexpected error deleting template ${templateId}:`, err);
-    const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+  } catch (error: any) {
+    console.error(`Unexpected error deleting template ${templateId}:`, error);
+    const message = error.message || 'An unexpected error occurred.';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

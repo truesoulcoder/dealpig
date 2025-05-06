@@ -4,9 +4,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Define paths that don't require authentication
 const publicPaths = [
   '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
   '/api/auth/callback',
   '/auth/auth-code-error', // Add error page to public paths
   '/favicon.ico',
@@ -57,36 +54,51 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refresh session if expired - this will also read the session from cookies
-  console.log('[Middleware] Attempting to get session...');
-  const { data: { session }, error } = await supabase.auth.getSession();
+  console.log('[Middleware] Attempting to get user...');
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error) {
-    console.error('[Middleware] Error getting session:', error.message);
+  if (error || !user) {
+    console.error('[Middleware] Error getting user:', error?.message);
     // Allow request to proceed, maybe it's a public page or API route
     // Or handle specific errors if needed
   } else {
-    console.log(`[Middleware] Session status: ${session ? 'Exists' : 'None'}`);
+    console.log(`[Middleware] User status: ${user ? 'Authenticated' : 'None'}`);
   }
 
   const { pathname } = request.nextUrl;
   console.log(`[Middleware] Pathname: ${pathname}`);
 
-  // If it's not a public/api/asset path and there's no session, redirect to login
-  if (!isPublicOrApiOrAsset(pathname) && !session) {
+  // If it's not a public/api/asset path and there's no user, redirect to login
+  if (!isPublicOrApiOrAsset(pathname) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     // Optionally add redirectTo query param if needed
     // url.search = `redirectTo=${encodeURIComponent(pathname)}`;
-    console.log(`[Middleware] No session for protected route, redirecting to login from ${pathname}`);
+    console.log(`[Middleware] No user for protected route, redirecting to login from ${pathname}`);
     return NextResponse.redirect(url);
   }
 
   // If it's an auth page (like /login) and the user IS logged in, redirect to the app root
-  if (['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname) && session) {
+  if (['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname) && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/'; // Redirect to home page or dashboard
-    console.log(`[Middleware] Session found, redirecting from auth page ${pathname} to /`);
+    console.log(`[Middleware] User found, redirecting from auth page ${pathname} to /`);
     return NextResponse.redirect(url);
+  }
+
+  // Enforce super-admin email allowlist
+  if (user && user.email) {
+    const allowedEmails = [
+      'chrisphillips@truesoulpartners.com',
+      'egoluxinvicta@gmail.com',
+    ];
+    if (!allowedEmails.includes(user.email)) {
+      // Sign out the user and redirect to login with error
+      const signOutUrl = new URL('/login', request.nextUrl.origin);
+      signOutUrl.searchParams.set('error', 'Access denied: Only super admins may log in.');
+      // Optionally, clear cookies or session here if needed
+      return NextResponse.redirect(signOutUrl);
+    }
   }
 
   // Allow the request to proceed, returning the potentially modified response (with refreshed cookies)
@@ -94,6 +106,7 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+// Remove/disable registration and password reset routes from matcher.
 export const config = {
   matcher: [
     /*

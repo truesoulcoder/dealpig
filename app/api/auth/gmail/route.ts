@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUrl } from '@/lib/gmail';
 import { createSender } from '@/lib/database';
 import { cookies } from 'next/headers';
+import { requireSuperAdmin } from '@/lib/api-guard'; 
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
   try {
     // Get sender details from query params
     const searchParams = request.nextUrl.searchParams;
@@ -46,7 +58,7 @@ export async function GET(request: NextRequest) {
         daily_quota: parseInt(dailyQuota),
         user_id: effectiveUserId,
       });
-    } catch (dbError) {
+    } catch (dbError: any) {
       console.error('Error creating sender in database:', dbError);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed to create sender record')}`);
     }
@@ -59,13 +71,13 @@ export async function GET(request: NextRequest) {
       // Pass the sender ID as state parameter in OAuth URL
       authUrl = getAuthUrl(senderId);
       console.log(`Redirecting to Google OAuth: ${authUrl}`);
-    } catch (oauthError) {
+    } catch (oauthError: any) {
       console.error('Error generating Google OAuth URL:', oauthError);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/accounts?error=${encodeURIComponent('Failed to connect to Google OAuth: ' + (oauthError instanceof Error ? oauthError.message : String(oauthError)))}`);
     }
     
     return NextResponse.redirect(authUrl);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error initiating Gmail OAuth:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error details:', errorMessage);

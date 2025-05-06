@@ -1,12 +1,1 @@
-Dealpig
---------------------------------------------------------------------
-what?
-- a customers relations management app that allows users to add gmail accounts to send purchase offers to real estate leads using an automatic emailing algorithm and lead distribution sengine.
-Why?
-- as a shotgun approach to lowballing boomers who can't sell their house that has been on the market for more than 90 days
-How?
-- drip feed email marketing campaigns to multiple sender accounts using their auth tokens and refresh tokens saved in a database.
-Because why?
-- so we don't get flagged as spam by gmail and we buy houses at wholesale prices from motivated sellers in a housing crisis bubble
-Ok when?
-- as soon as you fucking make the app work like it's supposed to and sometime soon before the bubble bursts if you know what's good for you.
+DealPig is a single-user, super-admin-only internal control panel for the company's marketing and acquisitions department. Only Chris Phillips (chrisphillips@truesoulpartners.com) and his backup email (egoluxinvicta@gmail.com) are allowed to log in. The app is not a multi-user SaaS; all features, UI, and backend logic are designed for a single operator. Authentication is locked down to these emails via Google OAuth. All admin actions (user management, Gmail automation, SaaS provisioning, workflow triggers) are available only to the super user. Future backdoor/owner access may be added after prototype, but is not in scope now. All code is IP of the CTO and is not for mass distribution.

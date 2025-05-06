@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';   // service‑role client
 import Papa from 'papaparse';
 import { randomUUID } from 'crypto';
@@ -6,37 +6,33 @@ import { randomUUID } from 'crypto';
 // Helper to post log events directly to Supabase for realtime UI Console Log
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { requireSuperAdmin } from '@/lib/api-guard'; // Corrected import path
+
 async function postLogEvent(type: 'info' | 'error' | 'success', message: string) {
   try {
     const sb = createAdminClient();
-    let user_id = null;
-    try {
-      // Use Supabase SSR client to get the actual session and user_id
-      const cookieStore = await cookies();
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const serverClient = createServerClient(supabaseUrl, supabaseAnonKey, { cookies: { get: (name: string) => cookieStore.get(name)?.value } });
-      const { data: { user }, error } = await serverClient.auth.getUser();
-      if (error) {
-        console.error('[postLogEvent] getUser error:', error);
-      }
-      user_id = user?.id || null;
-      console.log('[postLogEvent] (auth.getUser) Using user_id:', user_id);
-    } catch (err) {
-      console.error('[postLogEvent] Failed to get user_id from session:', err);
-    }
     await sb.from('console_log_events').insert({
       type,
       message,
-      user_id,
       timestamp: new Date().getTime(),
     });
-  } catch (err) {
-    console.error('Error posting log event:', err);
+  } catch (error: any) { // Type error as any to resolve lint warnings
+    console.error('[postLogEvent] Error inserting log event:', error);
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) { // Changed from Request to NextRequest
+  try {
+    await requireSuperAdmin(req); // Add super-admin access check
+  } catch (error: any) { // Type error as any in POST handler
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
   const steps: string[] = [];
   
   try {
@@ -602,7 +598,7 @@ const normResponse = await fetch(new URL('/api/leads/normalize', req.url).toStri
     try {
       await postLogEvent('error', `Unexpected error: ${e.message || 'Unknown error'}`);
       steps.push(`❌ Unexpected server error: ${e.message || 'Unknown error'}`);
-    } catch (logError) {
+    } catch (logError: any) {
       console.error('Failed to log error:', logError);
       steps.push('❌ Failed to log error');
     }

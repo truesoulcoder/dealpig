@@ -4,10 +4,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 // Import helper functions if they are needed and don't create their own clients
 // import { ensureProfile } from '@/actions/auth.action'; 
+import { requireSuperAdmin } from '@/lib/api-guard'; // Corrected import path
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireSuperAdmin(request);
+  } catch (error: any) { // Type error as any to resolve lint warnings
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const error = requestUrl.searchParams.get('error');
@@ -77,7 +89,7 @@ export async function GET(request: NextRequest) {
       console.log('[Callback Route] Redirecting to /');
       return NextResponse.redirect(requestUrl.origin); // Redirect to home page
 
-    } catch (catchError: any) {
+    } catch (catchError: any) { // Type error as any to resolve lint warnings
        console.error('[Callback Route] Unexpected error during code exchange:', catchError);
        return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=unexpected_error&error_description=${catchError.message}`);
     }

@@ -1,45 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
+import { requireSuperAdmin } from '@/lib/api-guard'; 
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the user's session
+    await requireSuperAdmin(request); // Add super-admin access check
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
+  try {
     const admin = createAdminClient();
-    const { data: { user }, error: authError } = await admin.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { message: 'User not authenticated' },
-        { status: 401 }
-      );
+    const { data, error } = await admin.storage
+      .from('lead-uploads') // Bucket for lead uploads
+      .list()
+      .order('created_at', { ascending: false }); // Adjust query as needed, removing any user-specific filters
+
+    if (error) {
+      console.error('Error listing leads:', error);
+      return NextResponse.json({ error: error.message || 'Failed to list leads' }, { status: 500 });
     }
-    
-    // Get the user's profile with additional details
-    const { data: profile, error: profileError } = await admin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-      
-    if (profileError) {
-      console.error('[API /user/me] profile fetch error:', profileError);
-      return NextResponse.json(
-        { email: user.email, name: user.user_metadata?.name || 'User' },
-        { status: 200 }
-      );
-    }
-    
-    return NextResponse.json({
-      id: user.id,
-      email: user.email,
-      name: profile?.name || user.user_metadata?.name || 'User',
-      ...profile
-    });
-  } catch (err) {
-    console.error('[API /user/me] unexpected error:', err);
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ files: data || [] });
+  } catch (err: any) {
+    console.error('[API /leads/list] unexpected error:', err);
+    return NextResponse.json({ files: [], error: err.message || 'Unexpected server error' }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase';
 import { createResponse } from '@/lib/api';
+import { requireSuperAdmin } from '@/lib/api-guard';
 
 export const runtime = 'nodejs';
 
@@ -9,6 +10,17 @@ export const runtime = 'nodejs';
  * a file has been successfully uploaded directly to Supabase Storage.
  */
 export async function POST(request: NextRequest) {
+  try {
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return createResponse({ success: false, message: error.message }, 401);
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return createResponse({ success: false, message: error.message }, 403);
+    }
+    return createResponse({ success: false, message: 'Access denied' }, 403);
+  }
+
   console.log('[API /leads/register-source] POST handler called');
   try {
     const body = await request.json();

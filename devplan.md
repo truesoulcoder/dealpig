@@ -87,6 +87,20 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
     *   Basic Template Listing UI (`app/(app)/templates/page.tsx`) - **Started**
     *   *Needs Work:* Rich text editor implementation for Email Templates, variable insertion logic, saving/updating templates via API.
 
+## Feature: API Access Lockdown
+- Implemented global API guard to enforce super-admin only access using requireSuperAdmin helper.
+- Date: 2025-05-06
+- Ensures all admin endpoints are restricted to allowed emails.
+
+## Dev Plan
+
+### [2024-] Super Admin-Only Authentication Refactor
+- Registration and password reset logic removed from UI and backend.
+- Login restricted to only two super admin emails.
+- Public paths locked down to only /login and static assets.
+- All other routes require authentication and correct email.
+- UI links to registration and password reset removed.
+
 ## Planned / Not Started Features
 
 *   **Lead Management:**

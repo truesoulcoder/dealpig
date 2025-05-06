@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { EmailStatus } from '@/helpers/types';
+import { requireSuperAdmin } from '@/lib/api-guard';
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse the webhook payload
+    await requireSuperAdmin(request);
+  } catch (error: any) {
+    if (error.message === 'Unauthorized: User not authenticated') {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    } else if (error.message === 'Forbidden: Not a super admin') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+  try {
+    const cookieStore = cookies();
+    const supabase = createServerClient(cookieStore);
     const payload = await request.json();
-    
-    // Verify webhook signature (implementation depends on your email provider)
-    // This is just a placeholder for security validation
-    // const isValid = verifyWebhookSignature(request);
-    // if (!isValid) {
-    //   return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    // }
+    // Parse the webhook payload
     
     // Extract event data
     const { event, emailId, trackingId, timestamp, metadata, messageId } = payload;
@@ -105,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({ status: 'success' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing email webhook:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

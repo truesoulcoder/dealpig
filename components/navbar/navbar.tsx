@@ -26,11 +26,15 @@ function UserSection() {
     }
     loadUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        setUser(null);
+      } else {
+        setUser(user);
+      }
+    };
+    fetchUser();
   }, []);
 
   if (!mounted) return null;
