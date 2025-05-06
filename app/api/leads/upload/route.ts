@@ -55,11 +55,26 @@ export async function POST(req: NextRequest) { // Changed from Request to NextRe
     const sb = createAdminClient();                // uses service‑role key
     const bucket = 'lead-uploads';
     const { data, error } = await sb.storage.from(bucket).upload(file.name, file);
+    
     if (error) {
-      console.error('Error uploading file:', error);
-      await postLogEvent('error', `Error uploading file: ${error.message}`);
-      steps.push(`❌ Error uploading file: ${error.message}`);
-      return NextResponse.json({ ok: false, error: error.message, steps }, { status: 500 });
+      console.error('Error uploading file to Supabase Storage:', error); // Detailed log
+      await postLogEvent('error', `Storage Error: ${error.message}`);
+      steps.push(`❌ Storage Error: ${error.message}`);
+      
+      // Check if the error object has a status or statusCode property (Supabase storage errors often do)
+      // The logged error showed: { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' }
+      const statusCode = (error as any).statusCode || (error as any).status || 500;
+      const errorMessage = (error as any).error || error.message; // Use the 'error' field from the object if present
+
+      return NextResponse.json(
+        { 
+          ok: false, 
+          error: errorMessage, // More specific error like 'Duplicate'
+          message: error.message, // Full original message
+          steps 
+        }, 
+        { status: parseInt(statusCode as string, 10) } // Use the actual status code from Supabase
+      );
     }
     steps.push('File uploaded successfully.');
     await postLogEvent('success', 'File uploaded successfully.');

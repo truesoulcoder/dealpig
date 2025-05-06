@@ -1,25 +1,11 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'; // Import CookieOptions
+import { createServerClient } from '@/lib/supabase/server'; 
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-// Import helper functions if they are needed and don't create their own clients
-// import { ensureProfile } from '@/actions/auth.action'; 
-import { requireSuperAdmin } from '@/lib/api-guard'; // Corrected import path
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  try {
-    await requireSuperAdmin(request);
-  } catch (error: any) { // Type error as any to resolve lint warnings
-    if (error.message === 'Unauthorized: User not authenticated') {
-      return NextResponse.json({ error: error.message }, { status: 401 });
-    } else if (error.message === 'Forbidden: Not a super admin') {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-  }
-
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
   const error = requestUrl.searchParams.get('error');
@@ -29,73 +15,36 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error('[Callback Route] OAuth Error:', error, 'Description:', errorDescription);
-    // Redirect to an error page showing the error
-    return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=${error}&error_description=${errorDescription || 'Unknown error'}`);
+    return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || 'Unknown error')}`);
   }
 
   if (code) {
     console.log('[Callback Route] Auth code received. Exchanging for session...');
-    const cookieStore = await cookies(); // Await the promise here
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: { // Provide the expected cookie methods object
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch (error) {
-              // Handle potential errors if set is called in read-only context
-              console.warn(`[Callback Route] Failed to set cookie '${name}'`, error);
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value: '', ...options }); // Use set with empty value for removal
-            } catch (error) {
-              // Handle potential errors if remove is called in read-only context
-              console.warn(`[Callback Route] Failed to remove cookie '${name}'`, error);
-            }
-          },
-        },
-      }
-    );
+    const supabase = createServerClient(); 
 
-    try {
-      const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
-      if (exchangeError) {
-        console.error('[Callback Route] Error exchanging code for session:', exchangeError);
-        // Redirect to an error page
-        return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=exchange_failed&error_description=${exchangeError.message}`);
-      }
-
-      console.log('[Callback Route] Session exchanged successfully. User:', data.user?.id);
-
-      // Session is now stored in cookies by createServerRouteHandlerClient
-      // Optionally, ensure profile exists here if needed, passing the client
-      // if (data.session) {
-      //   await ensureProfile(data.session.user.id, {
-      //     email: data.session.user.email,
-      //     full_name: data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name,
-      //   }, supabase); // Pass the client if ensureProfile expects it
-      // }
-
-
-      // Redirect to the home page or intended destination after login
-      console.log('[Callback Route] Redirecting to /');
-      return NextResponse.redirect(requestUrl.origin); // Redirect to home page
-
-    } catch (catchError: any) { // Type error as any to resolve lint warnings
-       console.error('[Callback Route] Unexpected error during code exchange:', catchError);
-       return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=unexpected_error&error_description=${catchError.message}`);
+    if (exchangeError) {
+      console.error('[Callback Route] Error exchanging code for session:', exchangeError);
+      return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=exchange_failed&error_description=${exchangeError.message}`);
     }
+
+    console.log('[Callback Route] Session exchanged successfully. User:', data.user?.id);
+
+    // Session is now stored in cookies by createServerRouteHandlerClient
+    // Optionally, ensure profile exists here if needed, passing the client
+    // if (data.session) {
+    //   await ensureProfile(data.session.user.id, {
+    //     email: data.session.user.email,
+    //     full_name: data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name,
+    //   }, supabase); // Pass the client if ensureProfile expects it
+    // }
+
+    console.log('[Callback Route] Redirecting to /');
+    return NextResponse.redirect(requestUrl.origin); 
+
   } else {
      console.warn('[Callback Route] No code or error received.');
-     // Redirect to an error page if no code is present without an error
      return NextResponse.redirect(`${requestUrl.origin}/auth/auth-code-error?error=missing_code&error_description=Authorization code not found in callback request.`);
   }
 }

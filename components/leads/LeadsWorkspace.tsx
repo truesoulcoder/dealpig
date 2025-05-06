@@ -1,32 +1,45 @@
 import React from "react";
 import FileExplorer from "./FileExplorer";
 import ConsoleLog from "./ConsoleLog";
-import DynamicLeadsTable from "./DynamicLeadsTable";
-import styles from "../ui/matrix-glass.module.scss";
+import LeadsAsyncTable from "./LeadsAsyncTable";
+// Matrix glass module removed as it's no longer used
 
-interface LeadsWorkspaceProps {
+export interface LeadsWorkspaceProps {
   tables: string[];
   selectedTable: string;
-  onTableSelect: (t: string) => void;
-  leads: any[];
+  onTableSelect: (table: string) => void;
+  leadsData: { data: any[]; pagination: any };
+  isLoadingLeads: boolean;
   onLeadEdit: (lead: any) => void;
   onRefresh: () => void;
-  onSave: () => void;
   messages: Array<{
     type: 'info' | 'error' | 'success';
     message: string;
     timestamp?: number;
   }>;
+  currentPage: number;
+  rowsPerPage: number;
+  sortConfig: { key: string; direction: 'asc' | 'desc' };
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (size: number) => void;
+  onSortChange: (sortConfig: { key: string; direction: 'asc' | 'desc' }) => void;
 }
 
 export default function LeadsWorkspace({
   tables,
   selectedTable,
   onTableSelect,
-  leads,
+  leadsData,
+  isLoadingLeads,
   onLeadEdit,
   onRefresh,
-  onSave,
+  messages,
+  currentPage,
+  rowsPerPage,
+  sortConfig,
+  onPageChange,
+  onRowsPerPageChange,
+  onSortChange,
 }: LeadsWorkspaceProps) {
   return (
     <div className="flex flex-col md:flex-row gap-8 w-full p-6">
@@ -59,12 +72,20 @@ export default function LeadsWorkspace({
             {tables.length === 0 ? (
               <div className="text-center text-gray-400 py-12 text-lg">No lead tables available.<br/>Please upload leads to get started.</div>
             ) : (
-              <DynamicLeadsTable 
-                table={selectedTable} 
-                leads={leads} 
-                onEdit={onLeadEdit} 
-                onRefresh={onRefresh}
-                onSave={onSave}
+              <LeadsAsyncTable 
+                leads={leadsData.data} 
+                paginationInfo={leadsData.pagination} 
+                isLoading={isLoadingLeads} 
+                selectedTable={selectedTable} 
+                onEditSubmit={onLeadEdit} 
+                onRefreshData={onRefresh} 
+                currentPage={currentPage}
+                rowsPerPage={rowsPerPage}
+                sortConfig={sortConfig}
+                onPageChange={onPageChange}
+                onRowsPerPageChange={onRowsPerPageChange}
+                onSortChange={onSortChange}
+                rowsPerPageOptions={[10, 25, 50, 100]}
               />
             )}
           </div>
@@ -80,3 +101,4 @@ export default function LeadsWorkspace({
     </div>
   );
 }
+

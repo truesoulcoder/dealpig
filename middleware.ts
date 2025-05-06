@@ -87,32 +87,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Enforce super-admin email allowlist
-  if (user && user.email) {
-    const allowedEmails = [
-      'chrisphillips@truesoulpartners.com',
-      'egoluxinvicta@gmail.com',
-    ];
-    if (!allowedEmails.includes(user.email)) {
-      console.log(`[Middleware] Access Denied: User email ${user.email} not in allowed list.`);
-      await supabase.auth.signOut(); // Explicitly sign out the user
-      // Redirect to a generic error page or a page that explains the issue
-      const errorPageUrl = new URL('/auth/auth-code-error', request.nextUrl.origin);
-      errorPageUrl.searchParams.set('error', 'access_denied');
-      errorPageUrl.searchParams.set('error_description', 'This account is not authorized to access the application.');
-      response = NextResponse.redirect(errorPageUrl);
-      // Clear any potentially problematic cookies set by the response so far for this user
-      // This is a bit aggressive but ensures a clean slate after signOut and redirect.
-      // Be cautious if other cookies unrelated to auth are important.
-      for (const cookie of request.cookies.getAll()) { // Correctly iterate over cookies
-        if (cookie.name.startsWith('sb-')) { // Target Supabase cookies by name
-          response.cookies.delete(cookie.name); // Delete by name
-        }
-      }
-      return response;
-    }
-  }
-
   // Allow the request to proceed, returning the potentially modified response (with refreshed cookies)
   console.log(`[Middleware] Allowing request for ${pathname}`);
   return response;

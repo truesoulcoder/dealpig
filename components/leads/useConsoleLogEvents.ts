@@ -11,14 +11,26 @@ export function useConsoleLogEvents(): LogEvent[] {
   const [events, setEvents] = useState<LogEvent[]>([]);
   useEffect(() => {
     let cancelled = false;
-    // Initial load ordered by newest first
-    supabase
-      .from('processing_status')
-      .select('type, message, timestamp')
-      .order('timestamp', { ascending: false })
-      .then(({ data, error }) => {
+
+    const fetchInitialEvents = async () => {
+      if (!supabase) return;
+
+      const query = supabase
+        .from('console_log_events')
+        .select('type, message, timestamp')
+        .order('timestamp', { ascending: false });
+
+      console.log('Supabase query object (useConsoleLogEvents):', query); // DEBUGGING LOG
+
+      query.then(async ({ data, error }) => {
         if (error) {
-          console.error('Error fetching initial console events:', error);
+          console.error(
+            'Error fetching initial console events. Message:', (error as any).message, 
+            'Details:', (error as any).details, 
+            'Hint:', (error as any).hint, 
+            'Code:', (error as any).code, 
+            'Full Error Object:', error
+          );
         } else if (data && !cancelled) {
           // Validate data structure slightly before setting state
           const validData = data.filter(item => 
@@ -29,10 +41,13 @@ export function useConsoleLogEvents(): LogEvent[] {
           setEvents(validData);
         }
       });
-    // Subscribe to real-time inserts
+    };
+
+    fetchInitialEvents();
+
     const subscription = supabase
-      .channel('public:processing_status')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'processing_status' }, ({ new: payload }) => {
+      ?.channel('console-log-feed')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'console_log_events' }, ({ new: payload }) => {
         // Validate payload before adding
         if (payload && 
             typeof payload.type === 'string' && 

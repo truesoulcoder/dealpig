@@ -1,238 +1,261 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Selection, SortDescriptor as HeroSortDescriptor } from '@heroui/react'; // Import Selection and SortDescriptor types
 import {
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
-  TableCell,
-  Pagination,
-  Spinner,
-  getKeyValue,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  Input,
-  useDisclosure,
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-  Selection,
-} from "@heroui/react";
-import { Icon } from "@iconify/react";
-import useSWR from "swr";
-import { Lead } from "@/helpers/types";
+  Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
+  Pagination, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Input, Spinner, Select, SelectItem
+} from '@heroui/react';
 
-interface SWRData {
-  data: Lead[];
-  total: number;
-  error?: string;
+// Define a more specific type for a lead if possible, for now 'any'
+interface Lead {
+  id: number | string;
+  [key: string]: any; // Allow other properties
 }
 
-const fetcher = async (url: string): Promise<SWRData> => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText || 'Failed to fetch data');
-  }
-  return res.json();
-};
-
-interface LeadsAsyncTableProps {
-  table: string;
+interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
 }
 
-export default function LeadsAsyncTable({ table }: LeadsAsyncTableProps) {
-  const [page, setPage] = React.useState(1);
-  const [rowsPerPage, setRowsPerPage] = React.useState(25);
-  const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
-  const [editableLead, setEditableLead] = React.useState<Partial<Lead>>({});
-  const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
-  const [sortDescriptor, setSortDescriptor] = React.useState({
-    column: "PropertyAddress",
-    direction: "ascending",
-  });
+export interface LeadsAsyncTableProps { // Exporting the interface
+  leads: Lead[];
+  paginationInfo: PaginationInfo;
+  isLoading: boolean;
+  selectedTable: string; // For context in API calls (e.g., update)
+  onEditSubmit: (updatedLeadData: any, tableName: string, leadId: string | number) => Promise<void>; // To notify parent about update
+  onRefreshData: () => void; // To trigger a refresh in the parent
+  currentPage: number;
+  rowsPerPage: number;
+  sortConfig: { key: string; direction: 'asc' | 'desc' };
+  onPageChange: (page: number) => void;
+  onRowsPerPageChange: (size: number) => void;
+  onSortChange: (sortConfig: { key: string; direction: 'asc' | 'desc' }) => void;
+  rowsPerPageOptions?: number[];
+}
 
-  const { data, error, isLoading } = useSWR<SWRData>(
-    table ? `/api/leads/data?table=${encodeURIComponent(table)}&page=${page}&limit=${rowsPerPage}` : null,
-    fetcher,
-    { 
-      keepPreviousData: true,
-      revalidateOnFocus: false,
-    }
-  );
+const LeadsAsyncTable: React.FC<LeadsAsyncTableProps> = ({
+  leads,
+  paginationInfo,
+  isLoading,
+  selectedTable,
+  onEditSubmit, // Renamed from onEdit for clarity, or keep as onEdit if it's just about opening modal
+  onRefreshData,
+  currentPage,
+  rowsPerPage,
+  sortConfig,
+  onPageChange,
+  onRowsPerPageChange,
+  onSortChange,
+  rowsPerPageOptions = [10, 25, 50, 100],
+}) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editableLead, setEditableLead] = useState<Lead | null>(null);
+  const [modalSaving, setModalSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  const pages = React.useMemo(() => data?.total ? Math.ceil(data.total / rowsPerPage) : 0, [data?.total, rowsPerPage]);
+  const columns = useMemo(() => {
+    if (!leads || leads.length === 0) return [];
+    // Dynamically generate columns from the keys of the first lead object
+    // Exclude 'id' from sortable columns if it's not intended, or handle its display specially
+    return Object.keys(leads[0]).map(key => ({ key, label: key.replace(/_/g, ' ').toUpperCase() }));
+  }, [leads]);
 
-  const columns = React.useMemo(() => {
-    if (data?.data && data.data.length > 0) return Object.keys(data.data[0]);
-    return [];
-  }, [data?.data]);
-
-  const sortedItems = React.useMemo(() => {
-    if (!data?.data) return [];
-    return [...data.data].sort((a, b) => {
-      const first = a[sortDescriptor.column as keyof Lead];
-      const second = b[sortDescriptor.column as keyof Lead];
-      const cmp = (first ?? '') < (second ?? '') ? -1 : (first ?? '') > (second ?? '') ? 1 : 0;
-      return sortDescriptor.direction === 'descending' ? -cmp : cmp;
-    });
-  }, [data?.data, sortDescriptor]);
-
-  const loadingState = isLoading ? "loading" : error ? "error" : (data?.data?.length === 0 ? "empty" : "idle");
-
-  const handleRowClick = (lead: Lead) => {
-    setSelectedLead(lead);
+  const handleEdit = (lead: Lead) => {
     setEditableLead({ ...lead });
-    onOpen();
+    setIsModalOpen(true);
+    setModalError(null);
   };
 
-  const handleInputChange = (key, value) => {
-    setEditableLead((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const handleSave = () => {
-    setSelectedLead({ ...editableLead } as Lead);
-    console.log('Saving lead:', editableLead);
-    onClose();
-  };
-
-  const renderCell = React.useCallback((item: Lead, columnKey: React.Key) => {
-    const cellValue = getKeyValue(item, columnKey);
-    if (typeof cellValue === 'string' && (columnKey === 'CreatedAt' || columnKey === 'UpdatedAt' || columnKey === 'LastContactedAt' || columnKey === 'MLSListDate')) {
-      try {
-        return <TableCell>{new Date(cellValue).toLocaleString()}</TableCell>;
-      } catch (e) {
-        return <TableCell>{cellValue}</TableCell>; 
-      }
+  const handleModalInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (editableLead) {
+      setEditableLead({ ...editableLead, [e.target.name]: e.target.value });
     }
-    return <TableCell>{cellValue}</TableCell>;
-  }, []);
+  };
 
-  const onRowsPerPageChange = React.useCallback((e) => {
-    setRowsPerPage(Number(e.target.value));
-  }, []);
+  const handleSave = async () => {
+    if (!editableLead || !selectedTable) return;
+    setModalSaving(true);
+    setModalError(null);
+    try {
+      // The actual update logic is now in /api/leads/data via POST
+      const response = await fetch('/api/leads/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          tableName: selectedTable, 
+          id: editableLead.id, 
+          updates: editableLead 
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to update lead: ${response.statusText}`);
+      }
+      // await onEditSubmit(editableLead, selectedTable, editableLead.id); // Call parent's handler if it does optimistic updates
+      onRefreshData(); // Crucial: Trigger data refresh in parent
+      setIsModalOpen(false);
+      setEditableLead(null);
+    } catch (error: any) {
+      console.error('Error saving lead:', error);
+      setModalError(error.message || 'An unexpected error occurred.');
+    } finally {
+      setModalSaving(false);
+    }
+  };
+
+  const renderCell = (item: Lead, columnKey: string | number) => {
+    const cellValue = item[columnKey as keyof Lead];
+    return String(cellValue); // Simple string conversion
+  };
+
+  const topContent = useMemo(() => {
+    return (
+      <div className="flex justify-between items-center gap-2">
+        <div className="text-sm text-gray-600">
+          Total {paginationInfo.totalItems} leads
+        </div>
+        <div className="flex items-center gap-2">
+            <span className="text-sm">Rows per page:</span>
+            <Select 
+                aria-label="Rows per page"
+                size="sm"
+                selectedKeys={new Set([String(rowsPerPage)])}
+                onSelectionChange={(keys: Selection) => {
+                    if (keys !== 'all' && keys.size > 0) {
+                        const value = Array.from(keys)[0];
+                        onRowsPerPageChange(Number(value));
+                    }
+                }}
+            >
+                {rowsPerPageOptions.map(size => (
+                    <SelectItem key={String(size)} textValue={String(size)}>
+                        {String(size)}
+                    </SelectItem>
+                ))}
+            </Select>
+        </div>
+      </div>
+    );
+  }, [paginationInfo.totalItems, rowsPerPage, onRowsPerPageChange, rowsPerPageOptions]);
+
+  const bottomContent = useMemo(() => {
+    return (
+      <div className="py-2 px-2 flex justify-center items-center">
+        {paginationInfo.totalPages > 1 && (
+            <Pagination
+                showControls
+                color="primary"
+                page={currentPage}
+                total={paginationInfo.totalPages}
+                onChange={onPageChange}
+            />
+        )}
+      </div>
+    );
+  }, [currentPage, paginationInfo.totalPages, onPageChange]);
+
+  // Prepare sortDescriptor for the HeroUI Table
+  const currentTableSortDescriptor: HeroSortDescriptor = {
+    column: sortConfig.key, // Table expects 'column', our state uses 'key'
+    direction: sortConfig.direction === 'asc' ? 'ascending' : 'descending',
+  };
+
+  if (!columns || columns.length === 0 && !isLoading) {
+    return (
+        <div className="p-4 text-center text-gray-500">
+            {selectedTable ? 'No leads found for this table or table is empty.' : 'Please select a table.'}
+        </div>
+    );
+  }
 
   return (
     <>
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-default-400 text-small">Rows per page:</span>
-            <Dropdown>
-              <DropdownTrigger>
-                <Button variant="flat" size="sm">{rowsPerPage}</Button>
-              </DropdownTrigger>
-              <DropdownMenu>
-                {[10, 25, 50, 100].map((count) => (
-                  <DropdownItem key={count} onPress={() => setRowsPerPage(count)}>
-                    {count}
-                  </DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          </div>
-          <span className="text-small text-default-400">
-            {loadingState === 'loading' && "Loading leads..."}
-            {loadingState === 'error' && <span className="text-danger text-small">Error loading leads: {error.message}</span>}
-            {loadingState === 'idle' && `Total ${data.total} leads`}
-          </span>
-        </div>
-
-        <Table
-          aria-label="Uploaded Leads Table"
-          selectionMode="single"
-          onRowAction={(key) => {
-            const lead = sortedItems.find((item) => String(item.Id) === String(key)); 
-            if (lead) handleRowClick(lead);
-          }}
-          sortDescriptor={sortDescriptor}
-          onSortChange={setSortDescriptor}
-          classNames={{
-            tbody: "cursor-pointer",
-            tr: "transition-colors hover:bg-primary-50 data-[selected=true]:bg-primary-100",
-          }}
-          bottomContent={
-            pages > 0 ? (
-              <div className="flex w-full justify-center">
-                <Pagination
-                  isCompact
-                  showControls
-                  showShadow
-                  color="primary"
-                  page={page}
-                  total={pages}
-                  onChange={(page) => setPage(page)}
-                />
-              </div>
-            ) : null
-          }
-        >
-          <TableHeader>
-            {columns.map((col) => (
-              <TableColumn 
-                key={col} 
-                allowsSorting={true}
-              >
-                {col.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-              </TableColumn>
-            ))}
-          </TableHeader>
-          <TableBody
-            items={sortedItems ?? []}
-            loadingContent={<Spinner label="Loading..." />}
-            loadingState={loadingState}
-            emptyContent={loadingState !== 'loading' ? "No leads found." : " "}
-          >
-            {(item) => (
-              <TableRow key={item?.Id}>
-                {columns.map((col) => renderCell(item, col))}
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                Lead Details
-                <p className="text-small text-default-500">View and edit lead information</p>
-              </ModalHeader>
-              <ModalBody>
-                {editableLead && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {columns.map((col) => (
-                      <Input
-                        key={col}
-                        label={col.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                        labelPlacement="outside"
-                        placeholder={`Enter ${col.replace(/([A-Z])/g, ' $1').toLowerCase()}`}
-                        value={editableLead[col as keyof Lead] ?? ''}
-                        onValueChange={(value) => handleInputChange(col, value)}
-                        type={typeof editableLead[col as keyof Lead] === 'number' ? 'number' : 'text'} 
-                      />
-                    ))}
-                  </div>
-                )}
-              </ModalBody>
-              <ModalFooter>
-                <Button color="primary" onPress={handleSave}>Save</Button>
-                <Button variant="ghost" onPress={onClose}>Cancel</Button>
-              </ModalFooter>
-            </>
+      <Table 
+        aria-label={`Leads from ${selectedTable}`}
+        topContent={topContent}
+        topContentPlacement="outside"
+        bottomContent={bottomContent}
+        bottomContentPlacement="outside"
+        sortDescriptor={currentTableSortDescriptor}
+        onSortChange={(descriptor: HeroSortDescriptor) => {
+            // Adapt descriptor from Table to what our parent onSortChange expects
+            if (descriptor.column) { // Ensure column is defined
+                onSortChange({
+                    key: String(descriptor.column),
+                    direction: descriptor.direction === 'ascending' ? 'asc' : 'desc',
+                });
+            }
+        }}
+        className="min-h-[200px]" // Ensure table has some height during loading or when empty
+      >
+        <TableHeader columns={columns}>
+          {(column) => (
+            <TableColumn 
+                key={column.key} 
+                align={column.key === 'actions' ? 'end' : 'start'}
+                allowsSorting={column.key !== 'actions'} // Example: disable sorting for an actions column
+            >
+              {column.label}
+            </TableColumn>
           )}
-        </ModalContent>
-      </Modal>
+        </TableHeader>
+        <TableBody 
+            items={leads || []} 
+            isLoading={isLoading} 
+            loadingContent={<Spinner label="Loading leads..." />} 
+            emptyContent={isLoading ? ' ' : "No leads to display."}
+        >
+          {(item) => (
+            <TableRow key={item.id}>
+              {(columnKey) => (
+                <TableCell>
+                  {columnKey === 'actions' ? (
+                    <Button size="sm" variant="light" onPress={() => handleEdit(item)}>
+                      Edit
+                    </Button>
+                  ) : renderCell(item, columnKey)}
+                </TableCell>
+              )}
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+
+      {editableLead && (
+        <Modal isOpen={isModalOpen} onOpenChange={() => setIsModalOpen(!isModalOpen)} size="2xl">
+          <ModalContent>
+            <ModalHeader>Edit Lead - ID: {editableLead.id}</ModalHeader>
+            <ModalBody className="max-h-[60vh] overflow-y-auto">
+              {modalError && <p className="text-red-500 text-sm mb-2">{modalError}</p>}
+              {Object.entries(editableLead).map(([key, value]) => (
+                <Input
+                  key={key}
+                  label={key.replace(/_/g, ' ').toUpperCase()}
+                  name={key}
+                  value={String(value)} // Ensure value is string
+                  onChange={handleModalInputChange}
+                  className="mb-2"
+                  isReadOnly={key === 'id'} // Make ID read-only
+                />
+              ))}
+            </ModalBody>
+            <ModalFooter>
+              <Button color="danger" variant="light" onPress={() => setIsModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button color="primary" onPress={handleSave} isLoading={modalSaving}>
+                {modalSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      )}
     </>
   );
-}
+};
+
+export default LeadsAsyncTable;

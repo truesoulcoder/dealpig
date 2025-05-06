@@ -10,10 +10,12 @@ interface UploadResponse {
 }
 
 interface LeadUploaderProps {
-  onUpload?: () => void; // Callback to refresh parent data
+  onUploadSuccess?: (filename: string) => void; // Callback with filename on successful upload
+  addMessage?: (type: 'info' | 'error' | 'success', message: string) => void; // Callback to send messages to parent
+  isProcessing?: boolean; // To disable uploader during parent's processing (e.g., normalization)
 }
 
-export default function LeadUploader({ onUpload }: LeadUploaderProps) {
+export default function LeadUploader({ onUploadSuccess, addMessage, isProcessing }: LeadUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, start] = useTransition();
@@ -49,8 +51,10 @@ export default function LeadUploader({ onUpload }: LeadUploaderProps) {
         const result: UploadResponse = await res.json(); // Type the result
 
         if (result.ok) {
-          setMessage(result.message || 'Upload successful!'); // Show API message or default
-          if (onUpload) onUpload(); // Trigger parent refresh
+          const successMsg = result.message || 'Upload successful!';
+          setMessage(successMsg); // Show API message or default
+          if (addMessage) addMessage('success', successMsg); // Call parent's addMessage
+          if (onUploadSuccess && selectedFile) onUploadSuccess(selectedFile.name); // Call with filename
           // Play success sound
           if (successAudioRef.current) {
             try {
@@ -60,8 +64,10 @@ export default function LeadUploader({ onUpload }: LeadUploaderProps) {
             }
           }
         } else {
-          const msg = result.error || 'Unknown upload error';
-          setMessage(`Upload failed: ${msg}`);
+          const errorMsg = result.error || 'Unknown upload error';
+          const fullErrorMsg = `Upload failed: ${errorMsg}`;
+          setMessage(fullErrorMsg);
+          if (addMessage) addMessage('error', fullErrorMsg); // Call parent's addMessage
           // Play failure sound
           if (failureAudioRef.current) {
             try {
@@ -73,8 +79,10 @@ export default function LeadUploader({ onUpload }: LeadUploaderProps) {
         }
       } catch (err) {
         console.error('Upload fetch error:', err);
-        const msg = err instanceof Error ? err.message : String(err);
-        setMessage(`Upload failed: ${msg}`);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const fullErrorMsg = `Upload failed: ${errorMsg}`;
+        setMessage(fullErrorMsg);
+        if (addMessage) addMessage('error', fullErrorMsg); // Call parent's addMessage
         // Play failure sound
         if (failureAudioRef.current) {
           try {
@@ -93,22 +101,23 @@ export default function LeadUploader({ onUpload }: LeadUploaderProps) {
         <input
           type="file"
           accept=".csv"
-          onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
-          required
-          className="border p-1"
+          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+          className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isPending || isProcessing} // Disable if uploading or parent is processing
         />
-        <button
-          type="submit"
-          disabled={!selectedFile || isPending}
-          className="px-4 py-2 bg-blue-600 text-white disabled:opacity-50"
+        <button 
+          type="submit" 
+          disabled={!selectedFile || isPending || isProcessing} // Disable if no file, uploading, or parent is processing
+          className="w-full px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Upload CSV
+          {isPending ? 'Uploading...' : 'Upload Leads CSV'}
         </button>
         {/* Display local message state */}
-        {message && 
-          <p className={`mt-2 text-sm ${message.startsWith('Upload failed:') ? 'text-danger-500' : 'text-gray-700'}`}>
+        {message && (
+          <p className={`mt-2 text-sm ${message.startsWith('Upload failed') ? 'text-red-500' : 'text-green-500'}`}>
             {message}
-          </p>}
+          </p>
+        )}
       </form>
     </>
   );

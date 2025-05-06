@@ -1,32 +1,10 @@
-import { cookies } from 'next/headers';
-import { NextResponse, NextRequest } from 'next/server';
-import { type CookieOptions, createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic'; // Ensure dynamic behavior
 
 export async function GET(request: NextRequest) {
-  const cookieStore = cookies(); // ReadonlyRequestCookies
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  // This client is for initiating OAuth. Cookie setting for the OAuth flow itself
-  // (e.g., PKCE verifier) is handled by Supabase on the redirect it provides.
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        // This is a stub. For signInWithOAuth, Supabase handles cookies on its redirect.
-        // If other auth methods were used here that expect cookies to be set on THIS response,
-        // this would need a more complex solution to interact with the outgoing NextResponse.
-        console.warn(`[Supabase Client Stub] 'set' cookie called for ${name} in /api/auth. OAuth flow should handle this.`);
-      },
-      remove(name: string, options: CookieOptions) {
-        console.warn(`[Supabase Client Stub] 'remove' cookie called for ${name} in /api/auth. OAuth flow should handle this.`);
-      },
-    },
-  });
+  const supabase = createServerClient();
 
   const { searchParams } = new URL(request.url);
   // Determine the redirect URL for after the *entire* OAuth flow completes successfully

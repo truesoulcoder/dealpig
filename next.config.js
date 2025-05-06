@@ -37,6 +37,15 @@ const nextConfig = {
   serverRuntimeConfig: {
     maxBodySize: '50mb',
   },
+  
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+    ],
+  },
 };
 
 // Add webpack alias for '@' to resolve to project root
