@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
-import { createClient } from '@/lib/supabase';
+'use client';
+
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import { removeDuplicateStatuses } from '@/utils/leadUtils';
 
 interface ProcessingStatus {
   id: number;
@@ -7,6 +10,9 @@ interface ProcessingStatus {
   status: string;
   completed_at: string | null;
   normalized_at: string | null;
+  contact_name?: string;
+  contact_email?: string;
+  property_address?: string;
 }
 
 export default function ProcessingStatusTable() {
@@ -14,42 +20,95 @@ export default function ProcessingStatusTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const supabase = createClient();
-    setLoading(true);
-    supabase
-      .from("processing_status")
-      .select("id, file, status, completed_at, normalized_at")
-      .order("completed_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (error) setError(error.message);
-        else setStatuses(data || []);
-        setLoading(false);
-      });
+  const fetchStatuses = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error: fetchError } = await supabase
+        .from("processing_status")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      // Remove duplicate statuses
+      const uniqueStatuses = removeDuplicateStatuses(data || []);
+      const duplicateCount = (data?.length || 0) - uniqueStatuses.length;
+      
+      if (duplicateCount > 0) {
+        console.log(`Removed ${duplicateCount} duplicate statuses`);
+      }
+
+      setStatuses(uniqueStatuses);
+    } catch (err) {
+      console.error("Error fetching processing statuses:", err);
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) return <p>Loading processing statuses...</p>;
-  if (error) return <p className="text-red-600">Error: {error}</p>;
-  if (statuses.length === 0) return <p>No processing statuses found.</p>;
+  useEffect(() => {
+    fetchStatuses();
+  }, [fetchStatuses]);
+
+  if (loading) {
+    return <div>Loading processing statuses...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500">Error: {error}</div>;
+  }
+
+  if (statuses.length === 0) {
+    return <div>No processing statuses found.</div>;
+  }
 
   return (
-    <div className="overflow-x-auto mt-4">
-      <table className="min-w-full table-auto border-collapse border">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="px-4 py-2 border">File</th>
-            <th className="px-4 py-2 border">Status</th>
-            <th className="px-4 py-2 border">Completed At</th>
-            <th className="px-4 py-2 border">Normalized At</th>
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              File
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Status
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Completed At
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Normalized At
+            </th>
           </tr>
         </thead>
-        <tbody>
-          {statuses.map((s) => (
-            <tr key={s.id} className="odd:bg-white even:bg-gray-50">
-              <td className="px-4 py-2 border">{s.file}</td>
-              <td className="px-4 py-2 border">{s.status}</td>
-              <td className="px-4 py-2 border">{s.completed_at ? new Date(s.completed_at).toLocaleString() : "-"}</td>
-              <td className="px-4 py-2 border">{s.normalized_at ? new Date(s.normalized_at).toLocaleString() : "-"}</td>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {statuses.map((status) => (
+            <tr key={status.id}>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {status.file}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span
+                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    status.status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : status.status === 'processing'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {status.status}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {status.completed_at ? new Date(status.completed_at).toLocaleString() : '-'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {status.normalized_at ? new Date(status.normalized_at).toLocaleString() : '-'}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -57,4 +116,3 @@ export default function ProcessingStatusTable() {
     </div>
   );
 }
-
