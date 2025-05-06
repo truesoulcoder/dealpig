@@ -377,21 +377,9 @@ export interface LoginFormType {
   password: string;
 }
 
-export interface RegisterFormType {
-  full_name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
 
-export interface RequestPasswordResetFormType {
-  email: string;
-}
 
-export interface ResetPasswordFormType {
-  password: string;
-  confirmPassword: string;
-}
+
 
 // Enum for lead statuses
 export enum LeadStatus {

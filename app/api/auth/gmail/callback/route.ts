@@ -3,7 +3,7 @@ import { getTokens, getUserInfo } from '@/lib/gmail';
 import { getSenderById } from '@/lib/database';
 import { createAdminClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
-import { requireSuperAdmin } from '@/lib/api-guard/auth-guard'; 
+import { requireSuperAdmin } from '@/lib/api-guard'; 
 
 export async function GET(request: NextRequest) {
   try {

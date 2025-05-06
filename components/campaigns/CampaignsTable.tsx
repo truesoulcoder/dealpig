@@ -3,33 +3,31 @@
 import React, { useState, useEffect } from 'react';
 import useSWR, { mutate } from 'swr';
 import { 
-  Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow 
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+  Table, TableBody, TableCell, TableHeader, TableRow 
+} from '@heroui/table'; 
 import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
-} from '@/components/ui/dialog';
-import { Campaign } from '@/helpers/types'; // Assuming Campaign type is defined here
-import { CampaignEditor } from './CampaignEditor'; // To be created
+  Button, 
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter 
+} from '@heroui/react'; 
+import { Campaign } from '@/helpers/types'; 
+import { CampaignEditor } from './CampaignEditor'; 
 import { toast } from 'sonner';
-import { LoadingSpinner } from '@/components/ui/loading-spinner'; // Assuming this exists
+import { LoadingSkeleton as LoadingSpinner } from '@/components/ui/LoadingSkeleton'; 
 import { AlertTriangle, PlusCircle, Edit, Trash2 } from 'lucide-react';
-import { 
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, 
-    AlertDialogTrigger 
-} from '@/components/ui/alert-dialog';
-
 
 const fetcher = (url: string) => fetch(url).then(res => {
   if (!res.ok) {
-    throw new Error('Failed to fetch campaigns');
+    throw new Error('An error occurred while fetching the data.');
   }
   return res.json();
 });
 
-export function CampaignsTable() {
-  const { data: campaigns, error, isLoading } = useSWR<Campaign[]>('/api/campaigns', fetcher);
+interface CampaignsTableProps {
+  // Define any props if needed, e.g., for filtering or initial sort order
+}
+
+export function CampaignsTable({}: CampaignsTableProps) {
+  const { data: campaigns, error: campaignsError, isLoading } = useSWR<Campaign[]>('/api/campaigns', fetcher);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
@@ -39,7 +37,7 @@ export function CampaignsTable() {
   };
 
   const handleAddNew = () => {
-    setSelectedCampaign(null); // Clear selection for new campaign
+    setSelectedCampaign(null); 
     setIsEditorOpen(true);
   };
 
@@ -53,7 +51,7 @@ export function CampaignsTable() {
         throw new Error(errorData.error || 'Failed to delete campaign');
       }
       toast.success('Campaign deleted successfully!');
-      mutate('/api/campaigns'); // Revalidate the campaigns list
+      mutate('/api/campaigns'); 
     } catch (err) {
       console.error('Delete error:', err);
       toast.error((err as Error).message || 'An error occurred while deleting.');
@@ -63,127 +61,127 @@ export function CampaignsTable() {
   const handleEditorSave = () => {
     setIsEditorOpen(false);
     setSelectedCampaign(null);
-    mutate('/api/campaigns'); // Revalidate data after save
+    mutate('/api/campaigns'); 
   };
 
   if (isLoading) {
-    return <div className="flex justify-center items-center h-40"><LoadingSpinner /></div>;
+    return <LoadingSpinner />;
   }
 
-  if (error) {
+  if (campaignsError) {
     return (
-      <div className="flex flex-col items-center justify-center h-40 text-red-600">
-        <AlertTriangle className="w-10 h-10 mb-2" />
-        <p>Error loading campaigns: {(error as Error).message}</p>
+      <div className="flex flex-col items-center justify-center h-64 text-red-500">
+        <AlertTriangle size={48} className="mb-4" />
+        <p className="text-xl font-semibold">Error loading campaigns</p>
+        <p>{campaignsError.message}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-       <div className="flex justify-end">
-         <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-            <DialogTrigger asChild>
-                <Button onClick={handleAddNew}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Campaign
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                <DialogTitle>{selectedCampaign ? 'Edit Campaign' : 'Create New Campaign'}</DialogTitle>
-                </DialogHeader>
-                {/* Render CampaignEditor only when the dialog is intended to be open */}
-                {isEditorOpen && (
-                    <CampaignEditor 
-                        campaign={selectedCampaign} 
-                        onSave={handleEditorSave} 
-                        onCancel={() => setIsEditorOpen(false)}
-                    />
-                )}
-            </DialogContent>
-         </Dialog>
-       </div>
+      <div className="flex justify-end">
+        <Button 
+          color="primary"
+          onPress={handleAddNew}
+          startContent={<PlusCircle size={18}/>}
+        >
+          Add New Campaign
+        </Button>
+      </div>
 
-      <Table>
-        <TableCaption>A list of your recent campaigns.</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Leads</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {campaigns && campaigns.length > 0 ? (
-            campaigns.map((campaign) => (
+      {!campaigns || campaigns.length === 0 ? (
+        <div className="text-center text-gray-500 py-8">
+          <p>No campaigns found. Click "Add New Campaign" to get started.</p>
+        </div>
+      ) : (
+        <Table aria-label="Campaigns Table">
+          <TableHeader>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Start Date</TableCell>
+              <TableCell>End Date</TableCell>
+              <TableCell>Budget</TableCell>
+              <TableCell>Target Audience</TableCell>
+              <TableCell className="text-right">Actions</TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody items={campaigns}>
+            {(campaign) => (
               <TableRow key={campaign.id}>
-                <TableCell className="font-medium">{campaign.name}</TableCell>
+                <TableCell>{campaign.name}</TableCell>
                 <TableCell>{campaign.status}</TableCell>
-                <TableCell>{campaign.leads_worked ?? 0} / {campaign.total_leads ?? 0}</TableCell>
-                <TableCell>{new Date(campaign.created_at).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                    <Dialog open={isEditorOpen && selectedCampaign?.id === campaign.id} onOpenChange={(open) => {!open && setSelectedCampaign(null); setIsEditorOpen(open);}}>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(campaign)}>
-                                <Edit className="h-4 w-4" />
-                            </Button>
-                        </DialogTrigger>
-                        {/* Content moved outside trigger for better control */} 
-                    </Dialog>
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the campaign
-                                and potentially related data. 
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                                onClick={() => handleDelete(campaign.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white"
-                            >
-                                Delete
-                            </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                <TableCell>{new Date(campaign.start_date).toLocaleDateString()}</TableCell>
+                <TableCell>{new Date(campaign.end_date).toLocaleDateString()}</TableCell>
+                <TableCell>${campaign.budget.toLocaleString()}</TableCell>
+                <TableCell>{campaign.target_audience.join(', ')}</TableCell>
+                <TableCell className="flex justify-end items-center space-x-2">
+                  <Button 
+                    isIconOnly
+                    aria-label="Edit campaign"
+                    onPress={() => handleEdit(campaign)}
+                    variant="ghost" 
+                    size="sm"
+                    className="p-1 h-auto"
+                  >
+                    <Edit size={16} />
+                  </Button>
+                  <Button 
+                      isIconOnly
+                      aria-label="Delete campaign"
+                      onPress={() => {
+                        if (window.confirm(`Are you sure you want to delete campaign: ${campaign.name}?`)) {
+                          handleDelete(campaign.id);
+                        }
+                      }}
+                      variant="ghost" 
+                      size="sm"
+                      color="danger"
+                    >
+                      <Trash2 size={16} />
+                  </Button>
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={5} className="text-center h-24">
-                No campaigns found.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-       {/* Separate Dialog Content for Editor to avoid multiple renders inside loop */} 
-       {isEditorOpen && selectedCampaign && (
-            <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                    <DialogTitle>Edit Campaign</DialogTitle>
-                    </DialogHeader>
-                    <CampaignEditor 
-                        campaign={selectedCampaign} 
-                        onSave={handleEditorSave} 
-                        onCancel={() => setIsEditorOpen(false)}
-                    />
-                </DialogContent>
-            </Dialog>
-       )} 
+            )}
+          </TableBody>
+        </Table>
+      )}
+
+      {isEditorOpen && (
+        <Modal 
+          isOpen={isEditorOpen} 
+          onOpenChange={setIsEditorOpen} 
+          size="2xl"
+          backdrop="blur"
+          scrollBehavior="inside" 
+        >
+          <ModalContent className="bg-background text-foreground">
+            {(onClose) => (
+              <>
+                <ModalHeader className="flex flex-col gap-1">
+                  {selectedCampaign ? 'Edit Campaign' : 'Add New Campaign'}
+                </ModalHeader>
+                <ModalBody>
+                  <CampaignEditor 
+                    campaign={selectedCampaign} 
+                    onSave={() => {
+                      handleEditorSave();
+                      onClose();
+                    }}
+                    onCancel={onClose}
+                  />
+                </ModalBody>
+                <ModalFooter>
+                  <Button color="danger" variant="light" onPress={onClose}>
+                    Close
+                  </Button>
+                </ModalFooter>
+              </>
+            )}
+          </ModalContent>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use server';
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { LoginFormType, RegisterFormType, Profile } from '@/helpers/types';
+import { LoginFormType, Profile } from '@/helpers/types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 

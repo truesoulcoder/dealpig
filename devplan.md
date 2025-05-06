@@ -10,6 +10,12 @@ The core structure of the application using Next.js, Supabase, and HeroUI is est
 
 ## Completed Features
 
+*   **May 6, 2025 – Super Admin Refactor:**
+    *   Removed all registration, multi-user, SaaS, and fallback logic from the codebase.
+    *   Updated all user/profile logic to enforce single super-admin (Chris or backup email) only, with Google OAuth as the sole authentication method.
+    *   UI and backend now strictly single-user; all vestiges of multi-user logic and registration are gone.
+    *   Affected files: `helpers/types.ts`, `components/User.tsx`, `actions/auth.action.ts`, `components/ui/ProfileMenu.tsx`, `app/(auth)/login/page.tsx`.
+
 *   **Authentication:**
     *   User Registration (`/register`) - Uses `@supabase/ssr` Action Client
     *   User Login (`/login`) - Uses `@supabase/ssr` Action Client

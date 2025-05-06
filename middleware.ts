@@ -71,10 +71,11 @@ export async function middleware(request: NextRequest) {
   // If it's not a public/api/asset path and there's no user, redirect to login
   if (!isPublicOrApiOrAsset(pathname) && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    // Optionally add redirectTo query param if needed
-    // url.search = `redirectTo=${encodeURIComponent(pathname)}`;
-    console.log(`[Middleware] No user for protected route, redirecting to login from ${pathname}`);
+    url.pathname = '/api/auth'; // Redirect to our new Google OAuth initiation route
+    // Optionally add redirectTo query param if needed to return to the original path after auth
+    // For example, you could construct the redirectTo for signInWithOAuth to include the original pathname.
+    // url.searchParams.set('redirectTo', pathname); // if /api/auth is set up to handle this
+    console.log(`[Middleware] No user for protected route, redirecting to /api/auth from ${pathname}`);
     return NextResponse.redirect(url);
   }
 

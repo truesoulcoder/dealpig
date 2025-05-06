@@ -23,33 +23,20 @@ export default function User({ userId, showAvatar = true, size = 'md', className
 
   useEffect(() => {
     async function fetchUser() {
-      if (!userId) {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (currentUser) {
-          setUser({
-            id: currentUser.id,
-            email: currentUser.email,
-            full_name: currentUser.user_metadata?.full_name,
-            avatar_url: currentUser.user_metadata?.avatar_url,
-          });
-        }
-      } else {
-        // Fetch specific user data from your users table if needed
-        const { data } = await supabase
-          .from('users')
-          .select('id, email, full_name, avatar_url')
-          .eq('id', userId)
-          .single();
-        
-        if (data) {
-          setUser(data);
-        }
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        setUser({
+          id: currentUser.id,
+          email: currentUser.email,
+          full_name: currentUser.user_metadata?.full_name,
+          avatar_url: currentUser.user_metadata?.avatar_url,
+        });
       }
       setLoading(false);
     }
 
     fetchUser();
-  }, [userId]);
+  }, []);
 
   if (loading) {
     return (
@@ -108,7 +95,7 @@ export default function User({ userId, showAvatar = true, size = 'md', className
         )
       )}
       <span className={`font-medium ${textSize}`}>
-        {user.full_name || user.email?.split('@')[0] || 'Anonymous User'}
+        {user.full_name || user.email?.split('@')[0] || ''}
       </span>
     </div>
   );

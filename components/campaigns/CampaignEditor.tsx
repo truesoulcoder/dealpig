@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import { Input } from '@heroui/input';
+import { Label } from '@heroui/react';
+import { Textarea } from '@heroui/react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@heroui/select';
+import { Switch } from '@heroui/react';
 import { Campaign, Template } from '@/helpers/types'; // Adjust path as needed
 import { toast } from 'sonner';
 import useSWR from 'swr';

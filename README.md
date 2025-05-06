@@ -4,7 +4,14 @@ Even a blind pig finds a nut from time to time?
 </p>
 
 # DealPig 
-The comprehensive deal procurement platform designed exclusively for real estate investors and wholesalers. It simplifies lead management, document generation, and email communications through an intuitive web interface. DealPig features multi-sender automailer system drip marketing campaigns and spam filter avoidance. With rich text template editor, analytics and reporting, and CRM purpose built for real estate investor workflow automation; Its subversively progressive performatively seditious autonomous inbound lead handling engine fueled by open source intelligence for pragmatically skiptraced target acquisitions leveraging buyer advantaged market positioning designed so well it would make a blind pig sick of nuts in the middle of a cashew famine.
+DealPig is an internal control panel built exclusively for the marketing and acquisitions department of True Soul Partners. It is strictly a single-user, super-admin-only platform—no registration, password reset, or multi-user features exist. Only Chris Phillips (chrisphillips@truesoulpartners.com) and his backup email (egoluxinvicta@gmail.com) can log in, via Google OAuth. DealPig centralizes lead management, campaign automation, and workflow triggers in a secure, streamlined interface for a single operator.
+
+## Single-User Super Admin Model
+- **Not SaaS:** DealPig is not a multi-user SaaS. All features, UI, and backend logic are designed for a single operator (the super admin).
+- **Authentication:** Only Google OAuth is supported. Login is restricted to the two authorized emails above.
+- **No Registration or Password Reset:** There are no registration or password reset features. All legacy multi-user logic has been removed.
+- **Internal Use Only:** This app is IP of the CTO and is not for mass distribution.
+
 
 ## Table of Contents
 - [Features](#features)
