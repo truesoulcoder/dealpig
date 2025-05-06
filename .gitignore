@@ -46,3 +46,7 @@ client_secret.json
 *.tsbuildinfo
 next-env.d.ts
 /.github/
+
+# MCP server scripts
+start_mcp_servers.ps1
+stop_mcp_servers.ps1
