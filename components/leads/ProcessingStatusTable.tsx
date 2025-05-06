@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from '@/lib/supabase';
 
 interface ProcessingStatus {
   id: number;
@@ -15,7 +15,7 @@ export default function ProcessingStatusTable() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supabase = createClientComponentClient();
+    const supabase = createClient();
     setLoading(true);
     supabase
       .from("processing_status")
@@ -57,3 +57,4 @@ export default function ProcessingStatusTable() {
     </div>
   );
 }
+
